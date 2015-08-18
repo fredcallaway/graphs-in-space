@@ -1,44 +1,77 @@
-# The model
-This is a high level description of a proposed new model based on U-MILA. The basic representations are very similar: the model's knowledge is represented as a higraph with words and word-chunks as nodes, and learning occurs incrementally by creating new chunks based on transitional probabilities. The present model includes two new features: token by token parsing that is integrated with learning, and a new type of node to represent categories of words and chunks. 
 
-C = {Chunks}
-T = {Tokens}
-S = {Slots}
-N = {Nodes} = C \cup T \cup \S
+
+# The model
+This is a high level description of a proposed new model based on U-MILA. The representational strategy has changed significantly, but the core idea remains. Namely, the model builds linguistic knowledge by constructing increasinly large chunks of base tokens based on transitional probabilities between base tokens and previously identified chunks.
+
+There are two main extensions to the new model:
+
+1. It incorporates categorical knowledge in the form of Slots.
+2. It combines learning and comprehension into one process model with cognitevely interpratable comprehension states at each token.
+
 
 ## Representation
 
-### Graph
-_The long term knowledge of the model._
+As in the original model, the model's knowledge takes the form of a higraph. The Higraph is defined as a set of Nodes and several sets of directed edges, both weighted and unweighted. There are three types of Nodes: Tokens, Chunks and Slots.
 
-The Graph is defined as a set of Nodes and several sets of directed edges, both weighted and unweighted. All Nodes in the graph have at least two  weighted edges: forward transitional probability and backward transitional probabilities
-
-$$FTP(A,B) = P(B_2|A_1) = \frac{P(B_2 \cap A_1)}{P(A_1)} $$
+<!-- $$FTP(A,B) = P(B_2|A_1) = \frac{P(B_2 \cap A_1)}{P(A_1)} $$
 Forward Transitional Probability is the probability of another Node _following_ this Node. Here the subscripts indicate a Node being the initial or second element in a consecutive pair of Nodes in a Parse.
 
 $$BTP(A,B) = P(B_1|A_2) = \frac{P(A_2 \cap B_1)}{P(A_2)} $$
 Backward Transitional Probability is the probability of another Node _preceeding_ this Node.
->quotes
 
-[title](www.google.com)Besides these two obligatory edges, a Node may have additional edges depending on its type. There are three types of Nodes: Tokens, Chunks and Slots.
+Besides these two obligatory edges, a Node may have additional edges depending on its type. There are three types of Nodes: Tokens, Chunks and Slots. -->
 
-#### Token
+
+### Token
 _An atomic input unit._
 
-This could be a single phoneme, a word, a syllabe of bird song, or a location in space. It is given to the model as an atomic unit. It has no edges besides the obligatory transitional probabilities. __bold__
+This could be a single phoneme, a word, a syllabe of bird song, or a location in space. It is given to the model as an atomic unit. Thus, the degree of abstraction of the Token object is the minimum degree of abstraction of the model.
 
-#### Chunk
+
+### Chunk
 _The basic structural unit._
 
-A Chunk is a sequence of Nodes. It is comparable to a linguistic constituent. In addition to the default edges, a Chunk has "composition edges", unweighted edges to the Nodes it is composed of. These edges are labeled with the position of the target Node in the Chunk. There are between 2 and *MaxChunkSize* such edges.
+A Chunk is sequence of Nodes. It is comparable to a linguistic constituent. The Chunk is wholy defined by its composition, represented as labeled Composition Edges. In the present model, Chunks are required to have two such edges; thus, binary branching is enforced.
 
-#### Slot
-_A Node category._
+A Chunk is created when the model notices that two existing chunks occur adjacently more often than expected by chance. Both forward and backward transitional probabilities are taken into account.
 
-Categorical knowledge about nodes is represented with a Slot, which is comparable to a part of speech. In addition to the default edges, a Slot has "filler edges", weighted edges to all nodes that could fill the Slot, i.e. its category members. Each weight is a probability that the Slot be filled by the target Node, thus the sum of the filler edge weights must equal 1.
+<!-- **DECISION POINT:** We could allow Chunks to contain other Chunks, explicitly representing hierarchy Additionally, this style does not rule out hierarchical output because a tree is implicitly created in the process through which the model chunks an utterance. However, in both the original and proposed model, Chunks are allowed to contain Slots, which may themselves point to Chunks. It seems strange to allow a Chunk to include a Slot which may be filled by a Chunk, but not allow a Chunk to include a Chunk directly. -->
 
-One Node can be a member of several categories because multiple Slots can point to it. Thus the model can handle graded category membership. A Slot can also point to another Slot, allowing hierarchical categories.
 
+### Slot
+_A probabalistic category of Nodes._
+
+Categorical knowledge is represented with a Slot, which is comparable to a part of speech. A Slot has "Filler Edges", weighted edges to all Nodes that could fill the Slot. Each weight is a probability that the Slot be filled by the target Node. Thus, a Slot represents a distribution over Nodes.
+
+In addition to representing intuitive categories such as Verb and Animate Object, Slots are used to represent transitional probabilities between Nodes. When a Node reaches a threshold weight, it gains two outgoing edges labeled "backward" and "forward." These edges point to newly created Slots which represent Nodes likely to occur before and after the Node. Nodes which have these two edges are called "tracked." 
+
+<!-- The Slot is comparable to a set in a standard higraph. As in a standard higraph, Slot hierarchy is represented as set inclusion rather than set membership. However, because set membership is probabalistically weighted, the subset relationship is not clearly defined. -->
+
+
+\begin{framed}
+\textbf{Set composition or set inclusion?}
+
+We could prevent Slots from containing other Slots,  representing hierarchical categories through set inclusion rather set composition. This follows the original Higraph formulation more closely. However, this would prevent newly found information from percolating up into higher level categories. For example, we would want a set of food words to contain words that follow $eat$ and $cook$. Every time we see a word after either of these terms, we want the set of food words to be updated as well.
+
+Only using composition could result in unnecessary hierarchy. Thus, we may need to distinguish between cases where we care about information percolating up and those when we don't. In cases where we don't care, we can use an additive merge function. A simple, but possibly effective rule, is to use additive merge to add a single new item to a set, and composition merge to add two sets of cardinality > 1.
+
+$$composition\_merge\big(\{A\}, \{B, C\}\big)  \rightarrow  \big\{\{A\}, \{B, C\}\big\}$$
+$$additive\_merge\big(\\{A\\}, \{B, C\}\big)  \rightarrow  \big\{A, B, C\big\}$$
+\end{framed}
+
+
+\begin{framed}
+\textbf{How should elements know what set they belong to?}
+
+The parer must be able to assign categories to incoming Tokens and Chunks if it is to use categorical knowledge. This probably requires that Nodes have pointers to containing Slots. However, by representing transitional probabilities with Slots, we create a huge number of Slots, many of which will contain many nodes. We may want to avoid each Node having to point to every Slot that contains it. We probably don't want to have to update transitional probabilities for every Slot that contains each Node.
+
+One possible solution is to only create element to Slot pointers for the most likely Slots. Thus, each Node will only know the e.g. 10 Slots it's most likely to belong to. Another option is to point to all Slots, but update weights stochastically as opposed to updating weighted on the filler edge. That is, at each occurrence, the Node draws e.g. 10 Slots from its parent-slot distribution and only updates those 10 Slots.
+\end{framed}
+
+<!-- ## Learning algorithm -->
+
+
+<!-- 
 ### Parse
 _A sequence of Nodes and a probability of the sequence occuring._
 
@@ -141,3 +174,4 @@ The final, and perhaps most ambitious, extension I propose is to incorporate pre
 
 A guess as to how to implement this: if the weight from the current chunk to another chunk is very high, then the model predictively creates that chunk. The model attempts to fit upcoming tokens into that chunk until the chunk is completed or the parse becomes too improbable. This will mostly only work with categories because the model will almost never be certain enough to predict an exact token.
 
+ -->
