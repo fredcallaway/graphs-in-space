@@ -1,17 +1,16 @@
 
 
 # The model
-This is a high level description of a proposed new model based on U-MILA. The representational strategy has changed significantly, but the core idea remains. Namely, the model builds linguistic knowledge by constructing increasinly large chunks of base tokens based on transitional probabilities between base tokens and previously identified chunks.
+This is a high level description of a proposed new model based on U-MILA. The representational strategy has changed significantly, but the core idea remains. Namely, the model builds linguistic knowledge by constructing increasingly large chunks of base tokens based on transitional probabilities between base tokens and previously identified chunks.
 
 There are two main extensions to the new model:
 
 1. It incorporates categorical knowledge in the form of Slots.
-2. It combines learning and comprehension into one process model with cognitevely interpratable comprehension states at each token.
+2. It combines learning and comprehension into one process model with cognitively meaningful states at each token.
 
 
 ## Representation
-
-As in the original model, the model's knowledge takes the form of a higraph. The Higraph is defined as a set of Nodes and several sets of directed edges, both weighted and unweighted. There are three types of Nodes: Tokens, Chunks and Slots.
+As in the original model, the model's knowledge takes the form of a Higraph. The Higraph is defined as a set of Nodes and several sets of directed edges, both weighted and unweighted. There are three types of Nodes: Tokens, Chunks and Slots.
 
 <!-- $$FTP(A,B) = P(B_2|A_1) = \frac{P(B_2 \cap A_1)}{P(A_1)} $$
 Forward Transitional Probability is the probability of another Node _following_ this Node. Here the subscripts indicate a Node being the initial or second element in a consecutive pair of Nodes in a Parse.
@@ -25,35 +24,42 @@ Besides these two obligatory edges, a Node may have additional edges depending o
 ### Token
 _An atomic input unit._
 
-This could be a single phoneme, a word, a syllabe of bird song, or a location in space. It is given to the model as an atomic unit. Thus, the degree of abstraction of the Token object is the minimum degree of abstraction of the model.
+This could be a single phoneme, a word, a syllable of bird song, or a location in space. It is given to the model as an atomic unit. Thus, the degree of abstraction of the Token object is the minimum degree of abstraction of the model.
 
 
 ### Chunk
 _The basic structural unit._
 
-A Chunk is sequence of Nodes. It is comparable to a linguistic constituent. The Chunk is wholy defined by its composition, represented as labeled Composition Edges. In the present model, Chunks are required to have two such edges; thus, binary branching is enforced.
+A Chunk is sequence of Nodes. It is comparable to a linguistic constituent. The Chunk is wholly defined by its composition, represented as labeled "composition edges". In the present model, Chunks are required to have two such edges; thus, binary branching is enforced.
 
 A Chunk is created when the model notices that two existing chunks occur adjacently more often than expected by chance. Both forward and backward transitional probabilities are taken into account.
 
-<!-- **DECISION POINT:** We could allow Chunks to contain other Chunks, explicitly representing hierarchy Additionally, this style does not rule out hierarchical output because a tree is implicitly created in the process through which the model chunks an utterance. However, in both the original and proposed model, Chunks are allowed to contain Slots, which may themselves point to Chunks. It seems strange to allow a Chunk to include a Slot which may be filled by a Chunk, but not allow a Chunk to include a Chunk directly. -->
+\begin{framed}
+\textbf{Should Chunks be flat or hierarchical?}
+We could prevent Chunks from containing other Chunks, combining Chunks by concatenation rather than composition. This style does not rule out hierarchical output because a tree may be implicitly created in the process through which the model chunks an utterance. However, in both the original and proposed model, Chunks are allowed to contain Slots, which may themselves point to Chunks. It seems strange to allow a Chunk to include a Slot which may be filled by a Chunk, but not allow a Chunk to include a Chunk directly.
+
+There is a tradeoff here between making the model more powerful (and perhaps resource intensive) in its procedural and declarative knowledege. Using hierarchical chunks may result in the model tracking separate transitional probabilities for one token sequence. However, if we do not make composition explicit, we require that the model be able to create the chunk from any two chunks that share a span (i.e. leaves) with the chunk. This is undesirable, especially if we want the merge operation to have semantics one day.
+
+A further concern is that using hierarchical chunks makes it apper as though the models goal in parsing is to build a syntactic tree. This is not desirable, as the tree is meant to be a trace of the models parsing process, not a goal. In fact, the model will be prevented from accessing the elements of a Chunk.
+
+The decision to use explicity hierarchical chunks comes mostly from the desire to align ourselves with existing parsing literature. By using composition, the Chunks become somewhat analagous to PCFG rules. This has the added benefit of allowing us to use previously developed parsing algorithms (a major plus from the programmer's perspective). In reality, this is not as large of a theoretical decision as it seems. Transferring from one strategy to another would not necessarily have a large effect on performance
+\end{framed}
 
 
 ### Slot
-_A probabalistic category of Nodes._
+_A probabilistic category of Nodes._
 
-Categorical knowledge is represented with a Slot, which is comparable to a part of speech. A Slot has "Filler Edges", weighted edges to all Nodes that could fill the Slot. Each weight is a probability that the Slot be filled by the target Node. Thus, a Slot represents a distribution over Nodes.
+Categorical knowledge is represented with a Slot, which is comparable to a part of speech. A Slot has "filler edges", weighted edges to all Nodes that could fill the Slot. Each weight is a probability that the Slot be filled by the target Node. Thus, a Slot represents a distribution over Nodes.
 
-In addition to representing intuitive categories such as Verb and Animate Object, Slots are used to represent transitional probabilities between Nodes. When a Node reaches a threshold weight, it gains two outgoing edges labeled "backward" and "forward." These edges point to newly created Slots which represent Nodes likely to occur before and after the Node. Nodes which have these two edges are called "tracked." 
+In addition to representing intuitive categories such as Verb and Animate Object, Slots are used to represent transitional probabilities between Nodes. When a Node reaches a threshold weight, it gains two outgoing edges labeled "backward transitional probability" and "forward transitional probability". These edges point to newly created Slots which represent Nodes likely to occur before and after the Node. Nodes which have these two edges are called "tracked." 
 
-<!-- The Slot is comparable to a set in a standard higraph. As in a standard higraph, Slot hierarchy is represented as set inclusion rather than set membership. However, because set membership is probabalistically weighted, the subset relationship is not clearly defined. -->
-
+<!-- The Slot is comparable to a set in a standard Higraph. As in a standard Higraph, Slot hierarchy is represented as set inclusion rather than set membership. However, because set membership is stochastically weighted, the subset relationship is not clearly defined. -->
 
 \begin{framed}
 \textbf{Set composition or set inclusion?}
-
 We could prevent Slots from containing other Slots,  representing hierarchical categories through set inclusion rather set composition. This follows the original Higraph formulation more closely. However, this would prevent newly found information from percolating up into higher level categories. For example, we would want a set of food words to contain words that follow $eat$ and $cook$. Every time we see a word after either of these terms, we want the set of food words to be updated as well.
 
-Only using composition could result in unnecessary hierarchy. Thus, we may need to distinguish between cases where we care about information percolating up and those when we don't. In cases where we don't care, we can use an additive merge function. A simple, but possibly effective rule, is to use additive merge to add a single new item to a set, and composition merge to add two sets of cardinality > 1.
+However, only using composition could result in unnecessary hierarchy. Thus, we may need to distinguish between cases where we care about information percolating up and those when we don't. In cases where we don't care, we can use an additive merge function. A simple, but possibly effective rule, is to use additive merge to add a single new item to a set, and composition merge to add two sets of cardinality > 1.
 
 $$composition\_merge\big(\{A\}, \{B, C\}\big)  \rightarrow  \big\{\{A\}, \{B, C\}\big\}$$
 $$additive\_merge\big(\\{A\\}, \{B, C\}\big)  \rightarrow  \big\{A, B, C\big\}$$
@@ -62,13 +68,46 @@ $$additive\_merge\big(\\{A\\}, \{B, C\}\big)  \rightarrow  \big\{A, B, C\big\}$$
 
 \begin{framed}
 \textbf{How should elements know what set they belong to?}
+The parer must be able to assign categories to incoming Tokens and Chunks if it is to use categorical knowledge. This probably requires that Nodes have pointers to parent Slots. However, by representing transitional probabilities with Slots, we create a huge number of Slots, many of which will contain many nodes. We may want to avoid each Node having to point to every Slot that contains it. We probably don't want to have to update transitional probabilities for every Slot that contains each Node.
 
-The parer must be able to assign categories to incoming Tokens and Chunks if it is to use categorical knowledge. This probably requires that Nodes have pointers to containing Slots. However, by representing transitional probabilities with Slots, we create a huge number of Slots, many of which will contain many nodes. We may want to avoid each Node having to point to every Slot that contains it. We probably don't want to have to update transitional probabilities for every Slot that contains each Node.
-
-One possible solution is to only create element to Slot pointers for the most likely Slots. Thus, each Node will only know the e.g. 10 Slots it's most likely to belong to. Another option is to point to all Slots, but update weights stochastically as opposed to updating weighted on the filler edge. That is, at each occurrence, the Node draws e.g. 10 Slots from its parent-slot distribution and only updates those 10 Slots.
+One possible solution is to only create element to Slot pointers for the most likely Slots. Thus, each Node will only know about the e.g. 10 Slots it's most likely to belong to. Another option is to point to all Slots, but update weights stochastically as opposed to updating weighted on the filler edge. That is, at each occurrence, the Node draws e.g. 10 Slots from its parent-slot distribution and only updates those 10 Slots.
 \end{framed}
 
-<!-- ## Learning algorithm -->
+## Comprehension and Learning
+In the original U-MILA, learning and comprehension were modeled separately.During the learning phase, the model would search backwards in memory for a newly completed chunk, and then update weights between each newly discovered chunk and the chunks ending immediately before the beginning of the newly discovered chunk. Comprehension was simplified into the task of assigning a probability to an utterance. This was done by summing across all traversals of the Higraph that have the utterance tokens as leaves.
+
+### Problems with the original model
+By allowing the model to look far back into memory to create chunks, the original U-MILA sacrifices considerable psychological plausibility. Experimental evidence indicates that humans cannot remember the order of even four sounds played in quick succession [@warren69].
+
+The comprehension model of the original U-MILA (at least as described in the paper) does not constitute a process level analysis, nor does it explicitly relate to existing work in sentence comprehension. However, the basic idea of graph traversal can easily be reformulated as bottom up parsing, top down parsing being a relatively simple addition. Additionally, the co-occurrence based learning algorithm of U-MILA is straightforward to implement in such a system. (In fact, I guess that it would be easier to implement).
+
+### Parsing
+The models memory is a weighted set of stacks. Stacks contain at most STACK_SIZE elements. The model has three parsing operations. Note that the standard $reduce$ operation has been split into $merge$ and $categorize$. The ordering here reflects the order of operation, starting from $categorize$ each time the model progresses.
+
+- $categorize$ replaces the top element of the stack with a Slot containing the element.
+- $merge$ combines the top two elements of the stack into one Chunk. This operation can only occur if there exists a Chunk composed of the top two elements of the stack.
+- $shift$ moves the next incoming Token onto the top of the stack. If doing so makes the stack more than STACK_SIZE elements long, the bottom element of the stack is removed.
+
+There is indeterminacy in both the $merge$ and $categorize$ operations. The proposed model handles indeterminacy by using a set of stacks, rather than a single stack, where a stack is an intermediary parsing state. The StackSet is weighted, thus it can be viewed as a distribution over stacks. To prevent an exponential explosion of stacks, very unlikely parses are pruned from the representation. Jurafsky [-@jurafsky96] saw that contained parallel parsing can be modeled as *beam search* and we follow this strategy. We may additionally follow his dynamic programming strategy to minimize computation time, but this is not currently part of the cognitive model.
+
+Note that the requirement that $merge$ takes two arguments means that trees will have binary branching. This is not so much a theoretical claim as much as a implementational requirement. If Chunks are created by composition, and only bigram probabilities are tracked, then there is no logical way to create a ternary branching Chunk (that I can come up with anyway).
+
+However, I predict that the model will be able to represent something like ternary branching with two parses of one constituent. If the model has no preference between [[give me] that] and [give [me that]], we could say that the model is representing ternary branching using a distribution of binary branching parses. This also means that the model can represent varying degrees of ternary branching, in which one binary branching is preferred, but not completely domintant. Unfortunately, we cannot easily model the semantic aspect of binary branching because in either case the model must semantically combine two words first; a distribution of  combinations does not make as much sense with semantics as it does with syntax.
+
+### Learning
+The U-MILA learning algorithm can easily be adapted to fit into the beam search parsing algorithm. Because Chunks are held explicitly in memory, there is no need to search backward in memory for possible chunks. Rather, every time the stack is changed, the transitional probability links between the top two elements of each stack are increased. This update may be weighted by the probability of the stack (normalized by the sum of all stack probabilities), or it may occur stochastically based on stack probability. Notably, learning cannot be deferred to the end of an utterance because the model does retain access to elements that either fell off the stack or were incorporated into a larger chunk.
+
+Another main proposal of the current model is in regard to how transitional probabilities are tracked. The original U-MILA model used edges directly from one Node to another. The proposed model represents transitional probabilities with a Slot. The outgoing temporal edges become slot filler edges, and an unweighted edges points from the Node to the slot, which can be labeled the "occurs after [node]" slot. Similarly, backward transitional probabilities are tracked with a "occurs before [node]" slot.
+
+The main effect of this change is that temporal relationships and category membership relationships are represented with one tool: a distribution over Nodes. This allows categorical knowledge to depend entirely on temporal knowledge. (It also makes computational optimization much easier). The slots created to track transitional probabilities are primitive categories. Thus, category creation is broken into the easier task of combining existing categories. If two existing Slots have similar distributions, we create a new Slot pointing to the two SubSlots. For example, the "occurs after *this*" Slot and the "occurs after *that*" Slot will be very similar. We merge these into a new Slot that contains mostly adjectives and nouns.
+
+\begin{framed}
+\textbf{How do we constrain Slot creation?}
+A major problem emerges from the strategy of representing transitional probabilities with Slots. Without preventative measures, Slots will recursively create themselves infinitely. If all Nodes received transitional Slots on creation, then the program would halt upon the first Slot creation. The new Slot would get a transitional Slot, which would get its own transitional Slot, and so on. Perhaps the simplest solution here is to differentiate between BaseSlots, those created for tracking transitional probabilities, and UberSlots, those created by combining BaseSlots.
+\end{framed}
+
+There is a lot more thinking to do on Slots...
+
 
 
 <!-- 
@@ -175,3 +214,5 @@ The final, and perhaps most ambitious, extension I propose is to incorporate pre
 A guess as to how to implement this: if the weight from the current chunk to another chunk is very high, then the model predictively creates that chunk. The model attempts to fit upcoming tokens into that chunk until the chunk is completed or the parse becomes too improbable. This will mostly only work with categories because the model will almost never be certain enough to predict an exact token.
 
  -->
+
+# References
