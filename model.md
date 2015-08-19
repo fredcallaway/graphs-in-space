@@ -53,8 +53,6 @@ Categorical knowledge is represented with a Slot, which is comparable to a part 
 
 In addition to representing intuitive categories such as Verb and Animate Object, Slots are used to represent transitional probabilities between Nodes. When a Node reaches a threshold weight, it gains two outgoing edges labeled "backward transitional probability" and "forward transitional probability". These edges point to newly created Slots which represent Nodes likely to occur before and after the Node. Nodes which have these two edges are called "tracked." 
 
-<!-- The Slot is comparable to a set in a standard Higraph. As in a standard Higraph, Slot hierarchy is represented as set inclusion rather than set membership. However, because set membership is stochastically weighted, the subset relationship is not clearly defined. -->
-
 \begin{framed}
 \textbf{Set composition or set inclusion?}
 We could prevent Slots from containing other Slots,  representing hierarchical categories through set inclusion rather set composition. This follows the original Higraph formulation more closely. However, this would prevent newly found information from percolating up into higher level categories. For example, we would want a set of food words to contain words that follow $eat$ and $cook$. Every time we see a word after either of these terms, we want the set of food words to be updated as well.
@@ -68,7 +66,7 @@ $$additive\_merge\big(\\{A\\}, \{B, C\}\big)  \rightarrow  \big\{A, B, C\big\}$$
 
 \begin{framed}
 \textbf{How should elements know what set they belong to?}
-The parer must be able to assign categories to incoming Tokens and Chunks if it is to use categorical knowledge. This probably requires that Nodes have pointers to parent Slots. However, by representing transitional probabilities with Slots, we create a huge number of Slots, many of which will contain many nodes. We may want to avoid each Node having to point to every Slot that contains it. We probably don't want to have to update transitional probabilities for every Slot that contains each Node.
+The parer must be able to assign categories to incoming Tokens and Chunks if it is to use categorical knowledge. This probably requires that Nodes have pointers to parent Slots. However, by representing transitional probabilities with Slots, we create a huge number of Slots, many of which will contain many nodes. <!-- FIXME: they haven't heard about representing transitional probabilities with slots yet --> We may want to avoid each Node having to point to every Slot that contains it. We probably don't want to have to update transitional probabilities for every Slot that contains each Node.
 
 One possible solution is to only create element to Slot pointers for the most likely Slots. Thus, each Node will only know about the e.g. 10 Slots it's most likely to belong to. Another option is to point to all Slots, but update weights stochastically as opposed to updating weighted on the filler edge. That is, at each occurrence, the Node draws e.g. 10 Slots from its parent-slot distribution and only updates those 10 Slots.
 \end{framed}
@@ -82,6 +80,13 @@ By allowing the model to look far back into memory to create chunks, the origina
 The comprehension model of the original U-MILA (at least as described in the paper) does not constitute a process level analysis, nor does it explicitly relate to existing work in sentence comprehension. However, the basic idea of graph traversal can easily be reformulated as bottom up parsing, top down parsing being a relatively simple addition. Additionally, the co-occurrence based learning algorithm of U-MILA is straightforward to implement in such a system. (In fact, I guess that it would be easier to implement).
 
 ### Parsing
+To the extent that the goal of U-MILA was to assign higher probability to grammatical sentences than ungrammatical sentences, the goal of the new model is to be able to chunk grammatical sentences, but not ungrammatical sentences. The model "chunks a sentence" when it is able to incrementally merge the sentence into larger chunks until it creates one chunk for the entire sentence. This is analagous to a parser creating a tree for an utterance.
+
+<!-- Unlike in U-MILA, we require that the model build a structured representation of the sentence. This is desirable because it involves restricted access to memory and because itself to incremental semantic processing.
+
+Unlike some other parsing models, we do not require that the model builds any particular type of structure. 
+ -->
+
 The models memory is a weighted set of stacks. Stacks contain at most STACK_SIZE elements. The model has three parsing operations. Note that the standard $reduce$ operation has been split into $merge$ and $categorize$. The ordering here reflects the order of operation, starting from $categorize$ each time the model progresses.
 
 - $categorize$ replaces the top element of the stack with a Slot containing the element.
