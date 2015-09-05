@@ -1,7 +1,6 @@
 from __future__ import division
 import copy
 import numpy as np
-from pprint import pprint
 from collections import OrderedDict
 import time
 
@@ -14,7 +13,7 @@ class Model(object):
     """
     def __init__(self):
         super(Model, self).__init__()
-        self.max_node_size = 2
+        self.max_chunk_size = 2
         self.minimum_occurences = 10  # should this be actual occurences as opposed to collocations?
         self.node_prior = 0.3
         self.num_parses = 50
@@ -170,14 +169,7 @@ class Higraph(OrderedDict):
 
 
 class Token(object):
-    """The atomic unit."""
-    def __init__(self, surface, graph):
-        self.surface = surface
-        self.graph = graph
-        self.id = graph.next_id
-        self.leaves = [surface]  # so it can be treated like a chunk
-
-    def __repr__(self):
+    """The atomic unit."""repr__(self):
         return self.surface
 
 

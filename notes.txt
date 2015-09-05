@@ -1,6 +1,0 @@
-[the dog] barks and [the cat] barks at [the dog]
-                  [the cat] screams [at [the dog]]
-
-chunkatory:
-    the dog
-    the cat

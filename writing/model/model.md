@@ -6,8 +6,12 @@ This is a high level description of a proposed new model based on U-MILA. The re
 There are two main extensions to the new model:
 
 1. It incorporates categorical knowledge in the form of Slots.
-2. It combines learning and comprehension into one process model with cognitively meaningful states at each token.
+2. It combines learning and parsing into one psychologically motivated process model with cognitively meaningful states at each token.
 
+$T$ a set of terminal symbols
+$C$ a set of chunks, where each chunk is a sequence of elements in $T ∪ S$
+$𝛿$ a function $(C \times C) → C$ which specifies how chunks can combine to form other chunks
+$S$ a set of slots, where each slot is a fuzzy set of chunks
 
 ## Representation
 As in the original model, the model's knowledge takes the form of a Higraph. The Higraph is defined as a set of Nodes and several sets of directed edges, both weighted and unweighted. There are three types of Nodes: Tokens, Chunks and Slots.
@@ -24,21 +28,27 @@ Besides these two obligatory edges, a Node may have additional edges depending o
 ### Token
 _An atomic input unit._
 
-This could be a single phoneme, a word, a syllable of bird song, or a location in space. It is given to the model as an atomic unit. Thus, the degree of abstraction of the Token object is the minimum degree of abstraction of the model.
+A token could be a single phoneme, a word, a syllable of bird song, or a location in space. It is given to the model as an atomic unit. Thus, the degree of abstraction of the Token object is the minimum degree of abstraction of the model.
 
+A token is created every time a new symbol is encountered
 
 ### Chunk
 _The basic structural unit._
 
-A Chunk is sequence of Nodes. It is comparable to a linguistic constituent. The Chunk is wholly defined by its composition, represented as labeled "composition edges". In the present model, Chunks are required to have two such edges; thus, binary branching is enforced.
+A chunk is sequence of tokens and slots. It is comparable to a linguistic constituent. The chunk is wholly defined by its composition, represented as labeled "composition edges". In the present model, chunks are required to have two such edges; thus, binary branching is enforced.
 
-A Chunk is created when the model notices that two existing chunks occur adjacently more often than expected by chance. Both forward and backward transitional probabilities are taken into account.
+A chunk has two four sets of outgoing edges: <!-- TODO -->
+
+- Numerically indexed _composition edges_ point to the elements of the Chunk
+- Weighted _forward transitional edges_ point to Chunks that are likely
+
+A chunk is created when the model notices that two existing chunks occur adjacently more often than expected by chance. Both forward and backward transitional probabilities are taken into account.
 
 \begin{framed}
 \textbf{Should Chunks be flat or hierarchical?}
 We could prevent Chunks from containing other Chunks, combining Chunks by concatenation rather than composition. This style does not rule out hierarchical output because a tree may be implicitly created in the process through which the model chunks an utterance. However, in both the original and proposed model, Chunks are allowed to contain Slots, which may themselves point to Chunks. It seems strange to allow a Chunk to include a Slot which may be filled by a Chunk, but not allow a Chunk to include a Chunk directly.
 
-There is a tradeoff here between making the model more powerful (and perhaps resource intensive) in its procedural and declarative knowledege. Using hierarchical chunks may result in the model tracking separate transitional probabilities for one token sequence. However, if we do not make composition explicit, we require that the model be able to create the chunk from any two chunks that share a span (i.e. leaves) with the chunk. This is undesirable, especially if we want the merge operation to have semantics one day.
+There is a tradeoff here between making the model more powerful (and perhaps resource intensive) in its procedural and declarative knowledege. Using hierarchical chunks may result in the model tracking separate transitional probabilities for one token sequence. However, if we do not make composition explicit, we require that the model be able to create the chunk from any two chunks that share a yield (i.e. leaves) with the chunk. This is undesirable, especially if we want the merge operation to have semantics one day.
 
 A further concern is that using hierarchical chunks makes it apper as though the models goal in parsing is to build a syntactic tree. This is not desirable, as the tree is meant to be a trace of the models parsing process, not a goal. In fact, the model will be prevented from accessing the elements of a Chunk.
 
@@ -71,29 +81,48 @@ The parer must be able to assign categories to incoming Tokens and Chunks if it 
 One possible solution is to only create element to Slot pointers for the most likely Slots. Thus, each Node will only know about the e.g. 10 Slots it's most likely to belong to. Another option is to point to all Slots, but update weights stochastically as opposed to updating weighted on the filler edge. That is, at each occurrence, the Node draws e.g. 10 Slots from its parent-slot distribution and only updates those 10 Slots.
 \end{framed}
 
-## Comprehension and Learning
-In the original U-MILA, learning and comprehension were modeled separately.During the learning phase, the model would search backwards in memory for a newly completed chunk, and then update weights between each newly discovered chunk and the chunks ending immediately before the beginning of the newly discovered chunk. Comprehension was simplified into the task of assigning a probability to an utterance. This was done by summing across all traversals of the Higraph that have the utterance tokens as leaves.
+## Parsing and Learning
+In the original U-MILA, learning and parsing were modeled separately. During the learning phase, the model would search backwards in memory for a newly completed chunk, and then update weights between each newly discovered chunk and the chunks ending immediately before the beginning of the newly discovered chunk. Parsing was thus simplified into the task of assigning a probability to an utterance. This was done by summing across all traversals of the Higraph that have the utterance tokens as leaves.
 
 ### Problems with the original model
 By allowing the model to look far back into memory to create chunks, the original U-MILA sacrifices considerable psychological plausibility. Experimental evidence indicates that humans cannot remember the order of even four sounds played in quick succession [@warren69].
 
-The comprehension model of the original U-MILA (at least as described in the paper) does not constitute a process level analysis, nor does it explicitly relate to existing work in sentence comprehension. However, the basic idea of graph traversal can easily be reformulated as bottom up parsing, top down parsing being a relatively simple addition. Additionally, the co-occurrence based learning algorithm of U-MILA is straightforward to implement in such a system. (In fact, I guess that it would be easier to implement).
+Additionally, the parsing model of the original U-MILA (at least as described in the paper) does not constitute a process level analysis, nor does it explicitly relate to existing work in sentence parsing. Furthermore, U-MILA separates parsing from learning, two processes that should happen simultaneously. Like all other skills, language is learned by doing.
 
-### Parsing
-To the extent that the goal of U-MILA was to assign higher probability to grammatical sentences than ungrammatical sentences, the goal of the new model is to be able to chunk grammatical sentences, but not ungrammatical sentences. The model "chunks a sentence" when it is able to incrementally merge the sentence into larger chunks until it creates one chunk for the entire sentence. This is analagous to a parser creating a tree for an utterance.
+### Parsing in NU-MILA
+NU-MILA's parsing algorithm is inspired by many sources, including phrase structure grammars, tree adjoining grammars... <!-- TODO:  -->
+
+
+
+To the extent that the goal of U-MILA was to assign higher probability to grammatical sentences than ungrammatical sentences, the goal of the new model is to be able to fully chunk grammatical sentences, but not ungrammatical sentences. The model "fully chunks a sentence" when it is able to incrementally merge the sentence into larger chunks until it creates one chunk for the entire sentence. This is analagous to a parser creating a tree for an utterance. Depending on the success of the model, we may have to revert to a more standard probability threshold to differentiate grammatical from ungrammatical sentences.
+
+
 
 <!-- Unlike in U-MILA, we require that the model build a structured representation of the sentence. This is desirable because it involves restricted access to memory and because itself to incremental semantic processing.
 
 Unlike some other parsing models, we do not require that the model builds any particular type of structure. 
  -->
 
-The models memory is a weighted set of stacks. Stacks contain at most STACK_SIZE elements. The model has three parsing operations. Note that the standard $reduce$ operation has been split into $merge$ and $categorize$. The ordering here reflects the order of operation, starting from $categorize$ each time the model progresses.
+The parsing algorithm is based on a standard bottom-up context-free parser, with some added constraints to maintain psychological plausibility. The basic parsing algorithm is very similar to the standard bottom-up context-free parser. However, the interpretation is quite different. This
+
+One possible parse of a sequence of tokens is represented by a _stack_ of nodes. In order to model the limited memory of humans, each stack is limited to a certain number of nodes, to be specified by the modeler. Thus, a newly instantiated model will only be able to hold 4 tokens in memory at a time. However, once the model has learned to combine tokens into chunks, it will be able to hold a longer token sequence in memory because one chunk of 5 tokens only takes one spot in the stack.
+
+
+
+The model has three parsing operations. Note that the standard $reduce$ operation has been split into $merge$ and $categorize$.
 
 - $categorize$ replaces the top element of the stack with a Slot containing the element.
 - $merge$ combines the top two elements of the stack into one Chunk. This operation can only occur if there exists a Chunk composed of the top two elements of the stack.
 - $shift$ moves the next incoming Token onto the top of the stack. If doing so makes the stack more than STACK_SIZE elements long, the bottom element of the stack is removed.
 
+
+
+The model handles indeterminacy by following a limited set of the most probable parses. This is implemented as _beam search_, following Jurafsky [-@jurafsky96]. The alternative, to follow a single parse and backtrack upon failure [as in @hale11] does not lend itself well to a highly unconstrained, learned grammar. <!-- TODO: incorporate this into next par -->
+
 There is indeterminacy in both the $merge$ and $categorize$ operations. The proposed model handles indeterminacy by using a set of stacks, rather than a single stack, where a stack is an intermediary parsing state. The StackSet is weighted, thus it can be viewed as a distribution over stacks. To prevent an exponential explosion of stacks, very unlikely parses are pruned from the representation. Jurafsky [-@jurafsky96] saw that contained parallel parsing can be modeled as *beam search* and we follow this strategy. We may additionally follow his dynamic programming strategy to minimize computation time, but this is not currently part of the cognitive model.
+
+The algorithm maintains a set of stacks, will be referred to as the _beam_. Each stack in the beam can be viewed as a possible parse of some section of the incoming stream of tokens. The stack can contain a limited number of nodes.
+
 
 Note that the requirement that $merge$ takes two arguments means that trees will have binary branching. This is not so much a theoretical claim as much as a implementational requirement. If Chunks are created by composition, and only bigram probabilities are tracked, then there is no logical way to create a ternary branching Chunk (that I can come up with anyway).
 
