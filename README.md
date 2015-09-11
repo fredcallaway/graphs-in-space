@@ -3,6 +3,7 @@
 NU-MILA is a model of the acquisition, production, and comprehension of language based on U-MILA (Kolodny, Lotem, & Edelman, 2015). (N)U-MILA uses a graph to represent linguistic knowledge, with words, chunks, and categories as vertices. Weighted edges represent transitional probability, category membership, and chunk composition.
 
 NU-MILA extends U-MILA in three ways:
+
 1. Stricter memory constraints for psychological plausibility
 2. More flexible use of categorical knowledge
 3. Explict modeling of the dynamics of comprehension
