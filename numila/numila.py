@@ -20,16 +20,22 @@ class Umila(object):
         super(Umila, self).__init__()
         self.graph = Graph()
         self.last_node = self.graph['#']
+        self.graph['#'].count += 1
 
     def read(self, token):
         """Reads one token and performs all associated computation"""
+        self.graph.decay()
         node = self.graph[token]
         node.count += 1
         self.last_node.forward[node] += 1
         node.backward[self.last_node] += 1
+        chunk = self.graph.chunk(self.last_node, node)
+        if chunk:
+            chunk.count += 1
+            self.last_node = chunk
+        else:
+            self.last_node = node
 
-        self.graph.decay()
-        self.last_node = node
 
     def read_file(self, file_path, split=' '):
         with open(file_path) as f:
@@ -66,8 +72,28 @@ class Graph(object):
             self.activations[idx] = 1.0
             return self.nodes[idx]
 
+    def __contains__(self, item):
+        return item in self.string_to_index
+
     def decay(self):
         pass
+
+    def chunk(self, node1, node2):
+        chunk_string = '[{node1.string} {node2.string}]'.format(**locals())
+        if '#' in chunk_string:
+            # We assume that chunks cannot occur across utterance boundaries.
+            return False
+        if chunk_string in self:
+            return self[chunk_string]
+        elif min(node1.count, node2.count) < 3:
+            return False
+        else:
+            ftp = distance.cosine(node1.semantic_vector, node2.after_context_vector)
+            btp = distance.cosine(node1.before_context_vector, node2.semantic_vector)
+            if (ftp + btp) / 2 < 0.5:
+                return self[chunk_string]
+            else:
+                return False
 
     def distance_matrix(self, round_to=None):
         """A distance matrix of all nodes in the graph."""
@@ -99,12 +125,14 @@ class Node(object):
         self.forward = Counter()
         self.backward = Counter()
         self.id_vector = sparse_vector(VECTOR_SIZE, PERCENT_NON_ZERO)
+        self.before_context_vector = np.roll(self.id_vector, -1)
+        self.after_context_vector = np.roll(self.id_vector, 1)
 
     @property
     def semantic_vector(self):
-        forward =  sum(np.roll(node.id_vector, 1) * (weight / self.count) 
+        forward =  sum(node.after_context_vector * (weight / self.count) 
                        for node, weight in self.forward.items())
-        backward =  sum(np.roll(node.id_vector, -1) * (weight / self.count) 
+        backward =  sum(node.before_context_vector * (weight / self.count) 
                        for node, weight in self.backward.items())
         return FTP_PREFERENCE * forward + (1 - FTP_PREFERENCE) * backward
 
@@ -118,8 +146,10 @@ class Node(object):
                 'Followed by: {followers}\n'
                 'Preceded by: {preceders}').format(**locals())
 
+
 def similarity(node1, node2):
     return 1 - distance.cosine(node1.semantic_vector, node2.semantic_vector)
+
 
 def main():
     m = Umila()
@@ -130,10 +160,11 @@ def main():
     #print(m.graph['man'])
     #print(m.graph['telescope'])
     #print(m.graph['saw'])
-    #print(similarity(m.graph['man'], m.graph['telescope']))
-    #print(similarity(m.graph['man'], m.graph['saw']))
-    #print(m.graph.distance_matrix(round_to=1))
+    print(similarity(m.graph['cookie'], m.graph['telescope']))
+    print(similarity(m.graph['cookie'], m.graph['saw']))
+    print(m.graph.distance_matrix(round_to=1))
     m.graph.plot_dendrogram()
+    import IPython; IPython.embed()
 
 
 
