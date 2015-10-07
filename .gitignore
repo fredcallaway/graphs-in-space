@@ -2,3 +2,4 @@ original
 *.pdf
 *.pyc
 beagle/
+numila/__pycache__/
