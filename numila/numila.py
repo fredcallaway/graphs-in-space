@@ -12,6 +12,8 @@ from plotting import plot_mds, plot_dendrogram
 VECTOR_SIZE = 1000
 PERCENT_NON_ZERO = .01
 
+CHUNK_THRESHOLD = 0.5
+MIN_NODE_COUNT = 3
 FTP_PREFERENCE = .5
 
 class Umila(object):
@@ -35,7 +37,6 @@ class Umila(object):
             self.last_node = chunk
         else:
             self.last_node = node
-
 
     def read_file(self, file_path, split=' '):
         with open(file_path) as f:
@@ -61,39 +62,53 @@ class Graph(object):
         self.nodes = []  # type: List[Node]
         self.activations = np.zeros(size)
 
-    def __getitem__(self, token_string):
-        if token_string in self.string_to_index:
-            idx = self.string_to_index[token_string]
+    def __getitem__(self, node_string):
+        if node_string in self.string_to_index:
+            idx = self.string_to_index[node_string]
             return self.nodes[idx]
-        else:  # new token
-            idx = len(self.nodes)
-            self.string_to_index[token_string] = idx
-            self.nodes.append(Node(self, token_string, idx))
-            self.activations[idx] = 1.0
-            return self.nodes[idx]
+        else:
+            if ' ' in node_string:
+                raise ValueError('That chunk is not in the graph.')
+            # node_string represents a new token, so we make a new Node for it
+            return self.create_node(node_string)
 
     def __contains__(self, item):
         return item in self.string_to_index
+
+    def create_node(self, node_string):
+        idx = len(self.nodes)
+        new_node = Node(self, node_string, idx)
+        self.nodes.append(new_node)
+        self.string_to_index[node_string] = idx
+        self.activations[idx] = 1.0
+        return new_node
 
     def decay(self):
         pass
 
     def chunk(self, node1, node2):
+        """Returns a chunk of node1 and node2 if the chunk is in the graph.
+
+        If the chunk doesn't exist, we check if it should be created. It is
+        returned if it is created."""
         chunk_string = '[{node1.string} {node2.string}]'.format(**locals())
         if '#' in chunk_string:
             # We assume that chunks cannot occur across utterance boundaries.
-            return False
+            return None
         if chunk_string in self:
-            return self[chunk_string]
-        elif min(node1.count, node2.count) < 3:
-            return False
+            chunk_node = self[chunk_string]
+            return chunk_node
         else:
+            # consider making a new node
+            if min(node1.count, node2.count) < MIN_NODE_COUNT:
+                # don't make chunks out of newly discovered nodes
+                return None
             ftp = distance.cosine(node1.semantic_vector, node2.after_context_vector)
             btp = distance.cosine(node1.before_context_vector, node2.semantic_vector)
-            if (ftp + btp) / 2 < 0.5:
-                return self[chunk_string]
+            if (ftp + btp) / 2 < CHUNK_THRESHOLD:
+                return self.create_node(chunk_string)
             else:
-                return False
+                return None
 
     def distance_matrix(self, round_to=None):
         """A distance matrix of all nodes in the graph."""
@@ -122,8 +137,10 @@ class Node(object):
         self.string = string
         self.idx = idx
         self.count = 0
+
         self.forward = Counter()
         self.backward = Counter()
+        
         self.id_vector = sparse_vector(VECTOR_SIZE, PERCENT_NON_ZERO)
         self.before_context_vector = np.roll(self.id_vector, -1)
         self.after_context_vector = np.roll(self.id_vector, 1)
