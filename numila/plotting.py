@@ -3,6 +3,7 @@ from mpl_toolkits.mplot3d import Axes3D  # is used implicitly
 from mpl_toolkits.mplot3d import proj3d
 from sklearn import cluster, manifold
 from scipy.cluster import hierarchy
+import numpy as np
 import os
 
 labels_and_points = []
