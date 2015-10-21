@@ -82,4 +82,5 @@ def plot_dendrogram(distance_matrix, method='complete'):
     plt.tight_layout()
 
     os.makedirs('figs', exist_ok=True)
-    plt.savefig('figs/dendrogram.png')
+    plt.savefig('figs/dendrogram2.png')
+    plt.show()
