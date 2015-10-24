@@ -96,9 +96,11 @@ class Parse(list):
 
     The parse is computed upon intialization. This computation has side
     effects for the parent Numila instance (i.e. learning)."""
-    def __init__(self, numila, utterance) -> None:
+    def __init__(self, numila, utterance, verbose=False) -> None:
         super(Parse, self).__init__()
         self.numila = numila
+        self.log = print if verbose else lambda *args: None  # a dummy function
+        self.log('\nPARSING', '"', ' '.join(utterance), '"')
 
         for token in utterance:
             self.numila.decay()  # model's knowledge decays on every word it hears
@@ -110,19 +112,22 @@ class Parse(list):
 
         # Process the tail end. We have to shrink memory_size to prevent
         # accessing elements that fell out of the 4 item memory window.
+        self.log('no more tokens')
         for memory_size in range(MEMORY_SIZE-1, 1, -1):
             self.update_weights(memory_size)
             self.try_to_chunk(memory_size)
 
 
     def shift(self, token) -> None:
-        LOG.debug('shift {token}'.format_map(locals()))
+        self.log('shift: {token}'.format_map(locals()))
         node = self.numila[token]
         node.count += 1
         self.append(node)
 
     def update_weights(self, memory_size) -> None:
+        """Strengthens the connection between every adjacent pair of Nodes in memory."""
         memory = self[-memory_size:]
+        self.log('memory =', memory)
 
         # We have to make things a little more complicated to avoid
         # updating based on vectors changed in this round of updates.
@@ -134,6 +139,7 @@ class Parse(list):
         for i in range(len(memory) - 1):
             node = memory[i]
             next_node = memory[i + 1]
+            self.log('  -> strengthen: {node} & {next_node}'.format_map(locals()))
 
             node.forward_edges[next_node] += 1
             next_node.backward_edges[node] += 1
@@ -147,8 +153,7 @@ class Parse(list):
         If no Node pairs form a chunk, then nothing happens. """
         memory = self[-memory_size:]
         if len(memory) < 2:
-            return
-        LOG.debug('memory_size = {memory_size}'.format_map(locals()))
+            return  # can't chunk with less than 2 nodes
         
         # invariant: idx is the index of the earlier Node under consideration
         chunkabilities = []
@@ -157,19 +162,22 @@ class Parse(list):
             next_node = memory[idx+1]
 
             chunkability = self.numila.chunkability(node, next_node)
-            LOG.debug('chunkability({node}, {next_node}) = {chunkability}'.format_map(locals()))
             chunkabilities.append(chunkability)
+        self.log('chunkabilities =', chunkabilities)
     
         best_idx = chunkabilities.index(max(chunkabilities))
         parse_idx = best_idx - len(memory)  # convert index in memory to index in parse
         assert parse_idx < -1  # must be an index from tail, and not the last element
 
-        chunk = self.numila.get_chunk(self[parse_idx], self[parse_idx + 1])
+        chunk = self.numila.get_chunk(self[parse_idx], self[parse_idx+1])
         if chunk:
+            self.log(('  -> create chunk: {chunk}').format_map(locals()))
             # combine the two nodes into one chunk
             chunk.count += 1
             self[parse_idx] = chunk
             del self[parse_idx+1]
+        else:
+            self.log('  -> no chunk created')
 
     def __str__(self):
         return super(Parse, self).__str__().replace(',', '')
@@ -186,10 +194,10 @@ class Numila(object):
         self.activations = np.zeros(size)
         self.counts = np.zeros(size)
 
-    def parse_utterance(self, utterance):
+    def parse_utterance(self, utterance, verbose=False):
         if isinstance(utterance, str):
             utterance = utterance.split()
-        return Parse(self, utterance)
+        return Parse(self, utterance, verbose)
 
     def create_token(self, token_string) -> Node:
         """Add a new base token to the graph."""
@@ -290,7 +298,7 @@ def word_sim(m, word1, word2):
 def cfg():
     m = Numila()
 
-    for i, s in enumerate(pcfg.random_sentences('toy_pcfg2.txt', 100)):
+    for i, s in enumerate(pcfg.random_sentences('toy_pcfg2.txt', 1000)):
         if i % 100 == 99:
             pass
             #plotting.distance_matrix(m.similarity_matrix())
@@ -303,6 +311,10 @@ def cfg():
 
     for s in pcfg.random_sentences('toy_pcfg2.txt', 5):
         parse = str(m.parse_utterance(s))
+        print(parse)
+
+    for s in pcfg.random_sentences('toy_pcfg2.txt', 1):
+        parse = str(m.parse_utterance(s, verbose=True))
         print(parse)
 
 
