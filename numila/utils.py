@@ -1,5 +1,6 @@
 import logging
-
+import re
+from typing import List
 
 def get_logger(name, stream='WARNING', file='INFO'):
     log = logging.getLogger(name)
@@ -18,3 +19,15 @@ def get_logger(name, stream='WARNING', file='INFO'):
         log.addHandler(filer)
 
     return log
+
+
+def read_file(file_path, token_delim=' ', utt_delim='\n') -> List[List[str]]:
+    utterances = []
+    with open(file_path) as f:
+        for utterance in re.split(utt_delim, f.read()):
+            if token_delim:
+                tokens = re.split(token_delim, utterance)
+            else:
+                tokens = list(utterance)  # split by character
+            utterances.append(tokens)
+    return utterances

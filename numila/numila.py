@@ -3,19 +3,17 @@
 """
 
 
-from collections import Counter, OrderedDict, defaultdict
-import re
-import numpy as np
-import pandas as pd
+from collections import Counter, OrderedDict
 import time
 from typing import Dict, List
 from typed import typechecked
-from utils import get_logger
+import numpy as np
 
 import fuckit
 
-from pcfg import random_sentences
+import pcfg
 import plotting
+import utils
 import vectors
 
 SEMANTIC_TRANSFER = 0.2
@@ -29,7 +27,7 @@ FTP_PREFERENCE = .5  # TODO
 MEMORY_SIZE = 4
 
 
-LOG = get_logger(__name__, stream='INFO', file='WARNING')
+LOG = utils.get_logger(__name__, stream='INFO', file='WARNING')
 
 
 class Node(object):
@@ -55,24 +53,23 @@ class Node(object):
         self.id_vector = id_vector
         self.semantic_vector = np.copy(self.id_vector)
 
-
     @property
-    def context_vector(self):
+    def context_vector(self) -> np.ndarray:
         """Represents this node in context."""
         return (self.semantic_vector * SEMANTIC_TRANSFER +
                 self.id_vector * (1 - SEMANTIC_TRANSFER))
 
     @property
-    def before_context_vector(self):
+    def before_context_vector(self) -> np.ndarray:
         """Represents this node occurring before another node"""
         return np.roll(self.context_vector, 1)
 
     @property
-    def after_context_vector(self):
+    def after_context_vector(self) -> np.ndarray:
         """Represents this node occurring after another node"""
         return np.roll(self.context_vector, -1)  # TODO: parameterize this
 
-    def decay(self):
+    def decay(self) -> None:
         """Makes learned vector more similar to initial random vector."""
         self.semantic_vector += self.id_vector * DECAY_RATE
 
@@ -95,33 +92,37 @@ class Node(object):
 
 
 class Parse(list):
-    """docstring for ParseState"""
-    def __init__(self, graph, utterance) -> None:
+    """A parse of an utterance represented as a list of Nodes.
+
+    The parse is computed upon intialization. This computation has side
+    effects for the parent Numila instance (i.e. learning)."""
+    def __init__(self, numila, utterance) -> None:
         super(Parse, self).__init__()
-        self.graph = graph
+        self.numila = numila
 
         for token in utterance:
-            self.graph.decay()
+            self.numila.decay()  # model's knowledge decays on every word it hears
             self.shift(token)
-            self.update_temporal_weights(MEMORY_SIZE)
-            if len(self) >= 4:  # fill memory before trying to chunk
-                self.make_best_chunk(MEMORY_SIZE)
+            self.update_weights(MEMORY_SIZE)
+            if len(self) >= MEMORY_SIZE:  # fill memory before trying to chunk
+                # possibly replace two odes in working memory with one node
+                self.try_to_chunk(MEMORY_SIZE)
 
         # Process the tail end. We have to shrink memory_size to prevent
         # accessing elements that fell out of the 4 item memory window.
         for memory_size in range(MEMORY_SIZE-1, 1, -1):
-            self.update_temporal_weights(memory_size)
-            self.make_best_chunk(memory_size)
+            self.update_weights(memory_size)
+            self.try_to_chunk(memory_size)
 
 
     def shift(self, token) -> None:
         LOG.debug('shift {token}'.format_map(locals()))
-        node = self.graph[token]
+        node = self.numila[token]
         node.count += 1
         self.append(node)
 
-    def update_temporal_weights(self, memory_size) -> None:
-        memory = self[-MEMORY_SIZE:]
+    def update_weights(self, memory_size) -> None:
+        memory = self[-memory_size:]
 
         # We have to make things a little more complicated to avoid
         # updating based on vectors changed in this round of updates.
@@ -140,26 +141,35 @@ class Parse(list):
             node.semantic_vector += ftp_updates[next_node]
             next_node.semantic_vector += btp_updates[node]
 
-    def make_best_chunk(self, memory_size) -> None:
-        memory_size = min(memory_size, len(self))
+    def try_to_chunk(self, memory_size) -> None:
+        """Attempts to combine two Nodes in memory into one Node.
+
+        If no Node pairs form a chunk, then nothing happens. """
+        memory = self[-memory_size:]
+        if len(memory) < 2:
+            return
         LOG.debug('memory_size = {memory_size}'.format_map(locals()))
-        if memory_size < 2:
-            return  # can't make a chunk with less than 2 elements
+        
+        # invariant: idx is the index of the earlier Node under consideration
         chunkabilities = []
-        for i in range(1, memory_size):
-            node = self[-i]
-            previous_node = self[-i-1]
-            chunkability = self.graph.chunkability(previous_node, node)
-            LOG.debug('chunkability({previous_node}, {node}) = {chunkability}'.format_map(locals()))
+        for idx in range(len(memory) - 1):
+            node = memory[idx]
+            next_node = memory[idx+1]
+
+            chunkability = self.numila.chunkability(node, next_node)
+            LOG.debug('chunkability({node}, {next_node}) = {chunkability}'.format_map(locals()))
             chunkabilities.append(chunkability)
     
-        best = chunkabilities.index(max(chunkabilities))
-        chunk = self.graph.get_chunk(self[-best-2], self[-best-1])
+        best_idx = chunkabilities.index(max(chunkabilities))
+        parse_idx = best_idx - len(memory)  # convert index in memory to index in parse
+        assert parse_idx < -1  # must be an index from tail, and not the last element
+
+        chunk = self.numila.get_chunk(self[parse_idx], self[parse_idx + 1])
         if chunk:
             # combine the two nodes into one chunk
             chunk.count += 1
-            self[-best-2] = chunk
-            del self[-best-1]
+            self[parse_idx] = chunk
+            del self[parse_idx+1]
 
     def __str__(self):
         return super(Parse, self).__str__().replace(',', '')
@@ -177,7 +187,9 @@ class Numila(object):
         self.counts = np.zeros(size)
 
     def parse_utterance(self, utterance):
-         return Parse(self, utterance)
+        if isinstance(utterance, str):
+            utterance = utterance.split()
+        return Parse(self, utterance)
 
     def create_token(self, token_string) -> Node:
         """Add a new base token to the graph."""
@@ -248,12 +260,12 @@ class Numila(object):
         return item in self.string_to_index
 
     # For introspection only: not used in the model itself.
-    def similarity_matrix(self, round_to=None, num=None) -> pd.DataFrame:
+    def similarity_matrix(self, round_to=None, num=None) -> "DataFrame":
         """A distance matrix of all nodes in the graph."""
         if not self.nodes:
             raise ValueError("Graph is empty, can't make distance matrix.")
         if num:
-            ind = np.argpartition(self.counts, -num)[-num:]
+            #ind = np.argpartition(self.counts, -num)[-num:]
             raise NotImplementedError()
         sem_vecs = [node.semantic_vector for node in self.nodes]
         num_nodes = len(self.nodes)
@@ -263,44 +275,22 @@ class Numila(object):
                 matrix[i,j] = matrix[j,i] = vectors.cosine(sem_vecs[i], sem_vecs[j])
         if round_to is not None:
             matrix = np.around(matrix, round_to)
-        return pd.DataFrame(matrix, 
-                            columns=self.string_to_index.keys(),
-                            index=self.string_to_index.keys())
+
+        from pandas import DataFrame
+        labels = self.string_to_index.keys()
+        return DataFrame(matrix, 
+                         columns=labels,
+                         index=labels)
 
 
 def word_sim(m, word1, word2):
     return vectors.cosine(m[word1].semantic_vector, m[word2].semantic_vector)
 
-def draw_tree(tree_string):
-    raise NotImplementedError()
-
-    from nltk import Tree
-    from nltk.draw.util import CanvasFrame
-    from nltk.draw import TreeWidget
-
-    cf = CanvasFrame()
-    tree = Tree.fromstring(tree_string.replace('[','(').replace(']',')') )
-    cf.add_widget(TreeWidget(cf.canvas(), tree), 10, 10)
-    cf.print_to_file('tree.ps')
-    cf.destroy
-
-
-def read_file(file_path, token_delim=' ', utt_delim='\n') -> List[List[str]]:
-    utterances = []
-    with open(file_path) as f:
-        for utterance in re.split(utt_delim, f.read()):
-            if token_delim:
-                tokens = re.split(token_delim, utterance)
-            else:
-                tokens = list(utterance)  # split by character
-            utterances.append(tokens)
-    return utterances
-
 
 def cfg():
     m = Numila()
 
-    for i, s in enumerate(random_sentences('toy_pcfg2.txt', 100)):
+    for i, s in enumerate(pcfg.random_sentences('toy_pcfg2.txt', 100)):
         if i % 100 == 99:
             pass
             #plotting.distance_matrix(m.similarity_matrix())
@@ -311,16 +301,16 @@ def cfg():
         with fuckit:
             print(w, '->',m.predict(m[w]))
 
-    for s in random_sentences('toy_pcfg2.txt', 5):
+    for s in pcfg.random_sentences('toy_pcfg2.txt', 5):
         parse = str(m.parse_utterance(s))
         print(parse)
 
 
 def syl():
     m = Numila()
-    for utt in read_file('../PhillipsPearl_Corpora/English/test_sets/English_syllable_test1.txt', r'/| '):
+    for utt in utils.read_file('../PhillipsPearl_Corpora/English/test_sets/English_syllable_test1.txt', r'/| '):
         m.parse_utterance(utt)
-    for utt in read_file('../PhillipsPearl_Corpora/English/test_sets/English_syllable_test2.txt', r'/| ')[:100]:
+    for utt in utils.read_file('../PhillipsPearl_Corpora/English/test_sets/English_syllable_test2.txt', r'/| ')[:100]:
         print(m.parse_utterance(utt))
 
     with fuckit:

@@ -63,6 +63,19 @@ def random_sentences(grammar_file, n):
         yield flatten(tree)
 
 
+def draw_tree(tree_string):
+    raise NotImplementedError()
+
+    from nltk import Tree
+    from nltk.draw.util import CanvasFrame
+    from nltk.draw import TreeWidget
+
+    cf = CanvasFrame()
+    tree = Tree.fromstring(tree_string.replace('[','(').replace(']',')') )
+    cf.add_widget(TreeWidget(cf.canvas(), tree), 10, 10)
+    cf.print_to_file('tree.ps')
+    cf.destroy
+
 if __name__ == '__main__':
     print('\n\n')
     print(flatten([[[1,2], 3], [4,[5,6]]]))
