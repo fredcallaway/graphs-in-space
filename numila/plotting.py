@@ -5,10 +5,12 @@ from sklearn import cluster, manifold
 from scipy.cluster import hierarchy
 import numpy as np
 import os
+import pandas as pd
+import seaborn as sns
 
 labels_and_points = []
 
-def plot_mds(distance_matrix, interactive=False, dim=2, clustering=True, clusters=4):
+def mds(distance_matrix, interactive=False, dim=2, clustering=True, clusters=4):
     """Saves a scatterplot of the labels projected onto 2 dimensions.
 
     Uses MDS to project features onto a 2 or 3 dimensional based on their
@@ -69,7 +71,7 @@ def plot_mds(distance_matrix, interactive=False, dim=2, clustering=True, cluster
         plt.show()
 
 
-def plot_dendrogram(distance_matrix, method='complete'):
+def dendrogram(distance_matrix, method='complete'):
     """Plots a dendrogram using hierarchical clustering.
 
     see scipy.cluster.hierarchy.linkage for details regarding
@@ -84,3 +86,23 @@ def plot_dendrogram(distance_matrix, method='complete'):
     os.makedirs('figs', exist_ok=True)
     plt.savefig('figs/dendrogram2.png')
     plt.show()
+
+def distance_matrix(distance_matrix):
+    plt.figure(figsize=(13, 10))
+    p = sns.heatmap(distance_matrix)
+    p.set_xticklabels(distance_matrix.index, rotation=90)
+    p.set_yticklabels(list(reversed(distance_matrix.index)), rotation=0)
+    sns.plt.show()
+
+
+    ## plotting the correlation matrix
+    #R = np.corrcoef(distance_matrix)
+    #import IPython; IPython.embed()
+    #plt.pcolormesh(distance_matrix)
+    #plt.colorbar()
+    ##plt.yticks(arange(0.5,10.5),range(0,10))
+    ##plt.xticks(arange(0.5,10.5),range(0,10))
+    #plt.show()
+
+if __name__ == '__main__':
+    distance_matrix(pd.read_pickle('pcfg2-distances.pkl'))

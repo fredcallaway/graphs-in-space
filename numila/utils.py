@@ -3,6 +3,7 @@ import logging
 
 def get_logger(name, stream='WARNING', file='INFO'):
     log = logging.getLogger(name)
+    log.setLevel(logging.DEBUG)
     format_ = '[%(name)s : %(levelname)s]\t%(message)s'
     if stream and not any(isinstance(h, logging.StreamHandler) for h in log.handlers):
         printer = logging.StreamHandler()
