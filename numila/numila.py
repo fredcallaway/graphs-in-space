@@ -22,7 +22,7 @@ SEMANTIC_TRANSFER = 0.2
 LEARNING_RATE = 0.01
 DECAY_RATE = 0.001
 
-CHUNK_THRESHOLD = .9
+CHUNK_THRESHOLD = .5
 MIN_NODE_COUNT = 3
 
 FTP_PREFERENCE = .5  # TODO
@@ -55,15 +55,12 @@ class Node(object):
         self.id_vector = id_vector
         self.semantic_vector = np.copy(self.id_vector)
 
-        #if SEMANTIC_TRANSFER:
-        #    self.context_vector = self.semantic_vector
-        #else:
-        #    self.context_vector = self.id_vector
 
     @property
     def context_vector(self):
-        return ((self.semantic_vector * SEMANTIC_TRANSFER) +
-                 self.id_vector * (1 - SEMANTIC_TRANSFER))
+        """Represents this node in context."""
+        return (self.semantic_vector * SEMANTIC_TRANSFER +
+                self.id_vector * (1 - SEMANTIC_TRANSFER))
 
     @property
     def before_context_vector(self):
@@ -116,6 +113,7 @@ class Parse(list):
             self.update_temporal_weights(memory_size)
             self.make_best_chunk(memory_size)
 
+
     def shift(self, token) -> None:
         LOG.debug('shift {token}'.format_map(locals()))
         node = self.graph[token]
@@ -123,19 +121,24 @@ class Parse(list):
         self.append(node)
 
     def update_temporal_weights(self, memory_size) -> None:
-        memory_size = min(memory_size, len(self))
-        for i in range(1, memory_size):
-            node = self[-i]
-            previous_node = self[-i-1]
+        memory = self[-MEMORY_SIZE:]
 
-            previous_node.forward_edges[node] += 1
-            node.backward_edges[previous_node] += 1
-            previous_node.semantic_vector += node.after_context_vector * LEARNING_RATE
-            node.semantic_vector += previous_node.before_context_vector * LEARNING_RATE
-            #LOG.debug(('update({previous_node} -> {node}):\n'
-            #           '{previous_node.semantic_vector}'
-            #           '{node.semantic_vector}'
-            #           ).format_map(locals()))
+        # We have to make things a little more complicated to avoid
+        # updating based on vectors changed in this round of updates.
+        ftp_updates = {node: node.after_context_vector * LEARNING_RATE * FTP_PREFERENCE
+                       for node in memory[1:]}
+        btp_updates = {node: node.before_context_vector * LEARNING_RATE * (1 - FTP_PREFERENCE)
+                       for node in memory[:-1]}
+
+        for i in range(len(memory) - 1):
+            node = memory[i]
+            next_node = memory[i + 1]
+
+            node.forward_edges[next_node] += 1
+            next_node.backward_edges[node] += 1
+            
+            node.semantic_vector += ftp_updates[next_node]
+            next_node.semantic_vector += btp_updates[node]
 
     def make_best_chunk(self, memory_size) -> None:
         memory_size = min(memory_size, len(self))
@@ -223,8 +226,9 @@ class Numila(object):
         """Returns the node most likely to follow node1"""
         chunkabilities = np.array([self.chunkability(node1, node2)
                                    for node2 in self.nodes])
-        idx = np.argmax(chunkabilities)
-        return self.nodes[idx]
+        chunkabilities += 1.0  # because probabilites must be non-negative
+        probs = chunkabilities / np.sum(chunkabilities)
+        return np.random.choice(self.nodes, p=probs)
 
     def decay(self) -> None:
         for node in self.nodes:
@@ -242,7 +246,6 @@ class Numila(object):
 
     def __contains__(self, item) -> bool:
         return item in self.string_to_index
-
 
     # For introspection only: not used in the model itself.
     def similarity_matrix(self, round_to=None, num=None) -> pd.DataFrame:
@@ -297,20 +300,20 @@ def read_file(file_path, token_delim=' ', utt_delim='\n') -> List[List[str]]:
 def cfg():
     m = Numila()
 
-    for i, s in enumerate(random_sentences('toy_pcfg2.txt', 1000)):
+    for i, s in enumerate(random_sentences('toy_pcfg2.txt', 100)):
         if i % 100 == 99:
             pass
             #plotting.distance_matrix(m.similarity_matrix())
         m.parse_utterance(s)
 
 
-    for w in ['saw', 'the', 'telescope']:
-        print(m.predict(m[w]))
+    for w in ['saw', 'the', 'telescope', '[my hill]']:
+        with fuckit:
+            print(w, '->',m.predict(m[w]))
 
-    #for s in random_sentences('toy_pcfg2.txt', 100):
-    #    parse = str(m.parse_utterance(s))
-    #    print(parse)
-
+    for s in random_sentences('toy_pcfg2.txt', 5):
+        parse = str(m.parse_utterance(s))
+        print(parse)
 
 
 def syl():
