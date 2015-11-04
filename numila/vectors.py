@@ -1,20 +1,40 @@
 import numpy as np
 from scipy.spatial import distance
 
-DIM = 1000
-NON_ZERO = 0.01
 
-P1 = np.random.permutation(DIM)
-INVERSE_P1 = np.argsort(P1)
-P2 = np.random.permutation(DIM)
-INVERSE_P2 = np.argsort(P2)
+class VectorModel(object):
+    """docstring for VectorModel"""
+    def __init__(self, dim, nonzero):
+        super(VectorModel, self).__init__()
+        self.dim = dim
+        self.nonzero = nonzero
+        self.perm1 = np.random.permutation(self.dim)
+        self.inverse_perm1 = np.argsort(self.perm1)
+        self.perm2 = np.random.permutation(self.dim)
+        self.inverse_perm2 = np.argsort(self.perm2)
+        
+    def sparse(self):
+        """Returns a new sparse vector."""
+        num_nonzero = int(self.dim * self.nonzero)
+        
+        indices = set()  # a set of num_nonzero unique indices between 0 and self.dim
+        for _ in range(num_nonzero):
+            idx = np.random.randint(self.dim)
+            while idx in indices:
+                # resample until we get a new index
+                idx = np.random.randint(self.dim)
+            indices.add(idx)
 
-def sparse():
-    vector = np.zeros(DIM)
-    indices = (np.random.random(int(DIM * NON_ZERO)) * DIM).astype(int)
-    for i in indices:
-        vector[i] = np.random.choice((-1.0, 1.0))
-    return vector
+        vector = np.zeros(self.dim)
+        for i in indices:
+            vector[i] = np.random.choice((-1.0, 1.0))
+        return vector
+
+    def bind(self, v1, v2) -> np.ndarray:
+        permuted_v1 = v1[self.perm1]
+        permuted_v2 = v2[self.perm2]
+        return cconv(permuted_v1, permuted_v2)
+
 
 ##cconv and ccor taken from https://github.com/mike-lawrence/wikiBEAGLE
 def cconv(a, b):
@@ -28,13 +48,15 @@ def ccorr(a, b):
 def cosine(v1, v2) -> float:
     return 1.0 - distance.cosine(v1, v2)
 
-def bind(v1, v2) -> np.ndarray:
-    return cconv(v1[P1], v2[P2])
 
 if __name__ == '__main__':
-    import IPython; IPython.embed()
-    percent_non_zero = 0.2
-    non_zeros = [len(np.nonzero(sparse(1000, percent_non_zero))[0])
-                 for _ in range(1000)]
-    avg_percent_non_zero = ((sum(non_zeros) / len(non_zeros)) / 1000)
-    assert avg_percent_non_zero - percent_non_zero < .001
+    nonzero = 0.01
+    dim = 1000
+
+    vector_model = VectorModel(dim, nonzero)
+    vectors = [vector_model.sparse() for _ in range(5000)]
+    assert(all(vec.shape == (dim,) for vec in vectors))
+
+    num_nonzero = dim * nonzero
+    num_nonzeros = [len(np.nonzero(vec)[0]) for vec in vectors]
+    assert(all(n == num_nonzero for n in num_nonzeros))

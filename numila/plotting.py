@@ -10,6 +10,8 @@ import seaborn as sns
 
 labels_and_points = []
 
+#def compare_distributions()
+
 def mds(distance_matrix, interactive=False, dim=2, clustering=True, clusters=4):
     """Saves a scatterplot of the labels projected onto 2 dimensions.
 
@@ -68,7 +70,7 @@ def mds(distance_matrix, interactive=False, dim=2, clustering=True, clusters=4):
     os.makedirs('figs', exist_ok=True)
     plt.savefig('figs/mds{}.png'.format(dim))
     if interactive:
-        plt.show()
+        sns.plt.show()
 
 
 def dendrogram(distance_matrix, method='complete'):
@@ -85,24 +87,37 @@ def dendrogram(distance_matrix, method='complete'):
 
     os.makedirs('figs', exist_ok=True)
     plt.savefig('figs/dendrogram2.png')
-    plt.show()
+    sns.plt.show()
 
-def distance_matrix(distance_matrix):
+def heatmap(distance_matrix):
     plt.figure(figsize=(13, 10))
     p = sns.heatmap(distance_matrix)
     p.set_xticklabels(distance_matrix.index, rotation=90)
     p.set_yticklabels(list(reversed(distance_matrix.index)), rotation=0)
     sns.plt.show()
 
+def points(df):
+    mdf = pd.melt(df, var_name='type', value_name='probability')
+    ax = sns.pointplot(y='probability', hue='type', data=mdf, ci=None, markers='')
+    if labels:
+        ax.set_xticklabels(labels)
+    sns.plt.show()
 
-    ## plotting the correlation matrix
-    #R = np.corrcoef(distance_matrix)
-    #import IPython; IPython.embed()
-    #plt.pcolormesh(distance_matrix)
-    #plt.colorbar()
-    ##plt.yticks(arange(0.5,10.5),range(0,10))
-    ##plt.xticks(arange(0.5,10.5),range(0,10))
-    #plt.show()
+def heatmaps(matrices, titles=None, figsize=None):
+    shape = (1, len(matrices))
+    fig, axn = plt.subplots(*shape, figsize=figsize)
+    # use a shared colorbar
+    vmin = min(df.min().min() for df in matrices)
+    vmax = max(df.max().max() for df in matrices)
+    for i in range(len(matrices)):
+        matrix, ax = matrices[i], axn.flat[i]
+        p = sns.heatmap(matrix, ax=ax, vmin=vmin, vmax=vmax, linewidths=0.5)
+        p.set_xticklabels(matrix.index, rotation=90)
+        p.set_yticklabels(list(reversed(matrix.index)), rotation=0)
+        if titles:
+            p.set_title(titles[i])
+    sns.plt.show()
+
 
 if __name__ == '__main__':
     distance_matrix(pd.read_pickle('pcfg2-distances.pkl'))

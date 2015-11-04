@@ -1,0 +1,550 @@
+
+=============
+RATE = 0.1
+trained on 999 utterances
+train time : 8.165 seconds
+[[# Jack] ate [the hill] #]
+[[# Jack] ate [the hill] with my telescope #]
+[[# the] boy under the table saw my cookie #]
+
+e = 4
+# a [ate #]
+# my hill a hill with Bob saw #
+# [# the]
+(0.9248696571854812, 3.4536561683704588e-243)
+
+e = 6
+# Bob table ate #
+# ran [# my]
+# hill ate a [ate #]
+(0.90749513716340002, 2.2208852323326977e-218)
+
+e = 8
+# hill ate #
+# Jack #
+# my hill #
+(0.89267286607188945, 8.0487958864660901e-201)
+
+e = 10
+# [the hill] #
+# Jack hill ate [# my]
+# Jack #
+(0.88510314713228466, 8.0298248984850751e-193)
+
+e = 12
+# the hill ran #
+# Jack [# Bob]
+# the hill saw #
+(0.88018844841078725, 6.3448470408870793e-188)
+
+e = 14
+# Jack ate #
+# the hill ate #
+# the cookie ran #
+(0.87467662121028533, 1.1099254990674434e-182)
+
+USING COUNTS
+# Bob #
+# my cookie #
+# Bob #
+# the telescope #
+# the cookie #
+# Jack ate #
+# the table ate [the hill] #
+# a hill #
+# a hill [ate #]
+
+=============
+RATE = 0.2
+trained on 999 utterances
+train time : 8.179 seconds
+[[# Jack] ate [[the hill] #]]
+[[# Jack] ate [the hill] with my telescope #]
+[[# the] boy under the table saw my cookie #]
+
+e = 4
+# #
+# ate #
+# [# the]
+(0.93475372621299158, 0.0)
+
+e = 6
+# [# the]
+# Jack a Bob table table [ate #]
+# [# the]
+(0.91983335711872827, 1.1890751714103304e-297)
+
+e = 8
+# the [# my]
+# [hill ate] #
+# Bob cookie #
+(0.90362981612457549, 6.4018331322574402e-270)
+
+e = 10
+# under Jack [# my]
+# the table boy #
+# the telescope #
+(0.89254283709700322, 1.2034225839986769e-253)
+
+e = 12
+# Jack ate #
+# a hill ran #
+# [a hill] [ate #]
+(0.88449847487957878, 6.4337829859700264e-243)
+
+e = 14
+# Bob #
+# the telescope #
+# the [ate #]
+(0.87654354759754649, 4.5624973197874251e-233)
+
+USING COUNTS
+# a hill ate Jack with [my hill] #
+# the hill with [my hill] ate Bob with Bob #
+# a hill saw #
+# a cookie saw my telescope with Jack #
+# Bob #
+# my boy ran #
+# a table [ate #]
+# the table with the telescope #
+# a hill ran my cookie ran Bob with [my hill] ate Bob ate Jack #
+
+=============
+RATE = 0.3
+trained on 999 utterances
+train time : 8.939 seconds
+[[# Jack] ate [[the hill] #]]
+[[# Jack] ate [the hill] with my telescope #]
+[[# the] boy under the table saw my cookie #]
+
+e = 4
+# Jack #
+# cookie cookie [[# a] hill]
+# my [the hill] saw [hill ate] [ran #]
+(0.7950420720375434, 8.0752641094520243e-268)
+
+e = 6
+# Bob #
+# Jack cookie under [saw Jack] [a hill] #
+# the saw my telescope [# Bob]
+(0.7752391554705127, 2.9256541076097643e-246)
+
+e = 8
+# the #
+# the cookie [the hill] #
+# the hill hill ate the hill [# a]
+(0.75701026042714614, 2.7879063693161424e-228)
+
+e = 10
+# Bob hill my telescope ate [[the hill] #]
+# the hill ate [# my]
+# Jack #
+(0.74723246698871781, 2.792021054029545e-219)
+
+e = 12
+# Bob #
+# Bob ran [[# a] hill]
+# cookie [ate #]
+(0.74141489174863462, 4.0416791223091444e-214)
+
+e = 14
+# the table ate #
+# Bob ate #
+# the table ran the hill telescope ran [[the hill] #]
+(0.73519475831720171, 9.3859403716715627e-209)
+
+USING COUNTS
+# Jack ran #
+# Jack #
+# a table #
+# Bob [ran #]
+# Jack saw a hill saw #
+# Jack ran Bob #
+# the hill [ate #]
+# the hill under Bob ate #
+# my table saw my hill ate #
+
+=============
+RATE = 0.4
+trained on 999 utterances
+train time : 9.144 seconds
+[[# Jack] ate [[the hill] #]]
+[[# Jack] ate [the hill] with my telescope #]
+[[# the] boy under the table saw my cookie #]
+
+e = 4
+# [a cookie] hill ran [my hill] [ran #]
+# [Jack with] #
+# [a cookie] ran the under the [the hill] [[# a] hill]
+(0.77508478413732995, 7.772263182950636e-275)
+
+e = 6
+# Jack [[[# the] hill] [ate #]]
+# hill table [a cookie] [[# the] hill]
+# [a hill] saw [[# a] hill]
+(0.74907118476070311, 1.0254463196497384e-246)
+
+e = 8
+# Bob #
+# Jack boy #
+# the [the hill] #
+(0.73077635118322415, 6.1657067165542467e-229)
+
+e = 10
+# Jack [ate #]
+# under [ate #]
+# Bob [ate #]
+(0.72408411211750778, 8.5601411545656436e-223)
+
+e = 12
+# the hill ran [[the hill] #]
+# my hill ran #
+# the Bob [ran my] Jack telescope #
+(0.72140364589148798, 2.1981117051470446e-220)
+
+e = 14
+# my table my hill [[# a] hill]
+# Bob a hill [ate #]
+# Bob ate #
+(0.71795906894723116, 2.4956502963486737e-217)
+
+USING COUNTS
+# a table ran [[the hill] #]
+# the table ate Jack ran my cookie ate #
+# Bob [ran #]
+# Jack saw Bob saw Bob ate #
+# the hill ran my boy #
+# the table with a hill with Bob ate #
+# the hill saw a hill #
+# a hill #
+# a telescope #
+
+=============
+RATE = 0.5
+trained on 999 utterances
+train time : 9.404 seconds
+[[# Jack] ate [[the hill] #]]
+[[# Jack] ate [the hill] with my telescope #]
+[[# the] boy under the table saw my cookie #]
+
+e = 4
+# ate Bob [[ate my] telescope] hill telescope [# my]
+# a hill [saw Jack] boy [a cookie] under Bob [[# a] hill]
+# Bob ate [the hill] cookie boy #
+(0.71355415314626047, 5.3283679649274233e-237)
+
+e = 6
+# ate my [ran #]
+# my table [[ate my] telescope] [ate my] cookie [ran #]
+# [# the]
+(0.68797246302993298, 9.9246551405506328e-214)
+
+e = 8
+# the [[# a] hill]
+# the hill ate a Bob #
+# Jack under Jack [[# a] hill]
+(0.67219592392641891, 1.5098887395070659e-200)
+
+e = 10
+# ate #
+# Jack [the hill] #
+# boy [Jack with] [a cookie] #
+(0.66785993187641335, 4.5682813155070582e-197)
+
+e = 12
+# Jack ate #
+# Jack [# my]
+# the [Jack #]
+(0.6660513103443696, 1.242535797757532e-195)
+
+e = 14
+# Bob #
+# Jack ate #
+# a hill saw #
+(0.6624153920558532, 8.8694520767277607e-193)
+
+USING COUNTS
+# my cookie #
+# Bob #
+# the hill ate [Jack #]
+# the hill saw Bob ate Bob #
+# my cookie with Bob saw Bob ate the table ate Jack #
+# the hill with Bob #
+# Jack ate #
+# my hill ate Bob with my hill ate [[the hill] #]
+# the telescope ran the hill with Jack [ate #]
+
+=============
+RATE = 0.6
+trained on 999 utterances
+train time : 10.006 seconds
+[[[# Jack] ate] [[the hill] #]]
+[[[# Jack] ate] [the hill] with my telescope #]
+[[# the] boy under the table saw my cookie #]
+
+e = 4
+# [ate my] [[[# the] hill] [ate #]]
+# Bob [ran #]
+# saw [Jack #]
+(0.71101752325788481, 1.0120768863806967e-311)
+
+e = 6
+# a [ran #]
+# Jack [ate my] table boy [[my hill] #]
+# Bob [saw Jack] [the hill] under [[# Jack] [ate #]]
+(0.6813653729161101, 1.7919003273277362e-276)
+
+e = 8
+# [# my]
+# [[my hill] #]
+# [[# Bob] ate]
+(0.66321368110315559, 6.8380250306626136e-257)
+
+e = 10
+# the [hill saw] [Jack with] with Jack #
+# the hill [# Bob]
+# a hill [# Jack]
+(0.6583890098002162, 6.462210365234102e-252)
+
+e = 12
+# Jack #
+# a hill ate #
+# the [# Bob]
+(0.65722673268934872, 9.8909537681259409e-251)
+
+e = 14
+# the telescope #
+# Bob #
+# the hill ate #
+(0.65496298924751295, 1.9403309523583072e-248)
+
+USING COUNTS
+# a hill ran #
+# a hill ate Jack ate [Jack #]
+# Bob ran #
+# my hill ran Jack #
+# Jack ate [the hill] ran the hill ate Bob with Jack ran Bob saw #
+# the hill saw Bob saw #
+# Jack ate [Jack #]
+# Bob #
+# Bob #
+
+=============
+RATE = 0.7
+trained on 999 utterances
+train time : 9.878 seconds
+[[[# Jack] ate] [[the hill] #]]
+[[[# Jack] ate] [the hill] with my telescope #]
+[[# the] boy under the table saw my cookie #]
+
+e = 4
+# [# a]
+# [[[# the] hill] ate]
+# [ran #]
+(0.73083563682410735, 3.9525251667299724e-323)
+
+e = 6
+# [[# the] hill]
+# [# Bob]
+# ran [hill saw] Bob [Jack #]
+(0.70079409886360977, 5.2024227083603022e-286)
+
+e = 8
+# my [saw Jack] [ate #]
+# telescope [# a]
+# [[# Bob] ate]
+(0.68407188245504635, 2.6054937599563101e-267)
+
+e = 10
+# the the hill [a cookie] [ate #]
+# a hill telescope ate [# Jack]
+# a [ate my] [hill ate] [hill ate] [a hill] #
+(0.68092317685363069, 6.2632550338420718e-264)
+
+e = 12
+# [Jack with] [Jack #]
+# the [# a]
+# my hill ate #
+(0.68046865155463121, 1.9112917580856224e-263)
+
+e = 14
+# Jack ran #
+# the hill ate #
+# the [ate #]
+(0.67802038342358872, 7.5182270393461809e-261)
+
+USING COUNTS
+# my hill ran #
+# Bob saw #
+# a cookie ran [the hill] #
+# Jack #
+# Jack saw #
+# the hill ate my hill ran my telescope ran Jack ate my hill ate the hill ate #
+# a hill saw Bob saw the hill ate my table #
+# Bob ate #
+# the hill ran Jack under [the hill] ate #
+
+=============
+RATE = 0.8
+trained on 999 utterances
+train time : 10.397 seconds
+[[[# Jack] ate] [[the hill] #]]
+[[[# Jack] ate] [the hill] with my telescope #]
+[[# the] boy under the table saw my cookie #]
+
+e = 4
+# [[the hill] [ate #]]
+# [hill saw] [[the hill] [ate #]]
+# my [[# Jack] ate]
+(0.67437851468109322, 1.5134826170974805e-305)
+
+e = 6
+# [the hill] ate [hill saw] [ate my] [the hill] [# Jack]
+# ran [ate my] [[the hill] ate] table ate Bob [ran my] a [ran my] [[# Jack] ate]
+# my [ran #]
+(0.64393703029568516, 5.0457909322531912e-270)
+
+e = 8
+# a [# Jack]
+# [[[# a] hill] [ate #]]
+# Bob boy #
+(0.6273755179426167, 2.3923243485610887e-252)
+
+e = 10
+# Bob ran [ate #]
+# telescope #
+# Jack ate a hill [# Jack]
+(0.62555829478343905, 1.7924366838077625e-250)
+
+e = 12
+# a [ran my] [[# a] hill]
+# Jack [[ran my] table] [hill ate] [saw Jack] [Jack with] [a hill] ran [[the hill] #]
+# a hill [ate #]
+(0.62732485971019536, 2.6992765988557667e-252)
+
+e = 14
+# the hill [[my hill] #]
+# Bob #
+# a hill boy #
+(0.62719162330277201, 3.7075782042536864e-252)
+
+USING COUNTS
+# a hill saw #
+# my boy saw #
+# my table ate a cookie #
+# the cookie with Bob ate a telescope [ate #]
+# the telescope #
+# the hill #
+# Bob #
+# my hill ate my hill ate Jack #
+# Jack #
+
+=============
+RATE = 0.9
+trained on 999 utterances
+train time : 10.397 seconds
+[[[# Jack] ate] [[the hill] #]]
+[[[# Jack] ate] [the hill] with my telescope #]
+[[# the] boy under the table saw my cookie #]
+
+e = 4
+# [ate #]
+# #
+# Jack [[# Bob] ate]
+(0.64335139736179703, 2.2218075386315322e-269)
+
+e = 6
+# Jack [a cookie] [a cookie] #
+# [[[# a] hill] [ate #]]
+# Bob [ate my] [[the hill] #]
+(0.61797095999505447, 8.8674599844876321e-243)
+
+e = 8
+# the boy [[[# a] hill] [ate #]]
+# [[# a] hill]
+# [a hill] #
+(0.60381211671789081, 5.6956934856425659e-229)
+
+e = 10
+# Jack #
+# Bob #
+# my [Bob ate] Bob under Jack [# Bob]
+(0.60115334481097038, 1.8684213801473318e-226)
+
+e = 12
+# the hill [ate #]
+# [# the]
+# my hill [# a]
+(0.60104585385510723, 2.3588092552545999e-226)
+
+e = 14
+# Jack #
+# my [a hill] #
+# a my hill ate Jack #
+(0.59961278626153203, 5.229452316399326e-225)
+
+USING COUNTS
+# the hill with Bob #
+# Jack saw [[the hill] #]
+# the cookie #
+# a hill #
+# the hill ran #
+# a hill ate Bob ran Jack #
+# a table #
+# Bob #
+# Jack with Bob ate my telescope ran Jack with [Bob ate] my table under [Bob ate] a telescope ran my hill ate
+
+=============
+RATE = 1.0
+trained on 999 utterances
+train time : 10.459 seconds
+[[[[# Jack] ate] [[the hill] #]]]
+[[[# Jack] ate] [the hill] with my telescope #]
+[[# the] boy under the table saw my cookie #]
+
+e = 4
+# [[[# the] hill] ate]
+# the [ran my] ran [[a cookie] saw] [[ran my] table] [# a]
+# #
+(0.64086203269487774, 8.3129078760405881e-278)
+
+e = 6
+# [[the hill] ate] [[the hill] #]
+# [[the hill] [ate #]]
+# the [[[the hill] ate] [[the hill] #]]
+(0.61195672673965396, 1.0162170864271284e-246)
+
+e = 8
+# the [ran #]
+# the [a hill] the [a hill] [ate #]
+# telescope ate my hill ate #
+(0.59577964034920017, 1.0989936407359808e-230)
+
+e = 10
+# [[[# the] hill] ate]
+# the telescope #
+# the Jack ate Bob #
+(0.59258656618326311, 1.2554425442979113e-227)
+
+e = 12
+# my [[[# Jack] ate] [[the hill] #]]
+# my hill cookie ate #
+# my boy with Bob hill ate #
+(0.59283516691214466, 7.2770894129145783e-228)
+
+e = 14
+# the hill ran [hill saw] with [# the]
+# a hill ate #
+# [# my]
+(0.59213789094014158, 3.3552278092726433e-227)
+
+USING COUNTS
+# my hill saw [my hill] #
+# Bob saw Bob ran #
+# Bob saw a hill with Bob ate the cookie saw #
+# a hill ate #
+# the boy with my table saw #
+# my telescope [ran #]
+# my telescope [ate #]
+# Bob ran #
+# a telescope #
