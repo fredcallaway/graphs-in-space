@@ -4,10 +4,18 @@ from scipy.spatial import distance
 
 class VectorModel(object):
     """docstring for VectorModel"""
-    def __init__(self, dim, nonzero):
+    def __init__(self, dim, nonzero, bind_op):
         super(VectorModel, self).__init__()
         self.dim = dim
         self.nonzero = nonzero
+        
+        if bind_op == 'addition':
+            self.bind_op = lambda x, y: x + y
+        elif bind_op == 'convolution':
+            self.bind_op = cconv
+        else:
+            raise ValueError('Invalid bind_op: {bind_op}'.format_map(locals()))
+
         self.perm1 = np.random.permutation(self.dim)
         self.inverse_perm1 = np.argsort(self.perm1)
         self.perm2 = np.random.permutation(self.dim)
@@ -33,7 +41,7 @@ class VectorModel(object):
     def bind(self, v1, v2) -> np.ndarray:
         permuted_v1 = v1[self.perm1]
         permuted_v2 = v2[self.perm2]
-        return cconv(permuted_v1, permuted_v2)
+        return self.bind_op(permuted_v1, permuted_v2)
 
 
 ##cconv and ccor taken from https://github.com/mike-lawrence/wikiBEAGLE

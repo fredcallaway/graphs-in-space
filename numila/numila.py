@@ -217,13 +217,13 @@ class Numila(object):
     """The premier language acquisition model"""
     def __init__(self, param_file='params.yml', **parameters) -> None:
         super(Numila, self,).__init__()
-
         # read parameters from file, overwriting with keyword arguments
         with open(param_file) as f:
             self.params = yaml.load(f.read())
         self.params.update(parameters)
         self.vector_model = vectors.VectorModel(self.params['DIM'],
-                                                self.params['PERCENT_NON_ZERO'])
+                                                self.params['PERCENT_NON_ZERO'],
+                                                self.params['BIND_OPERATION'])
         
         # Each token gets an int ID which specifies its index
         # in self.nodes and self.activations.
