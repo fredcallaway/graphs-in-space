@@ -1,4 +1,6 @@
 from collections import Counter, OrderedDict
+import copy
+import itertools
 from typing import Dict, List
 from typed import typechecked
 import numpy as np
@@ -22,11 +24,11 @@ class Node(object):
                  before this node in the memory window
         id_vector: a random sparse vector that never changes
     """
-    def __init__(self, graph, string, idx, id_vector) -> None:
+    def __init__(self, graph, string, id_vector) -> None:
         self.graph = graph
         self.params = graph.params
         self.string = string
-        self.idx = idx
+        self.idx = None  # set when the Node is added to graph
 
         self.id_vector = id_vector
         self.semantic_vec = np.copy(self.id_vector)
@@ -98,14 +100,16 @@ class Node(object):
         return np.random.choice(self.graph.nodes, p=distribution)
 
     def __hash__(self) -> int:
-        return self.idx
+        if self.idx is not None:
+            return self.idx
+        else:
+            return str(self).__hash__()
 
     def __repr__(self):
         return self.string
 
     def __str__(self):
         return self.string
-
 
 
 class Parse(list):
@@ -143,6 +147,7 @@ class Parse(list):
             node = self.graph[token]
         except KeyError:  # a new token
             node = self.graph.create_token(token)
+            self.graph.add_node(node)
         node.count += 1
         self.append(node)
 
@@ -228,30 +233,29 @@ class Numila(object):
 
     def parse_utterance(self, utterance, verbose=False):
         if isinstance(utterance, str):
-            utterance = utterance.split()
+            utterance = utterance.split(' ')
         utterance = ['#'] + utterance + ['#']
         return Parse(self, utterance, verbose)
 
     def create_token(self, token_string) -> Node:
         """Add a new base token to the graph."""
         id_vector = self.vector_model.sparse()
-        return self._create_node(token_string, id_vector)
+        return Node(self, token_string, id_vector)
 
     def create_chunk(self, node1, node2) -> Node:
         """Add a new chunk to the graph composed of node1 and node2."""
         chunk_string = '[{node1.string} {node2.string}]'.format_map(locals())
         id_vector = self.vector_model.bind(node1.context_vec, node2.context_vec)
-        return self._create_node(chunk_string, id_vector)
+        return Node(self, chunk_string, id_vector)
 
-    def _create_node(self, node_string, id_vector) -> Node:
+    def add_node(self, node) -> None:
         idx = len(self.nodes)
-        new_node = Node(self, node_string, idx, id_vector)
-        self.string_to_index[node_string] = idx
-        self.nodes.append(new_node)
+        node.idx = idx
+        self.string_to_index[str(node)] = idx
+        self.nodes.append(node)
         self.activations[idx] = 1.0
-        return new_node
 
-    def get_chunk(self, node1, node2) -> Node:
+    def get_chunk(self, node1, node2, force=False) -> Node:
         """Returns a chunk of node1 and node2 if the chunk is in the graph.
 
         If the chunk doesn't exist, we check if the pair is chunkable
@@ -263,9 +267,14 @@ class Numila(object):
         else:
             # consider making a new node
             if self.chunkability(node1, node2) > self.params['CHUNK_THRESHOLD']:
-                return self.create_chunk(node1, node2)
+                chunk = self.create_chunk(node1, node2)
+                self.add_node(chunk)
+                return chunk
             else:
-                return None
+                if force:
+                    return self.create_chunk(node1, node2)
+                else:
+                    return None
 
     def chunkability(self, node1, node2) -> float:
         """How well two nodes form a chunk."""
@@ -280,7 +289,7 @@ class Numila(object):
         for node in self.nodes:
             node.decay()
 
-    def speak(self, **distribution_args):
+    def speak_markov(self, **distribution_args):
         utterance = [self['#']]
         for _ in range(20):
             nxt = utterance[-1].predict('following', **distribution_args)
@@ -288,6 +297,25 @@ class Numila(object):
             if '#' in str(nxt):  # could be a chunk with boundary char
                 break
         return ' '.join(map(str, utterance))
+
+    def speak(self, words, verbose=False):
+        log = print if verbose else lambda *args: None
+        nodes = list(self[w] for w in words)
+
+        # combine the two chunkiest nodes into a chunk until only one node left
+        while len(nodes) > 1:
+            pairs = {p: self.chunkability(*p) for p in itertools.permutations(nodes, 2)}
+            #log('pairs:', pairs)
+            chunkiest = max(pairs, key=pairs.get)
+            n1, n2 = chunkiest
+            nodes.remove(n1)
+            nodes.remove(n2)
+            chunk = self.get_chunk(n1, n2, force=True)
+            log('\tchunk:', chunk)
+            nodes.append(chunk)
+
+        return nodes[0]
+
 
     def __getitem__(self, node_string) -> Node:
         #if node_string in self.string_to_index:

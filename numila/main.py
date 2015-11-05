@@ -93,13 +93,19 @@ def plot_prediction(count_predictions, vec_predictions, word):
     import seaborn as sns
     sns.plt.show()
 
+def syntax_tree_link(parse):
+    query = str(parse).replace('[', '[ ').replace(' ', '%20')
+    return 'http://mshang.ca/syntree/?i=' + query
 
 #################
 ## SIMULATIONS ##
 #################
 
 def cfg():
-    for rate in [i/10 for i in range(1,11)]:
+    no_space = True
+    rates = [i/10 for i in range(1,11)]
+    rates = [1]
+    for rate in rates:
         print('\n=============\n'
               'RATE = {rate}'.format_map(locals()))
         graph = Numila(LEARNING_RATE=rate)
@@ -108,26 +114,36 @@ def cfg():
                 for i, s in enumerate(corpus.read().splitlines()):
                     if i % 100 == 99:
                         pass
+                    if no_space:
+                        s = list(s.replace(' ', ''))
                     graph.parse_utterance(s)  
                 print('trained on {i} utterances'.format_map(locals()))
 
-        sentences = ['Jack ate the hill',
+        sentences = ['Bob ate',
+                     'Jack ate the hill',
                      'Jack ate the hill with my telescope',
-                     'the boy under the table saw my cookie']
+                     'the boy under the table saw my cookie',
+                     'my cookie saw Bob under the cookie',
+                     'the boy with the cookie under the table saw Jack',
+                     'the boy with the cookie saw the table under the hill',
+                     'the boy with the cookie saw the table under the hill with my telescope',
+                    ]
+        if no_space:
+            sentences = [list(s.replace(' ', '')) for s in sentences]
+        else:
+            sentences = [s.split() for s in sentences]
+
+        print('\nPARSE')
         for s in sentences:
             print(graph.parse_utterance(s))
 
-        count_predictions = prediction_matrix(graph, use_vectors=False)
-        for e in range(4,16,2):
-            print('\ne = {e}'.format_map(locals()))
-            for _ in range(3):
-                print(graph.speak(exp=e))
-            vec_predictions = prediction_matrix(graph, exp=e)
-            print(stats.pearsonr(np.ravel(vec_predictions), np.ravel(count_predictions)))
+        print('\nSPEAK')
+        for s in sentences:
+            print(graph.speak(s))
 
-        print('\nUSING COUNTS')
-        for _ in range(9):
-            print(graph.speak(use_vectors=False))
+        #print('\nCOUNT SPEAK')
+        #for _ in range(10):
+            #print(graph.speak_markov(use_vectors=False))
 
 
 
