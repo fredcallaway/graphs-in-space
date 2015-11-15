@@ -11,3 +11,4 @@ umila.sublime-project
 umila.sublime-workspace
 numila/corpora/
 numila/pickles/
+numila/.cache/

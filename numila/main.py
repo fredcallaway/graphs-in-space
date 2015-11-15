@@ -1,6 +1,8 @@
 import numpy as np
 from pandas import DataFrame
 from scipy import stats
+import itertools
+import joblib
 
 from numila import Numila
 import pcfg
@@ -41,6 +43,10 @@ def prediction_matrix(graph, kind='following', **distribution_args) -> DataFrame
     df.index = df.columns = graph.string_to_index.keys()
     return df
 
+def chunk_matrix(graph) -> DataFrame:
+    return DataFrame({n1: {n2: graph.chunkability(n1, n2) 
+                           for n2 in graph.nodes} 
+                     for n1 in graph.nodes})
 
 def describe(graph, node, n=5) -> str:
     f_vec = node.distribution('following', use_vectors=True)
@@ -97,49 +103,48 @@ def syntax_tree_link(parse):
     query = str(parse).replace('[', '[ ').replace(' ', '%20')
     return 'http://mshang.ca/syntree/?i=' + query
 
+
 #################
 ## SIMULATIONS ##
 #################
 
-def cfg():
-    no_space = True
-    rates = [i/10 for i in range(1,11)]
-    rates = [1]
-    for rate in rates:
-        print('\n=============\n'
-              'RATE = {rate}'.format_map(locals()))
-        graph = Numila(LEARNING_RATE=rate)
-        with utils.Timer('train time'):
-            with open('corpora/toy2.txt') as corpus:
-                for i, s in enumerate(corpus.read().splitlines()):
-                    if i % 100 == 99:
-                        pass
-                    if no_space:
-                        s = list(s.replace(' ', ''))
-                    graph.parse_utterance(s)  
-                print('trained on {i} utterances'.format_map(locals()))
+def cfg_model(no_spaces=False) -> Numila:
+    graph = Numila()
+    with utils.Timer('train time'):
+        with open('corpora/toy2.txt') as corpus:
+            for i, s in enumerate(corpus.read().splitlines()):
+                if i % 300 == 99:
+                    plotting.heatmap(chunk_matrix(graph))
+                    #import IPython, time; IPython.embed(); time.sleep(0.5)
+                if no_spaces:
+                    s = list(s.replace(' ', ''))
+                graph.parse_utterance(s)  
+            print('trained on {i} utterances'.format_map(locals()))
+    joblib.dump(graph, 'pickles/cfg_model.pkl')
+    return graph
 
-        sentences = ['Bob ate',
-                     'Jack ate the hill',
-                     'Jack ate the hill with my telescope',
-                     'the boy under the table saw my cookie',
-                     'my cookie saw Bob under the cookie',
-                     'the boy with the cookie under the table saw Jack',
-                     'the boy with the cookie saw the table under the hill',
-                     'the boy with the cookie saw the table under the hill with my telescope',
-                    ]
-        if no_space:
-            sentences = [list(s.replace(' ', '')) for s in sentences]
-        else:
-            sentences = [s.split() for s in sentences]
+def test_cfg():
+    graph = cfg_model
+    sentences = ['Bob ate',
+                 'Jack ate the hill',
+                 'Jack ate the hill with my telescope',
+                 'the boy under the table saw my cookie',
+                 'my cookie saw Bob under the cookie',
+                 'the boy with the cookie under the table saw Jack',
+                 'the boy with the cookie saw the table under the hill',
+                 'the boy with the cookie saw the table under the hill with my telescope',
+                ]
+    
+    sentences = [s.split() for s in sentences]
 
-        print('\nPARSE')
-        for s in sentences:
-            print(graph.parse_utterance(s))
+    print('\nPARSE')
+    for s in sentences:
+        print(graph.parse_utterance(s))
 
-        print('\nSPEAK')
-        for s in sentences:
-            print(graph.speak(s))
+    print('\nSPEAK')
+    for s in sentences:
+        print(graph.speak(s))
+
 
         #print('\nCOUNT SPEAK')
         #for _ in range(10):

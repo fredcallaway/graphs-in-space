@@ -39,39 +39,55 @@ class Node(object):
 
     @property
     def context_vec(self) -> np.ndarray:
-        """Represents this node in context."""
+        """Represents this node in context.
+
+        This vector is only used in permuted forms, `preced_vec` and `follow_vec`.
+        These two vectors are used when updating temporal weights. When another
+        node follows this node, this node's `preced_vec` will be added to that
+        node's semantic vector.
+
+        `context_vec` is a combination of the semantic vector and id vector,
+        weighted by the SEMANTIC_TRANSFER parameter."""
         return (self.semantic_vec * self.params['SEMANTIC_TRANSFER'] +
                 self.id_vector * (1 - self.params['SEMANTIC_TRANSFER']))
 
     @property
     def precede_vec(self) -> np.ndarray:
         """Represents this node occurring before another node"""
-        return np.roll(self.context_vec, 1)
+
+        # roll shifts every element in the arry
+        # [1,2,3,4] -> [4, 1, 2, 3]
+
+        # We use the two largest primes < 100 for the shift values
+        # in order to minimize interference between the two.
+        return np.roll(self.context_vec, 89)
 
     @property
     def follow_vec(self) -> np.ndarray:
         """Represents this node occurring after another node"""
-        return np.roll(self.context_vec, -1)  # TODO: parameterize this
+        return np.roll(self.context_vec, 97)
 
-    def decay(self) -> None:
-        """Makes learned vector more similar to initial random vector."""
-        self.semantic_vec += self.id_vector * self.params['DECAY_RATE']
+    def distribution(self, kind, use_vectors=True, exp=1):
+        """A statistical distribution defined by this nodes edges.
 
-    def distribution(self, kind, use_vectors=True, exp=8):
+        This is used for introspection and `speak_markov` thus it
+        is not part of the core of the model"""
         if use_vectors:
+            # get the appropriate list of data based on 
+            # the kind of distribution we want
             if kind is 'following':
-                dists = [vectors.cosine(self.semantic_vec, node2.follow_vec)
-                         for node2 in self.graph.nodes]
+                data = [vectors.cosine(self.semantic_vec, node.follow_vec)
+                         for node in self.graph.nodes]
             elif kind is 'preceding':
-                dists = [vectors.cosine(self.semantic_vec, node2.precede_vec)
-                         for node2 in self.graph.nodes]
+                data = [vectors.cosine(self.semantic_vec, node.precede_vec)
+                         for node in self.graph.nodes]
             elif kind is 'chunking':
-                dists = [self.graph.chunkability(self, node2) for node2 in self.graph.nodes]
+                data = [self.graph.chunkability(self, node) for node in self.graph.nodes]
             else:
                 raise ValueError('{kind} is not a valid distribution.'
                                  .format_map(locals()))
 
-            distribution = (np.array(dists) + 1.0) / 2.0  # probabilites must be non-negative
+            distribution = (np.array(data) + 1.0) / 2.0  # probabilites must be non-negative
             distribution **= exp  # accentuate differences
             return distribution / np.sum(distribution)
 
@@ -116,7 +132,9 @@ class Parse(list):
     """A parse of an utterance represented as a list of Nodes. 
 
     The parse is computed upon intialization. This computation has side
-    effects for the parent Numila instance (i.e. learning)."""
+    effects for the parent Numila instance (i.e. learning). The loop
+    in __init__ is thus the learning algorithm.
+    """
     def __init__(self, graph, utterance, verbose=False) -> None:
         super(Parse, self).__init__()
         self.graph = graph
@@ -124,9 +142,13 @@ class Parse(list):
         self.log = print if verbose else lambda *args: None  # a dummy function
         self.log('\nPARSING', '"', ' '.join(utterance), '"')
 
+        # This is the "main loop" of the model, i.e. it will run once for
+        # every token in the training corpus. The four functions in the loop
+        # correspond to the four steps of the learning algorithm.
         for token in utterance:
             self.graph.decay()  # model's knowledge decays on every word it hears
             self.shift(token)
+            # we only process the tokens that are within memory
             self.update_weights(self.params['MEMORY_SIZE'])
             if len(self) >= self.params['MEMORY_SIZE']:
                 # fill memory before trying to chunk
@@ -142,6 +164,11 @@ class Parse(list):
 
 
     def shift(self, token) -> None:
+        """Adds a token to memory, creating a new node in the graph if new.
+
+        If 4 or more nodes are already in memory, shifting a new token will
+        implicitly drop the least recent node from memory.
+        """
         self.log('shift: {token}'.format_map(locals()))
         try:
             node = self.graph[token]
@@ -152,12 +179,16 @@ class Parse(list):
         self.append(node)
 
     def update_weights(self, memory_size) -> None:
-        """Strengthens the connection between every adjacent pair of Nodes in memory."""
+        """Strengthens the connection between every adjacent pair of Nodes in memory.
+
+        For a pair (the, dog) we increase the weight of  the forward edge,
+        the -> dog, and the backward edge, dog -> the."""
         memory = self[-memory_size:]
         self.log('memory =', memory)
 
         # We have to make things a little more complicated to avoid
         # updating based on vectors changed in this round of updates.
+
         factor = self.params['LEARNING_RATE'] * self.params['FTP_PREFERENCE'] 
         ftp_updates = {node: (node.follow_vec * factor)
                        for node in memory[1:]}
@@ -185,7 +216,7 @@ class Parse(list):
         if len(memory) < 2:
             return  # can't chunk with less than 2 nodes
         
-        # invariant: idx is the index of the earlier Node under consideration
+        # idx is the index of the earlier Node under consideration
         chunkabilities = []
         for idx in range(len(memory) - 1):
             node = memory[idx]
@@ -195,7 +226,7 @@ class Parse(list):
             chunkabilities.append(chunkability)
         self.log('chunkabilities =', chunkabilities)
     
-        best_idx = chunkabilities.index(max(chunkabilities))
+        best_idx = np.argmax(chunkabilities)
         parse_idx = best_idx - len(memory)  # convert index in memory to index in parse
         assert parse_idx < -1  # must be an index from tail, and not the last element
 
@@ -214,7 +245,7 @@ class Parse(list):
 
 
 class Numila(object):
-    """The premier language acquisition model"""
+    """The premier language acquisition model."""
     def __init__(self, param_file='params.yml', **parameters) -> None:
         super(Numila, self,).__init__()
         # read parameters from file, overwriting with keyword arguments
@@ -243,12 +274,15 @@ class Numila(object):
         return Node(self, token_string, id_vector)
 
     def create_chunk(self, node1, node2) -> Node:
-        """Add a new chunk to the graph composed of node1 and node2."""
+        """Returns a chunk composed of node1 and node2.
+
+        This just creates a node. It does not add it to the graph."""
         chunk_string = '[{node1.string} {node2.string}]'.format_map(locals())
-        id_vector = self.vector_model.bind(node1.context_vec, node2.context_vec)
+        id_vector = self.vector_model.bind(node1.id_vector, node2.id_vector)
         return Node(self, chunk_string, id_vector)
 
     def add_node(self, node) -> None:
+        """Adds a node to the graph."""
         idx = len(self.nodes)
         node.idx = idx
         self.string_to_index[str(node)] = idx
@@ -279,15 +313,19 @@ class Numila(object):
     def chunkability(self, node1, node2) -> float:
         """How well two nodes form a chunk."""
 
-        # TODO check if the nodes already make a node?
-        # ftp looks at the filler identity vector, thus is parallel to decoding of self.params['BEAGLE']
+        # ftp looks at the filler identity vector, thus is parallel to decoding of BEAGLE
         ftp = vectors.cosine(node1.semantic_vec, node2.follow_vec)
         btp = vectors.cosine(node1.precede_vec, node2.semantic_vec)
         return (ftp + btp) / 2
 
     def decay(self) -> None:
+        """Decays all learned connections between nodes.
+
+        This is done by adding a small factor of each nodes id_vector to
+        its semantic vector, effectively making each node more similar
+        to its initial state"""
         for node in self.nodes:
-            node.decay()
+            node.semantic_vec += node.id_vector * self.params['DECAY_RATE']
 
     def speak_markov(self, **distribution_args):
         utterance = [self['#']]
@@ -304,9 +342,10 @@ class Numila(object):
 
         # combine the two chunkiest nodes into a chunk until only one node left
         while len(nodes) > 1:
-            pairs = {p: self.chunkability(*p) for p in itertools.permutations(nodes, 2)}
+            pairs = {(node, node2): self.chunkability(node, node2) 
+                     for node, node2 in itertools.permutations(nodes, 2)}
             #log('pairs:', pairs)
-            chunkiest = max(pairs, key=pairs.get)
+            chunkiest = max(pairs, key=pairs.get)  
             n1, n2 = chunkiest
             nodes.remove(n1)
             nodes.remove(n2)
@@ -318,18 +357,11 @@ class Numila(object):
 
 
     def __getitem__(self, node_string) -> Node:
-        #if node_string in self.string_to_index:
         try:
             idx = self.string_to_index[node_string]
             return self.nodes[idx]
         except KeyError:
             raise KeyError('{node_string} is not in the graph.'.format_map(locals()))
-            
-        #else:
-        #    if ' ' in node_string:
-        #        raise ValueError('{node_string} is not in the graph.'.format_map(locals()))
-        #    # node_string represents a new token, so we make a new Node for it
-        #    return self.create_token(node_string)
 
     def __contains__(self, item) -> bool:
         assert isinstance(item, str)

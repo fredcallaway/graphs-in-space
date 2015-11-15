@@ -2,13 +2,19 @@ import pytest
 from numila import *
 from vectors import *
 
+
 @pytest.fixture()
 def graph():
     graph = Numila(DIM=1000, PERCENT_NON_ZERO=.01, CHUNK_THRESHOLD=0.5)
     with open('corpora/test.txt') as corpus:
                 for i, s in enumerate(corpus.read().splitlines()):
-                    graph.parse_utterance(s)  
+                    graph.parse_utterance(s)
     return graph
+
+@pytest.fixture()
+def vector_model():
+    return VectorModel(1000, .01, 'addition')
+
 
 def test_parsing(graph):
     spanish = 'los gatos son grasos'
@@ -21,11 +27,6 @@ def test_speaking(graph):
     assert all(w in utterance for w in words)
     no_brackets = utterance.replace('[', '').replace(']', '')
     assert len(no_brackets.split()) == len(words)
-
-
-@pytest.fixture()
-def vector_model():
-    return VectorModel(1000, .01, 'addition')
 
 def test_vector_model(vector_model):
     vectors = [vector_model.sparse() for _ in range(5000)]
