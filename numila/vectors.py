@@ -10,7 +10,8 @@ class VectorModel(object):
         self.nonzero = nonzero
         
         if bind_op == 'addition':
-            self.bind_op = lambda x, y: x + y
+            from operator import add
+            self.bind_op = add
         elif bind_op == 'convolution':
             self.bind_op = cconv
         else:

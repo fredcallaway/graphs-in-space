@@ -2,6 +2,14 @@ import logging
 import re
 from typing import List
 import time
+import itertools
+
+def neighbors(iterable):
+    "s -> (s0,s1), (s1,s2), (s2, s3), ..."
+    a, b = itertools.tee(iterable)
+    next(b, None)
+    return zip(a, b)
+
 
 def get_logger(name, stream='WARNING', file='INFO'):
     log = logging.getLogger(name)
@@ -22,16 +30,14 @@ def get_logger(name, stream='WARNING', file='INFO'):
     return log
 
 
-def read_file(file_path, token_delim=' ', utt_delim='\n') -> List[List[str]]:
-    utterances = []
-    with open(file_path) as f:
+def read_corpus(file, token_delim=' ', utt_delim='\n') -> List[List[str]]:
+    with open(file) as f:
         for utterance in re.split(utt_delim, f.read()):
             if token_delim:
                 tokens = re.split(token_delim, utterance)
             else:
                 tokens = list(utterance)  # split by character
-            utterances.append(tokens)
-    return utterances
+            yield tokens
 
 
 class Timer(object):

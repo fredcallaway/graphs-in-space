@@ -89,8 +89,8 @@ def dendrogram(distance_matrix, method='complete'):
     plt.savefig('figs/dendrogram2.png')
     sns.plt.show()
 
-def heatmap(distance_matrix):
-    plt.figure(figsize=(13, 10))
+def heatmap(distance_matrix, **kwargs):
+    plt.figure(**kwargs)
     p = sns.heatmap(distance_matrix)
     p.set_xticklabels(distance_matrix.index, rotation=90)
     p.set_yticklabels(list(reversed(distance_matrix.index)), rotation=0)
