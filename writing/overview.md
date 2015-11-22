@@ -36,7 +36,7 @@ for token in utterance:
 
 3. __Update weights:__ For each pair of adjacent nodes in memory, $n_1\ n_2$, (1) increase the weight of the forward edge from $n_1$ to $n_2$, and (2) increase the weight of the backward edge from $n_2$ to $n_1$. Given this learning procedure, normalizing a node's edges will result in forward and backward transitional probabilities.
 
-4. __Chunk:__ The _chunkability_ of each pair of adjacent nodes is the average of the normalized forward edge weight from $n_1$ to $n_2$ and the normalized backward edge weight from $n_2$ to $n_1$. Recall that these edges represent forward and backward transitional probabilities, thus this metric is quantifying the degree to which each node predicts the other one. This is very similar to Barlow's principle of suspicious coincidence [@barlow90; @kolodny15]. If the pair with the highest chunkability forms a chunk, the two constituent nodes are removed from memory and replaced with the chunk. Othewrise, the oldest node in memory is removed from memory. Thus, chunking always decreases the number of nodes in memory by 1, making room for a new token to be shifted. The model only attempts to chunk when either (1) it has a full memory, or (2) there are no tokens left in the incoming utterance (code for processing the tail not shown).
+4. __Chunk:__ The _chunkability_ of each pair of adjacent nodes is the geometric mean of the normalized forward edge weight from $n_1$ to $n_2$ and the normalized backward edge weight from $n_2$ to $n_1$. Recall that these edges represent forward and backward transitional probabilities, thus this metric is quantifying the degree to which each node predicts the other one. This is very similar to Barlow's principle of suspicious coincidence [@barlow90; @kolodny15]. If the pair with the highest chunkability forms a chunk, the two constituent nodes are removed from memory and replaced with the chunk. Othewrise, the oldest node in memory is removed from memory. Thus, chunking always decreases the number of nodes in memory by 1, making room for a new token to be shifted. The model only attempts to chunk when either (1) it has a full memory, or (2) there are no tokens left in the incoming utterance (code for processing the tail not shown).
 
 ## Production
 We simulate production using a bag-of-words task [@chang08; @mccauley14a]. The model receives an unordered bag of words and must construct a parse out of these word. At each step of the iterative algorithm, the model picks the two "chunkiest" nodes in the bag, i.e. the pair that has the highest chunkability as defined above. These two nodes are removed and replaced with their chunk, reducing the size of the bag by 1. The process continues until there is only one node in the bag, which is a binary tree spanning the full utterance.
@@ -66,9 +66,9 @@ The traditional N x N adjacency matrix is replaced by an N x D matrix where D is
 
 To represent multiple edge types, we use permutations. Each edge type is assigned a random permutation vector, an _edge-vector_. To update a specific edge from node $n_1$ to $n_2$, we add the id-vector of $n_2$ permuted by the corresponding edge-vector to the row of $n_1$. Thus we can define the row for a node $n_0$ as
 
-$$ \text{row-vector}(n_0) = \sum_{e\in E} 
-                              \sum_{n \in N} P_e(\text{id-vector}(n))
-                              \cdot \text{edge-count}(e, n_0, n)
+$$ \text{row-vector}(n_0) = \sum_{e\in E} \sum_{n \in N} \Big(
+                              P_e(\text{id-vector}(n))
+                              \cdot \text{edge-count}(e, n_0, n) \Big)
 $$
 
 where $E$ is the set of edge types, $N$ is the set of nodes, $P_e$ is a permutation vector for edge $e$, $\text{id-vector}(n)$ is the id-vector of node $n$, and $\text{edge-count}(e, n_1, n_2)$ is an integer weight on the edge of type $e$ connecting $n_1$ to $n_2$^[We assume all possible edges exist with default 0 weights.]. For example, in Nümila, $\text{edge-count}(F, the, dog)$ would indicate the number of times "dog" followed "the" in the training corpus. Note that we use $F$ and $B$ to refer to forward and backward edges.
@@ -80,15 +80,15 @@ For example, here is part 1 of the __update weights__ step in graphical terms an
 We use cosine similarity to approximate normalized edge weights, (approximate and normalized because edges will interfere and compete with each other). For an edge of type $e$ connecting $n_1$ to $n_2$, we define edge-weight as
 
 $$ \text{edge-weight}(e, n_0, n) = 
-        \cos (\text{row-vector}(n_1), 
-              P_e(\text{id-vector}(n_2)))
+        \cos \big(\text{row-vector}(n_1), 
+              P_e(\text{id-vector}(n_2))\big)
 $$
 
 Intuitively, this value will be higher if the second node's permuted id-vector is a large part of the sum that defines the first node's row-vector. In Nümila, we use this measure when calculating chunkability, which we can now formally define:
 
-$$ \text{chunkability}(n_1, n_2) = \frac
-    { \cos (\text{id-vector}(n_1), P_F(\text{id-vector}(n_2))) + 
-     \cos (\text{id-vector}(n_2), P_B(\text{id-vector}(n_1))) }{2}
+$$ \text{chunkability}(n_1, n_2) = \sqrt
+    { \cos \big( \text{row-vector}(n_1), P_F(\text{id-vector}(n_2)) \big) \cdot
+      \cos \big( \text{row-vector}(n_2), P_B(\text{id-vector}(n_1)) \big) }
 $$
 
 # References
