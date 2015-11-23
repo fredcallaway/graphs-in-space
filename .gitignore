@@ -9,6 +9,9 @@ numila/numila.sublime-project
 numila/numila.sublime-workspace
 umila.sublime-project
 umila.sublime-workspace
-numila/corpora/
 numila/pickles/
 numila/.cache/
+numila/notes.md
+numila/.ipynb_checkpoints/
+misc/
+numila/corpora/
