@@ -44,6 +44,9 @@ class VectorModel(object):
         permuted_v2 = v2[self.perm2]
         return self.bind_op(permuted_v1, permuted_v2)
 
+    def permutation(self) -> np.ndarray:
+        return np.random.permutation(self.dim)
+
 
 ##cconv and ccor taken from https://github.com/mike-lawrence/wikiBEAGLE
 def cconv(a, b):

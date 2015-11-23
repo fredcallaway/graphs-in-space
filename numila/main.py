@@ -1,5 +1,5 @@
 import numpy as np
-from pandas import DataFrame
+import pandas as pd
 from scipy import stats
 import itertools
 import joblib
@@ -15,40 +15,40 @@ import vectors
 ## INSTROSPECTION  ##
 #####################
 
-def similarity_matrix(graph, round_to=None, num=None) -> DataFrame:
+def similarity_matrix(model, round_to=None, num=None) -> pd.DataFrame:
     """A distance matrix of all nodes in the graph."""
+    graph = model.graph
     if not graph.nodes:
         raise ValueError("Graph is empty, can't make distance matrix.")
     if num:
         #ind = np.argpartition(graph.counts, -num)[-num:]
         raise NotImplementedError()
-    sem_vecs = [node.semantic_vec for node in graph.nodes]
+    row_vecs = [node.row_vec for node in graph.nodes]
     num_nodes = len(graph.nodes)
     matrix = np.zeros((num_nodes, num_nodes))
     for i in range(num_nodes):
         for j in range(i, num_nodes):
-            matrix[i,j] = matrix[j,i] = vectors.cosine(sem_vecs[i], sem_vecs[j])
+            matrix[i,j] = matrix[j,i] = vectors.cosine(row_vecs[i], row_vecs[j])
     if round_to is not None:
         matrix = np.around(matrix, round_to)
 
     labels = graph.string_to_index.keys()
-    return DataFrame(matrix, 
+    return pd.DataFrame(matrix, 
                      columns=labels,
                      index=labels)
 
-
-def prediction_matrix(graph, kind='following', **distribution_args) -> DataFrame:
-    df = DataFrame({node: node.distribution(kind, **distribution_args)
-                    for node in graph.nodes})
-    df.index = df.columns = graph.string_to_index.keys()
-    return df
-
-def chunk_matrix(graph) -> DataFrame:
-    return DataFrame({n1: {n2: graph.chunkability(n1, n2) 
-                           for n2 in graph.nodes} 
-                     for n1 in graph.nodes})
+def chunk_matrix(model, nodes='all') -> pd.DataFrame:
+    if nodes is 'all':
+        nodes = model.graph.nodes
+    else:
+        nodes = (model.graph.get(node_str, None) for node_str in nodes)
+        nodes = [n for n in nodes if n is not None]
+    return pd.DataFrame({str(n1): {str(n2): model.chunkability(n1, n2) 
+                                   for n2 in nodes} 
+                        for n1 in nodes})
 
 def describe(graph, node, n=5) -> str:
+    raise NotImplementedError()
     f_vec = node.distribution('following', use_vectors=True)
     p_vec = node.distribution('preceding', use_vectors=True)
 
@@ -81,8 +81,8 @@ def describe(graph, node, n=5) -> str:
             ]).format(**locals()))
 
 
-def word_sim(graph, word1, word2):
-    return vectors.cosine(graph[word1].semantic_vec, graph[word2].semantic_vec)
+def word_sim(model, word1, word2):
+    return vectors.cosine(model.graph[word1].row_vec, model.graph[word2].row_vec)
 
 
 def make_toy_corpus():
@@ -93,7 +93,7 @@ def make_toy_corpus():
 
 
 def plot_prediction(count_predictions, vec_predictions, word):
-    the_dist = DataFrame({'count': count_predictions['the'],
+    the_dist = pd.DataFrame({'count': count_predictions['the'],
                           'vector': vec_predictions['the']})
     the_dist.plot(kind='bar')
     import seaborn as sns
@@ -104,96 +104,49 @@ def syntax_tree_link(parse):
     return 'http://mshang.ca/syntree/?i=' + query
 
 
+def node_frame(history, node, nodes):
+    df = history.minor_xs(node)
+    df['node'] = df.index
+    mdf = pd.melt(df, id_vars=['node'], var_name='utterance', value_name='chunkability')
+    return mdf[[x in nodes for x in mdf['node']]]
+
+
 #################
 ## SIMULATIONS ##
 #################
 
-def cfg_model(no_spaces=False) -> Numila:
-    graph = Numila()
+def slot_sim():
+    model, history = train(cfg_corpus(), sample_rate=None)
+
+
+def train(corpus, utterances=1000, track='all', sample_rate=100, model_params={}):
+    history = {}
+    graph = Numila(**model_params)
     with utils.Timer('train time'):
-        with open('corpora/toy2.txt') as corpus:
-            for i, s in enumerate(corpus.read().splitlines()):
-                if i % 300 == 99:
-                    plotting.heatmap(chunk_matrix(graph))
-                    #import IPython, time; IPython.embed(); time.sleep(0.5)
-                if no_spaces:
-                    s = list(s.replace(' ', ''))
-                graph.parse_utterance(s)  
-            print('trained on {i} utterances'.format_map(locals()))
-    joblib.dump(graph, 'pickles/cfg_model.pkl')
-    return graph
+        for i, s in enumerate(corpus):
+            i += 1  # index starting at 1
+            if track and i % sample_rate == 0:
+                history[i] = (chunk_matrix(graph, nodes=track))
+            if i == utterances:
+                break
+            graph.parse_utterance(s)
+        print('trained on {} utterances'.format(i))
+   
+    #joblib.dump(graph, 'pickles/cfg_model.pkl')
+    history = pd.Panel(history)
+    history.to_pickle('pickles/cfg_history.pkl')
 
-def test_cfg():
-    graph = cfg_model
-    sentences = ['Bob ate',
-                 'Jack ate the hill',
-                 'Jack ate the hill with my telescope',
-                 'the boy under the table saw my cookie',
-                 'my cookie saw Bob under the cookie',
-                 'the boy with the cookie under the table saw Jack',
-                 'the boy with the cookie saw the table under the hill',
-                 'the boy with the cookie saw the table under the hill with my telescope',
-                ]
-    
-    sentences = [s.split() for s in sentences]
-
-    print('\nPARSE')
-    for s in sentences:
-        print(graph.parse_utterance(s))
-
-    print('\nSPEAK')
-    for s in sentences:
-        print(graph.speak(s))
+    return graph, history
 
 
-        #print('\nCOUNT SPEAK')
-        #for _ in range(10):
-            #print(graph.speak_markov(use_vectors=False))
+def cfg_corpus():
+    corpus = utils.read_corpus('corpora/toy2.txt')
+    return corpus
 
-
-
-    #for e in range(6, 16, 2):
-    #    plotting.heatmaps([prediction_matrix(graph, exp=e),
-    #                       count_predictions,
-    #                       ], titles=['Vector Prediction',
-    #                                  'Count Prediction',
-    #                                  ])
-    
-    
-    #print('\nPREDICTIONS')
-    #for w in ['saw', 'the', 'telescope', '[my hill]']:
-    #    try:
-    #        node = graph[w]
-    #    except KeyError:
-    #        print(w, 'not in graph')
-    #    else:
-    #        print('\n', describe(graph, node))
-
-            #print(w, '->', node.predict())
-
-    #print('\nPARSES')
-
-    #for s in pcfg.random_sentences('toy_pcfg2.txt', 5):
-    #    parse = str(graph.parse_utterance(s))
-    #    print(parse)
-
-    #print('\nSIMULATION')
-    #s = 'the man saw Jack with the telescope'.split()
-    #parse = str(graph.parse_utterance(s, verbose=True))
-
-
-def syl():
-    graph = Numila()
-    for utt in utils.read_file('../PhillipsPearl_Corpora/English/test_sets/'
-                               'English_syllable_test1.txt', r'/| '):
-        graph.parse_utterance(utt)
-    for utt in utils.read_file('../PhillipsPearl_Corpora/English/test_sets/'
-                               'English_syllable_test2.txt', r'/| ')[:10]:
-        print(graph.parse_utterance(utt))
-
-    print(graph.chunkability(graph['vI'], graph['di']))
-    print(graph.chunkability(graph['di'], graph['o']))
-    print(graph.chunkability(graph['[vI di]'], graph['o']))
+def syl_corpus():
+    corpus = utils.read_corpus('../PhillipsPearl_Corpora/English/English-syl.txt',
+                               token_delim=r'/| ')
+    return corpus
 
 if __name__ == '__main__':
-    cfg()
+    model, history = train(cfg_corpus())
