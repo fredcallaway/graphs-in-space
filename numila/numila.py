@@ -63,14 +63,14 @@ class Numila(object):
                 else:
                     return None
 
-    def chunkability(self, node1, node2) -> float:
+    def chunkability(self, node1, node2, g=0) -> float:
         """How well two nodes form a chunk.
 
         The geometric mean of forward transitional probability and
         bakward transitional probability."""
 
-        ftp = self.graph.edge_weight('ftp', node1, node2)
-        btp = self.graph.edge_weight('btp', node2, node1)
+        ftp = self.graph.edge_weight('ftp', node1, node2, generalize=g)
+        btp = self.graph.edge_weight('btp', node2, node1, generalize=g)
         return (ftp * btp) ** 0.5
 
 

@@ -1,5 +1,4 @@
 import numpy as np
-from scipy.spatial import distance
 
 
 class VectorModel(object):
@@ -48,7 +47,7 @@ class VectorModel(object):
         return np.random.permutation(self.dim)
 
 
-##cconv and ccor taken from https://github.com/mike-lawrence/wikiBEAGLE
+# taken from https://github.com/mike-lawrence/wikiBEAGLE
 def cconv(a, b):
     """Computes the circular convolution of the vectors a and b."""
     return np.fft.ifft(np.fft.fft(a) * np.fft.fft(b)).real
@@ -57,9 +56,16 @@ def ccorr(a, b):
     """Computes the circular correlation (inverse convolution) of vectors a and b."""
     return cconv(np.roll(a[::-1], 1), b)
 
-def cosine(v1, v2) -> float:
-    return 1.0 - distance.cosine(v1, v2)
+def cosine(a,b):
+    """Computes the cosine of the angle between the vectors a and b."""
+    sum_sq_a = np.sum(a**2.0)
+    sum_sq_b = np.sum(b**2.0)
+    if sum_sq_a == 0.0 or sum_sq_b == 0.0: return 0.0
+    return np.dot(a,b) * (sum_sq_a * sum_sq_b)**-0.5
 
+def normalize(a):
+    """Normalize a vector to length 1."""
+    return a / np.sum(a**2.0)**0.5
 
 if __name__ == '__main__':
     nonzero = 0.01

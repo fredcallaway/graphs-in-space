@@ -71,10 +71,25 @@ class HoloGraph(object):
         edge_vec = node2.id_vec[self.edge_permutations[edge]]
         node1.row_vec += factor * edge_vec
 
-    def edge_weight(self, edge, node1, node2) -> float:
+    def edge_weight(self, edge, node1, node2, generalize=0.0) -> float:
         """Returns the weight of an edge from node1 to node2"""
+        row_vec = node1.row_vec
+        if generalize:
+            similarities = [vectors.cosine(node1.row_vec, node.row_vec)
+                            for node in self.nodes]
+            
+            for n, s in zip(self.nodes, similarities):
+                if s == np.nan:
+                    print(n)
+
+            #print('sim:', sum(similarities))
+            gen_vec = sum(node.row_vec * similarity
+                          for node, similarity in zip(self.nodes, similarities)
+                          if similarity > .05)  # don't waste time on low effect computation
+            row_vec += generalize * vectors.normalize(gen_vec)
+
         edge_vec = node2.id_vec[self.edge_permutations[edge]]
-        return vectors.cosine(node1.row_vec, edge_vec)
+        return vectors.cosine(row_vec, edge_vec)
 
     def decay(self) -> None:
         """Decays all learned connections between nodes.
