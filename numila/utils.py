@@ -50,3 +50,14 @@ class Timer(object):
         end = time.time()
         print("%s : %0.3f seconds" % (self.name, end-self.start))
         return False
+
+
+def flatten(lst):
+    """Returns a flat version of a list of (lists of (lists of...)) lists"""
+    assert lst is not None
+    def iterable(obj): 
+        return hasattr(obj, '__iter__') and not isinstance(obj, str)
+
+    flat_lists = [flatten(elem) if iterable(elem) else [elem]
+                  for elem in lst]
+    return list(itertools.chain.from_iterable(flat_lists))

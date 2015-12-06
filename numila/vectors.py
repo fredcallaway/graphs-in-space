@@ -1,5 +1,5 @@
 import numpy as np
-
+import numba
 
 class VectorModel(object):
     """docstring for VectorModel"""
@@ -60,8 +60,7 @@ def cosine(a,b):
     """Computes the cosine of the angle between the vectors a and b."""
     sum_sq_a = np.sum(a**2.0)
     sum_sq_b = np.sum(b**2.0)
-    if sum_sq_a == 0.0 or sum_sq_b == 0.0: return 0.0
-    return np.dot(a,b) * (sum_sq_a * sum_sq_b)**-0.5
+    return np.dot(a,b) * (sum_sq_a * sum_sq_b) ** -0.5
 
 def normalize(a):
     """Normalize a vector to length 1."""

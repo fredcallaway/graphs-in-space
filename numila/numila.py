@@ -20,7 +20,7 @@ class Numila(object):
         self.params.update(parameters)
         self.graph = HoloGraph(edges=['ftp', 'btp'], params=self.params)
 
-    def parse_utterance(self, utterance, learn=True, verbose=False):
+    def parse_utterance(self, utterance, learn=True, verbose=False) -> 'Parse':
         self.graph.decay()
         if isinstance(utterance, str):
             utterance = utterance.split(' ')
@@ -63,21 +63,26 @@ class Numila(object):
                 else:
                     return None
 
-    def chunkability(self, node1, node2, g=0) -> float:
+    def chunkability(self, node1, node2, generalize=0.0) -> float:
         """How well two nodes form a chunk.
 
         The geometric mean of forward transitional probability and
         bakward transitional probability."""
 
-        ftp = self.graph.edge_weight('ftp', node1, node2, generalize=g)
-        btp = self.graph.edge_weight('btp', node2, node1, generalize=g)
-        return (ftp * btp) ** 0.5
+        ftp = self.graph.edge_weight('ftp', node1, node2, 
+                                     generalize=self.params['GENERALIZE'])
+        btp = self.graph.edge_weight('btp', node2, node1, 
+                                     generalize=self.params['GENERALIZE'])
+        if ftp < 0 or btp < 0:
+            return 0.0
+        else:
+            return (ftp * btp) ** 0.5
 
 
-    def speak(self, words, verbose=False):
+    def speak(self, words, verbose=False) -> Node:
         log = print if verbose else lambda *args: None
-        nodes = [self.graph[w] for w in words]
-
+        nodes = [self.graph.safe_get(w) for w in words]
+        np.random.shuffle(nodes)
         # combine the two chunkiest nodes into a chunk until only one node left
         while len(nodes) > 1:
             node1, node2 = max(itertools.permutations(nodes, 2),

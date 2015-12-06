@@ -3,13 +3,13 @@ import pandas as pd
 from scipy import stats
 import itertools
 import joblib
-
+from collections import Counter
 from numila import Numila
-import pcfg
 import plotting
 import utils
 import vectors
 
+import re
 
 #####################
 ## INSTROSPECTION  ##
@@ -85,12 +85,6 @@ def word_sim(model, word1, word2):
     return vectors.cosine(model.graph[word1].row_vec, model.graph[word2].row_vec)
 
 
-def make_toy_corpus():
-    with open('corpora/toy2.txt', 'w+') as f:
-        for sent in pcfg.random_sentences('toy_pcfg2.txt', 1000):
-            f.write(' '.join(sent))
-            f.write('\n')
-
 
 def plot_prediction(count_predictions, vec_predictions, word):
     the_dist = pd.DataFrame({'count': count_predictions['the'],
@@ -111,6 +105,29 @@ def node_frame(history, node, nodes):
     return mdf[[x in nodes for x in mdf['node']]]
 
 
+def flatten_parse(parse):
+    no_brackets = re.sub(r'[()[\]]', '', str(parse))
+    return no_brackets.split(' ')
+
+
+def common_neighbor_metric(lst1, lst2):
+    """Number of common neighbors in each list."""
+    assert len(lst1) == len(lst2)
+    pairs1 = Counter(utils.neighbors(lst1))
+    pairs2 = Counter(utils.neighbors(lst2))
+    return sum((pairs1 & pairs2).values()) / sum(pairs1.values())
+
+
+def evaluate_model(model, test):
+    scores = []
+    for adult_utt in test:
+        if len(adult_utt) > 1:  # can't evaluate a one word utterance
+            model_utt = flatten_parse(model.speak(adult_utt))
+            scores.append(common_neighbor_metric(model_utt, adult_utt))
+    return scores
+
+
+
 #################
 ## SIMULATIONS ##
 #################
@@ -119,7 +136,7 @@ def slot_sim():
     model, history = train(cfg_corpus(), sample_rate=None)
 
 
-def train(corpus, utterances=1000, track='all', sample_rate=100, model_params={}):
+def train(corpus, utterances=None, track=None, sample_rate=100, model_params={}):
     history = {}
     graph = Numila(**model_params)
     with utils.Timer('train time'):
@@ -132,9 +149,7 @@ def train(corpus, utterances=1000, track='all', sample_rate=100, model_params={}
             graph.parse_utterance(s)
         print('trained on {} utterances'.format(i))
    
-    #joblib.dump(graph, 'pickles/cfg_model.pkl')
     history = pd.Panel(history)
-    history.to_pickle('pickles/cfg_history.pkl')
 
     return graph, history
 

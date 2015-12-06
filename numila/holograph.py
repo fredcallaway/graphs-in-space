@@ -1,4 +1,4 @@
-from collections import OrderedDict
+from collections import Counter, defaultdict, OrderedDict
 import itertools
 from typing import Dict, List
 import numpy as np
@@ -53,6 +53,9 @@ class HoloGraph(object):
         self.edge_permutations = {edge: self.vector_model.permutation()
                                   for edge in edges}
 
+        self._edge_counts = {edge: defaultdict(Counter)
+                             for edge in edges}
+
     def create_node(self, id_string, id_vec=None) -> Node:
         """Returns a node."""
         if id_vec is None:
@@ -70,22 +73,17 @@ class HoloGraph(object):
         """Increases the weight of an edge from node1 to node2."""
         edge_vec = node2.id_vec[self.edge_permutations[edge]]
         node1.row_vec += factor * edge_vec
+        self._edge_counts[edge][node1.id_string][node2.id_string] += 1
 
     def edge_weight(self, edge, node1, node2, generalize=0.0) -> float:
         """Returns the weight of an edge from node1 to node2"""
-        row_vec = node1.row_vec
+        row_vec = np.copy(node1.row_vec)
         if generalize:
-            similarities = [vectors.cosine(node1.row_vec, node.row_vec)
-                            for node in self.nodes]
+            gen_vec = np.zeros(len(node1.row_vec))
+            for node in self.nodes:
+                similarity = vectors.cosine(node1.row_vec, node.row_vec)
+                gen_vec += node.row_vec * similarity
             
-            for n, s in zip(self.nodes, similarities):
-                if s == np.nan:
-                    print(n)
-
-            #print('sim:', sum(similarities))
-            gen_vec = sum(node.row_vec * similarity
-                          for node, similarity in zip(self.nodes, similarities)
-                          if similarity > .05)  # don't waste time on low effect computation
             row_vec += generalize * vectors.normalize(gen_vec)
 
         edge_vec = node2.id_vec[self.edge_permutations[edge]]
@@ -119,11 +117,12 @@ class HoloGraph(object):
         except KeyError:
             raise KeyError('{node_string} is not in the graph.'.format_map(locals()))
 
-    def get(self, node_string, default=None):
+    def safe_get(self, node_string):
+        """Returns the node, creating it if necessary."""
         try:
             return self[node_string]
         except:
-            return default
+            return self.create_node(node_string)
 
     def __contains__(self, node_string) -> bool:
         assert isinstance(node_string, str)

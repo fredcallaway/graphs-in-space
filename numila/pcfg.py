@@ -1,9 +1,9 @@
-import itertools
+import utils
 
 from nltk.grammar import PCFG
 from nltk.probability import DictionaryProbDist
 
-
+# modified function from NLTK
 def generate(grammar, n, start=None, depth=5):
     """Yields n sentences from the distribution defined by a grammar.
 
@@ -43,24 +43,16 @@ def generate(grammar, n, start=None, depth=5):
         yield sent
 
 
-def flatten(lst):
-    """Returns a flat version of a list of (lists of (lists of...)) lists"""
-    assert lst is not None
-    def iterable(obj): 
-        return hasattr(obj, '__iter__') and not isinstance(obj, str)
-    if not any(iterable(elem) for elem in lst):
-        return lst
-    else:
-        flat_lists = [flatten(elem) if iterable(elem) else [elem]
-                      for elem in lst]
-        return list(itertools.chain(*flat_lists))
+def flatten_parse(parse):
+    """A flat list of the words in a parse."""
+    no_brackets = re.sub(r'[()[\]]', '', str(parse))
+    return no_brackets.split(' ')
 
 
-def random_sentences(grammar_file, n):
-    with open(grammar_file) as f:
-        grammar = PCFG.fromstring(f.read())
+def random_sentences(grammar_string, n):
+    grammar = PCFG.fromstring(grammar_string)
     for tree in generate(grammar, n, depth=5):
-        yield flatten(tree)
+        yield ' '.join(utils.flatten(tree))
 
 
 def draw_tree(tree_string):
@@ -77,7 +69,8 @@ def draw_tree(tree_string):
     cf.destroy
 
 if __name__ == '__main__':
-    print('\n\n')
-    print(flatten([[[1,2], 3], [4,[5,6]]]))
-    for s in random_sentences('tiny_pcfg.txt', 5):
-        print(s)
+    with open('corpora/toy_pcfg2.txt') as f:
+        grammar = f.read()
+    with open('corpora/toy2.txt', 'w+') as f:
+        for s in random_sentences(grammar, 1000):
+            f.write(' '.join(s) + '\n')
