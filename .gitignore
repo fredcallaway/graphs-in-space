@@ -12,6 +12,6 @@ umila.sublime-workspace
 numila/pickles/
 numila/.cache/
 numila/notes.md
-numila/notebooks/.ipynb_checkpoints/
-misc/
 numila/corpora/
+misc/
+notebooks/.ipynb_checkpoints/
