@@ -41,7 +41,7 @@ def chunk_matrix(model, nodes='all') -> pd.DataFrame:
     if nodes is 'all':
         nodes = model.graph.nodes
     else:
-        nodes = (model.graph.get(node_str, None) for node_str in nodes)
+        nodes = (model.graph.safe_get(node_str) for node_str in nodes)
         nodes = [n for n in nodes if n is not None]
     return pd.DataFrame({str(n1): {str(n2): model.chunkability(n1, n2) 
                                    for n2 in nodes} 
@@ -110,20 +110,41 @@ def flatten_parse(parse):
     return no_brackets.split(' ')
 
 
+def exactly_equal_metric(lst1, lst2):
+    """1 if the lists are the same, otherwise 0"""
+    return 1 if lst1 == lst2 else 0
+
 def common_neighbor_metric(lst1, lst2):
-    """Number of common neighbors in each list."""
-    assert len(lst1) == len(lst2)
+    """The percentage of adjacent pairs that are shared in two lists.
+    Note that the metric is sensitive to the number of times a given
+    pair occurs in each list.
+    
+    [1,2,3] [3,1,2] -> 0.5
+    [1,2,3,1,2], [1,2,2,3,1] -> 0.75
+    """
     pairs1 = Counter(utils.neighbors(lst1))
     pairs2 = Counter(utils.neighbors(lst2))
-    return sum((pairs1 & pairs2).values()) / sum(pairs1.values())
+    num_shared = sum((pairs1 & pairs2).values())
+    possible = sum(pairs1.values())
+    return num_shared / possible
 
+def evaluate_model(model, test_corpus, metric_func):
+    """Evaluates a model's performance on a test corpus based on a given metric.
+    
+    metric_func takes in two lists and returns a number between 0 and 1
+    quantifying the similarity between the two lists.
 
-def evaluate_model(model, test):
+    Returns a list of metric scores comparing an adult utterance to
+    the model's reconstruction of that utterance from a
+    scrambeled "bag of words" version of the utterance.
+    """
+    # TODO: break down scores by list length
     scores = []
-    for adult_utt in test:
+    for adult_utt in test_corpus:
         if len(adult_utt) > 1:  # can't evaluate a one word utterance
-            model_utt = flatten_parse(model.speak(adult_utt))
-            scores.append(common_neighbor_metric(model_utt, adult_utt))
+            parse = model.speak(adult_utt)
+            model_utt = utils.flatten_parse(parse)
+            scores.append(metric_func(model_utt, adult_utt))
     return scores
 
 

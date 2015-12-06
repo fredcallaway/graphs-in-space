@@ -61,3 +61,9 @@ def flatten(lst):
     flat_lists = [flatten(elem) if iterable(elem) else [elem]
                   for elem in lst]
     return list(itertools.chain.from_iterable(flat_lists))
+
+
+def flatten_parse(parse):
+    """A flat list of the words in a parse."""
+    no_brackets = re.sub(r'[()[\]]', '', str(parse))
+    return no_brackets.split(' ')

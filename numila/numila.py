@@ -81,7 +81,7 @@ class Numila(object):
 
     def speak(self, words, verbose=False) -> Node:
         log = print if verbose else lambda *args: None
-        nodes = [self.graph.safe_get(w) for w in words]
+        nodes = [self.graph.force_get(w) for w in words]
         np.random.shuffle(nodes)
         # combine the two chunkiest nodes into a chunk until only one node left
         while len(nodes) > 1:

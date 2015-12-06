@@ -5,9 +5,8 @@ from vectors import *
 
 @pytest.fixture()
 def numila():
-    assert False
     numila = Numila(DIM=1000, PERCENT_NON_ZERO=.01, CHUNK_THRESHOLD=0.5)
-    with open('corpora/test.txt') as corpus:
+    with open('corpora/toy2.txt') as corpus:
                 for i, s in enumerate(corpus.read().splitlines()):
                     numila.parse_utterance(s)
     return numila

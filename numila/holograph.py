@@ -78,6 +78,7 @@ class HoloGraph(object):
     def edge_weight(self, edge, node1, node2, generalize=0.0) -> float:
         """Returns the weight of an edge from node1 to node2"""
         row_vec = np.copy(node1.row_vec)
+        row_vec /= np.sum(row_vec ** 2)
         if generalize:
             gen_vec = np.zeros(len(node1.row_vec))
             for node in self.nodes:
@@ -110,19 +111,26 @@ class HoloGraph(object):
         distribution **= exp  # accentuate differences
         return distribution / np.sum(distribution)
 
+    def force_get(self, node_string):
+        """Returns the node, creating it if necessary."""
+        try:
+            return self[node_string]
+        except KeyError:
+            return self.create_node(node_string)
+
+    def safe_get(self, node_string):
+        """Returns the node if it exists, else None."""
+        try:
+            return self[node_string]
+        except KeyError:
+            return None
+
     def __getitem__(self, node_string) -> Node:
         try:
             idx = self.string_to_index[node_string]
             return self.nodes[idx]
         except KeyError:
             raise KeyError('{node_string} is not in the graph.'.format_map(locals()))
-
-    def safe_get(self, node_string):
-        """Returns the node, creating it if necessary."""
-        try:
-            return self[node_string]
-        except:
-            return self.create_node(node_string)
 
     def __contains__(self, node_string) -> bool:
         assert isinstance(node_string, str)

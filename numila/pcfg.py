@@ -43,12 +43,6 @@ def generate(grammar, n, start=None, depth=5):
         yield sent
 
 
-def flatten_parse(parse):
-    """A flat list of the words in a parse."""
-    no_brackets = re.sub(r'[()[\]]', '', str(parse))
-    return no_brackets.split(' ')
-
-
 def random_sentences(grammar_string, n):
     grammar = PCFG.fromstring(grammar_string)
     for tree in generate(grammar, n, depth=5):
