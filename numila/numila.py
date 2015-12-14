@@ -5,12 +5,18 @@ import numpy as np
 import yaml
 import utils
 
-from holograph import HoloGraph, Node
+import holograph
 
 
 LOG = utils.get_logger(__name__, stream='INFO', file='WARNING')
 
-
+class Node(holograph.HoloNode):
+    """A node in Numila's graph."""
+    def __init__(self, graph, id_string, id_vec=None):
+        super().__init__(graph, id_string, id_vec)
+        self.head_chunks = set()
+        self.tail_chunks = set()
+        
 class Numila(object):
     """The premier language acquisition model."""
     def __init__(self, param_file='params.yml', **parameters) -> None:
@@ -18,7 +24,7 @@ class Numila(object):
         with open(param_file) as f:
             self.params = yaml.load(f.read())
         self.params.update(parameters)
-        self.graph = HoloGraph(edges=['ftp', 'btp'], params=self.params)
+        self.graph = holograph.HoloGraph(edges=['ftp', 'btp'], params=self.params)
 
     def parse_utterance(self, utterance, learn=True, verbose=False) -> 'Parse':
         self.graph.decay()
@@ -39,7 +45,7 @@ class Numila(object):
         # We break violate the modularity of HoloGraph here in order
         # to get compositional structure in the id_vectors.
         id_vec = self.graph.vector_model.bind(node1.id_vec, node2.id_vec)
-        return self.graph.create_node(chunk_id_string, id_vec)
+        return Node(self.graph, chunk_id_string, id_vec=id_vec)
 
     def get_chunk(self, node1, node2, force=False) -> Node:
         """Returns a chunk of node1 and node2 if the chunk is in the graph.
@@ -133,30 +139,32 @@ class Parse(list):
 
 
     def shift(self, token) -> None:
-        """Adds a token to memory, creating a new node in the graph if new.
+        """Adds a token to memory.
 
-        If 4 or more nodes are already in memory, shifting a new token will
-        implicitly drop the least recent node from memory.
+        This method can only be called when there is an empty slot in
+        memory. If token has never been seen, this method creates a new
+        node in the graph for it.
         """
         assert len(self.memory) < self.memory.maxlen
-
         self.log('shift: {token}'.format_map(locals()))
+
         try:
             node = self.graph[token]
         except KeyError:  # a new token
-            node = self.graph.create_node(token)
+            node = Node(self.graph, token)
             if self.learn:
                 self.graph.add_node(node)
+
         self.memory.append(node)
+        self.log('memory =', self.memory)
 
     def update_weights(self) -> None:
-        """Strengthens the connection between every adjacent pair of Nodes in memory.
+        """Strengthens the connection between every adjacent pair of nodes in memory.
 
         For a pair (the, dog) we increase the weight of  the forward edge,
         the -> dog, and the backward edge, dog -> the."""
         if not self.learn:
             return
-        self.log('memory =', self.memory)
 
         ftp_factor = self.params['LEARNING_RATE'] * self.params['FTP_PREFERENCE'] 
         btp_factor = self.params['LEARNING_RATE'] * (1 - self.params['FTP_PREFERENCE']) 
@@ -182,15 +190,16 @@ class Parse(list):
             self.append(self.memory.popleft())
             return
         
+        # Find the pair of adjacent nodes with highest chunkability.
         chunkabilities = [self.model.chunkability(node, next_node)
                           for node, next_node in utils.neighbors(self.memory)]
         self.log('chunkabilities =', chunkabilities)
         best_idx = np.argmax(chunkabilities)
-
         chunk = self.model.get_chunk(self.memory[best_idx], self.memory[best_idx+1])
+
         if chunk:
             # combine the two nodes into one chunk
-            self.log(('  -> create chunk: {chunk}').format_map(locals()))
+            self.log('  -> create chunk: {chunk}'.format_map(locals()))
             self.memory[best_idx] = chunk
             del self.memory[best_idx+1]
         else:  # can't make a chunk

@@ -10,18 +10,22 @@ LOG = utils.get_logger(__name__, stream='INFO', file='WARNING')
 
 COUNT = 0
 
-class Node(object):
-    """A Node in a graph.
+class HoloNode(object):
+    """A node in a HoloGraph
 
     Attributes:
         string: e.g. [the [big dog]]
         idx: an int identifier
         id_vec: a random sparse vector that never changes
     """
-    def __init__(self, graph, id_string, id_vec) -> None:
+    def __init__(self, graph, id_string, id_vec=None) -> None:
+        self.graph = graph
         self.id_string = id_string
-        self.idx = None  # set when the Node is added to graph
-        self.id_vec = id_vec
+        self.idx = None  # set when the node is added to graph
+        if id_vec is not None:
+            self.id_vec = id_vec
+        else:
+            self.id_vec = self.graph.vector_model.sparse()
         self.row_vec = np.copy(self.id_vec)
 
     def __hash__(self) -> int:
@@ -55,12 +59,6 @@ class HoloGraph(object):
 
         self._edge_counts = {edge: defaultdict(Counter)
                              for edge in edges}
-
-    def create_node(self, id_string, id_vec=None) -> Node:
-        """Returns a node."""
-        if id_vec is None:
-            id_vec = self.vector_model.sparse()
-        return Node(self, id_string, id_vec)
 
     def add_node(self, node) -> None:
         """Adds a node to the graph."""
@@ -116,7 +114,7 @@ class HoloGraph(object):
         try:
             return self[node_string]
         except KeyError:
-            return self.create_node(node_string)
+            return HoloNode(self, node_string)
 
     def safe_get(self, node_string):
         """Returns the node if it exists, else None."""
@@ -125,7 +123,7 @@ class HoloGraph(object):
         except KeyError:
             return None
 
-    def __getitem__(self, node_string) -> Node:
+    def __getitem__(self, node_string) -> HoloNode:
         try:
             idx = self.string_to_index[node_string]
             return self.nodes[idx]
