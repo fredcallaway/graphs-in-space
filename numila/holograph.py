@@ -1,4 +1,5 @@
 from collections import Counter, defaultdict, OrderedDict
+from functools import lru_cache
 import itertools
 from typing import Dict, List
 import numpy as np
@@ -27,6 +28,20 @@ class HoloNode(object):
         else:
             self.id_vec = self.graph.vector_model.sparse()
         self.row_vec = np.copy(self.id_vec)
+
+    def bump_edge(self, edge, node, factor) -> None:
+        """Increases the weight of an edge to another node."""
+        edge_vec = node.id_vec[self.graph.edge_permutations[edge]]
+        self.row_vec += factor * edge_vec
+        
+        self.graph._edge_counts[edge][self.id_string][node.id_string] += 1
+        self.edge_weight.cache_clear()
+
+    @lru_cache(maxsize=None)
+    def edge_weight(self, edge, node) -> float:
+        """Returns the weight of an edge to another node."""
+        edge_vec = node.id_vec[self.graph.edge_permutations[edge]]
+        return vectors.cosine(self.row_vec, edge_vec)
 
     def __hash__(self) -> int:
         if self.idx is not None:
@@ -67,27 +82,6 @@ class HoloGraph(object):
         self.string_to_index[str(node)] = idx
         self.nodes.append(node)
 
-    def bump_edge(self, edge, node1, node2, factor) -> None:
-        """Increases the weight of an edge from node1 to node2."""
-        edge_vec = node2.id_vec[self.edge_permutations[edge]]
-        node1.row_vec += factor * edge_vec
-        self._edge_counts[edge][node1.id_string][node2.id_string] += 1
-
-    def edge_weight(self, edge, node1, node2, generalize=0.0) -> float:
-        """Returns the weight of an edge from node1 to node2"""
-        row_vec = np.copy(node1.row_vec)
-        row_vec /= np.sum(row_vec ** 2)
-        if generalize:
-            gen_vec = np.zeros(len(node1.row_vec))
-            for node in self.nodes:
-                similarity = vectors.cosine(node1.row_vec, node.row_vec)
-                gen_vec += node.row_vec * similarity
-            
-            row_vec += generalize * vectors.normalize(gen_vec)
-
-        edge_vec = node2.id_vec[self.edge_permutations[edge]]
-        return vectors.cosine(row_vec, edge_vec)
-
     def decay(self) -> None:
         """Decays all learned connections between nodes.
 
@@ -97,31 +91,12 @@ class HoloGraph(object):
         for node in self.nodes:
             node.row_vec += node.id_vec * self.params['DECAY_RATE']
 
-    def distribution(self, node, edge, exp=1):
-        """A statistical distribution defined by this nodes edges.
-
-        This is used for introspection and `speak_markov` thus it
-        is not part of the core of the model"""
-        edges = [self.graph.edge_weight(edge, node, node2)
-                 for node2 in self.nodes]
-
-        distribution = (np.array(edges) + 1.0) / 2.0  # probabilites must be non-negative
-        distribution **= exp  # accentuate differences
-        return distribution / np.sum(distribution)
-
-    def force_get(self, node_string):
-        """Returns the node, creating it if necessary."""
+    def get(self, node_string, default=None):
+        """Returns the node if it's in the graph, else `default`."""
         try:
             return self[node_string]
         except KeyError:
-            return HoloNode(self, node_string)
-
-    def safe_get(self, node_string):
-        """Returns the node if it exists, else None."""
-        try:
-            return self[node_string]
-        except KeyError:
-            return None
+            return default
 
     def __getitem__(self, node_string) -> HoloNode:
         try:

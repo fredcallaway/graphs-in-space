@@ -141,6 +141,7 @@ def evaluate_model(model, test_corpus, metric_func):
     # TODO: break down scores by list length
     scores = []
     for adult_utt in test_corpus:
+        # TODO handle this better
         if len(adult_utt) > 1:  # can't evaluate a one word utterance
             parse = model.speak(adult_utt)
             model_utt = utils.flatten_parse(parse)
