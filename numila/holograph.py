@@ -12,7 +12,11 @@ LOG = utils.get_logger(__name__, stream='INFO', file='WARNING')
 COUNT = 0
 
 class HoloNode(object):
-    """A node in a HoloGraph
+    """A node in a HoloGraph.
+
+    Note that all HoloNodes must have a parent HoloGraph. However, they
+    do not necessarily need to be in the graph as such.
+
 
     Attributes:
         string: e.g. [the [big dog]]
@@ -39,9 +43,16 @@ class HoloNode(object):
 
     @lru_cache(maxsize=None)
     def edge_weight(self, edge, node) -> float:
-        """Returns the weight of an edge to another node."""
+        """Returns the weight of an edge to another node.
+
+        Between 0 and 1 inclusive.
+        """
         edge_vec = node.id_vec[self.graph.edge_permutations[edge]]
-        return vectors.cosine(self.row_vec, edge_vec)
+        weight = vectors.cosine(self.row_vec, edge_vec)
+        if weight < 0:
+            return 0.0
+        else:
+            return weight
 
     def __hash__(self) -> int:
         if self.idx is not None:
@@ -104,7 +115,7 @@ class HoloGraph(object):
             return self.nodes[idx]
         except KeyError:
             raise KeyError('{node_string} is not in the graph.'.format_map(locals()))
-
+ 
     def __contains__(self, node_string) -> bool:
         assert isinstance(node_string, str)
         return node_string in self.string_to_index
