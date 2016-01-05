@@ -17,7 +17,6 @@ class HoloNode(object):
     Note that all HoloNodes must have a parent HoloGraph. However, they
     do not necessarily need to be in the graph as such.
 
-
     Attributes:
         string: e.g. [the [big dog]]
         idx: an int identifier
@@ -69,7 +68,9 @@ class HoloNode(object):
 
 class HoloGraph(object):
     """A graph represented with high dimensional sparse vectors."""
-    def __init__(self, edges, params) -> None:
+    Node = HoloNode
+
+    def __init__(self, edges, params):
         # read parameters from file, overwriting with keyword arguments
         self.params = params
         self.vector_model = vectors.VectorModel(self.params['DIM'],
@@ -86,14 +87,14 @@ class HoloGraph(object):
         self._edge_counts = {edge: defaultdict(Counter)
                              for edge in edges}
 
-    def add_node(self, node) -> None:
+    def add_node(self, node):
         """Adds a node to the graph."""
         idx = len(self.nodes)
         node.idx = idx
         self.string_to_index[str(node)] = idx
         self.nodes.append(node)
 
-    def decay(self) -> None:
+    def decay(self):
         """Decays all learned connections between nodes.
 
         This is done by adding a small factor of each nodes id_vec to
@@ -109,13 +110,13 @@ class HoloGraph(object):
         except KeyError:
             return default
 
-    def __getitem__(self, node_string) -> HoloNode:
+    def __getitem__(self, node_string):
         try:
             idx = self.string_to_index[node_string]
             return self.nodes[idx]
         except KeyError:
             raise KeyError('{node_string} is not in the graph.'.format_map(locals()))
  
-    def __contains__(self, node_string) -> bool:
+    def __contains__(self, node_string):
         assert isinstance(node_string, str)
         return node_string in self.string_to_index

@@ -5,17 +5,12 @@ import utils
 LOG = utils.get_logger(__name__, stream='INFO', file='WARNING')
 
 
-class Node(object):
-    """A node in a HoloGraph.
-
-    Note that all HoloNodes must have a parent HoloGraph. However, they
-    do not necessarily need to be in the graph as such.
-
+class ProbNode(object):
+    """A node in a ProbGraph.
 
     Attributes:
         string: e.g. [the [big dog]]
         idx: an int identifier
-        id_vec: a random sparse vector that never changes
     """
     def __init__(self, graph, id_string) -> None:
         self.graph = graph
@@ -51,8 +46,9 @@ class Node(object):
         return self.id_string
 
 
-class Graph(object):
-    """A graph represented with high dimensional sparse vectors."""
+class ProbGraph(object):
+    Node = ProbNode
+    """A graph for which outgoing edges from one Node sum to 1 or 0."""
     def __init__(self, edges, params) -> None:
         # read parameters from file, overwriting with keyword arguments
         self.params = params
@@ -73,10 +69,7 @@ class Graph(object):
         self.nodes.append(node)
 
     def decay(self) -> None:
-        """Decays all learned connections between nodes.
-
-        This is done by subtracting a small constant from each edge weight.
-        Non-positive weighted edges are deleted."""
+        """Decays all learned connections between nodes."""
         for edge_type in self.edge_counts:
             for node1, edges in self.edge_counts[edge_type].items():
                 for node2 in edges:

@@ -1,66 +1,51 @@
-from collections import Counter, OrderedDict, deque
+from collections import deque
 import itertools
-from functools import lru_cache
-from typing import Dict, List
 import numpy as np
 import yaml
 import utils
 
-import holograph
 
 LOG = utils.get_logger(__name__, stream='INFO', file='INFO')
 
 HACK = {}
 
 
-class Node(holograph.HoloNode):
-    """A node in Numila's graph."""
-    def __init__(self, model, id_string, id_vec=None):
-        super().__init__(model.graph, id_string, id_vec)
-        self.followers = set()  # TODO document
-        self.predecessors = set()
-
-
-class Chunk(Node):
-    """A chunk of two nodes."""
-    def __init__(self, model, node1, node2):
-        self.model = model
-        self.child1 = node1
-        self.child2 = node2
-
-        # A chunk's id_string is determined by its constituents id_strings,
-        # allowing us to quickly find a chunk given its constituents.
-        chunk_id_string = '[{node1.id_string} {node2.id_string}]'.format_map(locals())
-
-        # We violate the modularity of HoloGraph here in order
-        # to get compositional structure in the id_vectors.
-        id_vec = model.graph.vector_model.bind(node1.id_vec, node2.id_vec)
-
-        super().__init__(model, chunk_id_string, id_vec=id_vec)
-
-    def chunkiness(self, generalize=None) -> float:
-        """How well two nodes form a chunk.
-
-        The geometric mean of forward transitional probability and
-        bakward transitional probability.
-        """
-        return self.model.chunkability(self.child1, self.child2, generalize=generalize)
-
-
 class Numila(object):
     """The premier language acquisition model."""
-    def __init__(self, param_file='params.yml', **parameters) -> None:
-        LOG.info('parameters: %s', parameters)
+    def __init__(self, param_file='params.yml', **params) -> None:
+        LOG.info('parameters: %s', params)
 
-        # Read default parameters from file, overwriting with keyword arguments.
+        # Read default params from file, overwriting with keyword arguments.
         with open(param_file) as f:
             self.params = yaml.load(f.read())
-        assert(all(k in self.params for k in parameters))
-        self.params.update(parameters)
-        
-        self.graph = holograph.HoloGraph(edges=['ftp', 'btp'], params=self.params)
+        assert(all(k in self.params for k in params))
+        self.params.update(params)
 
-    def parse_utterance(self, utterance, learn=True, verbose=False) -> 'Parse':
+        # The GRAPH parameter determines which implementation of a Graph
+        # this Numila instance should use. Thus, Numila is a class that
+        # is parameterized by another class, similarly to how a functor
+        # in OCaml is a module parameterized by another module.
+        graph = self.params['GRAPH'].lower()
+        if graph == 'holograph':
+            from holograph import HoloGraph
+            Graph = HoloGraph
+        elif graph == 'probgraph':
+            from probgraph import ProbGraph
+            Graph = ProbGraph
+        else:
+            raise ValueError('Invalid GRAPH parameter: {}'.format(self.params['GRAPH']))
+        
+        self.graph = Graph(edges=['ftp', 'btp'], params=self.params)
+
+        # This is kind of crazy. Each Numila instance has its own Node and
+        # Chunk classes. These two classes both inherit from the Node class
+        # of the graph. We must use simple helper functions to allow for
+        # this kind of dynamic inheritance.
+        self.Node = make_node_class(Graph.Node)
+        self.Chunk = make_chunk_class(self.Node)
+
+
+    def parse_utterance(self, utterance, learn=True, verbose=False):
         """Returns a Parse of the given utterance."""
         self.graph.decay()
         if isinstance(utterance, str):
@@ -69,13 +54,13 @@ class Numila(object):
             utterance = ['#'] + utterance + ['#']
         return Parse(self, utterance, learn=learn, verbose=verbose)
 
-    def fit(self, training_corpus) -> 'Numila':
-        with utils.Timer('Trained on %s utterances' % len(training_corpus), LOG.info):
+    def fit(self, training_corpus):
+        with utils.Timer('Numila train time'):
             for utt in training_corpus:
                 self.parse_utterance(utt)
             return self
 
-    def get_chunk(self, node1, node2, stored_only=True) -> 'Node':
+    def get_chunk(self, node1, node2, stored_only=True):
         """Returns a chunk of node1 and node2 if the chunk is in the graph.
 
         If stored_only is True, we only return the desired chunk if it
@@ -97,7 +82,7 @@ class Numila(object):
             if node2.id_string in self.graph and node2 is not self.graph[node2.id_string]:
                 LOG.warning('Fixing a chunk node')
                 node2 = self.graph[node2.id_string]
-            chunk = Chunk(self, node1, node2)
+            chunk = self.Chunk(self, node1, node2)
             return chunk
 
     def add_chunk(self, chunk):
@@ -116,7 +101,7 @@ class Numila(object):
 
         LOG.debug('new chunk: %s', chunk)
 
-    def chunkability(self, node1, node2, generalize=None) -> float:
+    def chunkability(self, node1, node2, generalize=None):
         """How well two nodes form a chunk.
 
         The geometric mean of forward transitional probability and
@@ -149,7 +134,7 @@ class Numila(object):
                 return self.graph[token]
             except KeyError:
                 LOG.info('Unknown token seen while speaking.')
-                return Node(self, token)
+                return self.Node(self, token)
         nodes = [get_node(w) for w in words]
 
         # combine the two chunkiest nodes into a chunk until only one node left
@@ -216,7 +201,7 @@ class Parse(list):
         try:
             node = self.graph[token]
         except KeyError:  # a new token
-            node = Node(self.model, token)
+            node = self.model.Node(self.model, token)
             if self.learn:
                 self.graph.add_node(node)
 
@@ -308,3 +293,45 @@ class Parse(list):
 
     def __str__(self):
         return self.__repr__()
+
+
+def make_node_class(BaseNode):
+    
+    class Node(BaseNode):
+        """A node in Numila's graph."""
+        def __init__(self, model, id_string):
+            super().__init__(model.graph, id_string)
+            self.followers = set()  # TODO document
+            self.predecessors = set()
+
+    return Node
+
+
+def make_chunk_class(Node):
+
+    class Chunk(Node):
+        """A chunk of two nodes."""
+        def __init__(self, model, node1, node2):
+            self.model = model
+            self.child1 = node1
+            self.child2 = node2
+
+            # A chunk's id_string is determined by its constituents id_strings,
+            # allowing us to quickly find a chunk given its constituents.
+            chunk_id_string = '[{node1.id_string} {node2.id_string}]'.format_map(locals())
+
+            # We violate the modularity of HoloGraph here in order
+            # to get compositional structure in the id_vectors.
+            #id_vec = model.graph.vector_model.bind(node1.id_vec, node2.id_vec)
+
+            super().__init__(model, chunk_id_string)
+
+        def chunkiness(self, generalize=None) -> float:
+            """How well two nodes form a chunk.
+
+            The geometric mean of forward transitional probability and
+            bakward transitional probability.
+            """
+            return self.model.chunkability(self.child1, self.child2, generalize=generalize)
+
+    return Chunk

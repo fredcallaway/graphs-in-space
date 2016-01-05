@@ -19,6 +19,13 @@ def test_simple():
     assert parse
 
 
+def test_prob():
+    corpus = utils.read_corpus('corpora/test.txt')
+    numila = Numila(DIM=1000, ADD_BOUNDARIES=False, GRAPH='probgraph').fit(corpus)
+    parse = numila.parse_utterance('the boy ate the boy')
+    assert parse
+
+
 def test_generalization():
     return
     numila = Numila(DIM=100, GENERALIZE=0.1, ADD_BOUNDARIES=False).fit(main.cfg_corpus(n=100))
