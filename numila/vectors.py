@@ -60,7 +60,9 @@ def cosine(a,b):
     """Computes the cosine of the angle between the vectors a and b."""
     sum_sq_a = np.sum(a**2.0)
     sum_sq_b = np.sum(b**2.0)
-    return np.dot(a,b) * (sum_sq_a * sum_sq_b) ** -0.5
+    result = np.dot(a,b) * (sum_sq_a * sum_sq_b) ** -0.5
+    assert -1 <= result <= 1
+    return result
 
 def normalize(a):
     """Normalize a vector to length 1."""

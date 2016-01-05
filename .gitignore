@@ -15,3 +15,5 @@ numila/notes.md
 numila/corpora/
 misc/
 notebooks/.ipynb_checkpoints/
+numila/.pytest/
+numila/.ipynb_checkpoints/

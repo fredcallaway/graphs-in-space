@@ -30,9 +30,12 @@ def get_logger(name, stream='WARNING', file='INFO'):
     return log
 
 
-def read_corpus(file, token_delim=' ', utt_delim='\n') -> List[List[str]]:
+def read_corpus(file, token_delim=' ', utt_delim='\n', num_utterances=None) -> List[List[str]]:
+    """A list of lists of tokens in a corpus"""
     with open(file) as f:
-        for utterance in re.split(utt_delim, f.read()):
+        for idx, utterance in enumerate(re.split(utt_delim, f.read())):
+            if idx == num_utterances:
+                break
             if token_delim:
                 tokens = re.split(token_delim, utterance)
             else:
@@ -42,13 +45,17 @@ def read_corpus(file, token_delim=' ', utt_delim='\n') -> List[List[str]]:
 
 class Timer(object):
     """Context manager timer"""
-    def __init__(self,name):
+    def __init__(self, name, print_func=print):
         self.name = name
+        self.print_func = print_func
+    
     def __enter__(self):
         self.start = time.time()
+    
     def __exit__(self,ty,val,tb):
         end = time.time()
-        print("%s : %0.3f seconds" % (self.name, end-self.start))
+        self.print_func("%s: %0.3f seconds" % 
+                        (self.name, end-self.start))
         return False
 
 
@@ -67,3 +74,16 @@ def flatten_parse(parse):
     """A flat list of the words in a parse."""
     no_brackets = re.sub(r'[()[\]]', '', str(parse))
     return no_brackets.split(' ')
+
+
+def generate_args(params):
+    """Returns all possible permutations of params in parameters
+
+    parmeters must be a list of (str, list) tuples, where str is
+    the key and list is a list of values. A list of dictionaries
+    is returned.
+    """
+    keys, valss = zip(*params)
+    product = itertools.product(*valss)
+    return [{k: v for k, v in zip(keys, vals)} for vals in product]
+
