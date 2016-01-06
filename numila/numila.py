@@ -168,6 +168,7 @@ class Parse(list):
         self.graph = model.graph
         self.params = model.params
         self.learn = learn
+        self.log_chunkiness = 0
 
         self.memory = deque(maxlen=self.params['MEMORY_SIZE'])
         self.log = print if verbose else lambda *args: None  # dummy function
@@ -272,18 +273,18 @@ class Parse(list):
         best_chunkiness = chunkinesses[best_idx]
         best_chunk = chunks[best_idx]
 
-        if best_chunkiness >= 0.0:  # TODO chunk threshold
+        if best_chunkiness >= self.params['CHUNK_THRESHOLD']:  # TODO chunk threshold
             # Replace the two nodes in memory with one chunk.
             self.log('  -> create chunk: {}'.format(best_chunk))
             self.memory[best_idx] = best_chunk
             del self.memory[best_idx+1]
+            self.log_chunkiness += np.log(best_chunkiness)
 
             # Add the chunk to the graph if it exceeds a threshold chunkiness.
             if (best_chunk.id_string not in self.graph and
                 best_chunk.chunkiness() > self.params['EXEMPLAR_THRESHOLD']):
                     self.model.add_chunk(best_chunk)      
         else:  # can't make a chunk
-            assert 0
             # We remove the oldest node to make room for a new one.
             self.append(self.memory.popleft())
             self.log('  -> no chunk created')
