@@ -61,4 +61,4 @@ def log_chunkiness(parse):
         print('{chunk} log chunkiness = {val}'.format_map(locals()))
         return val + helper(chunk.child1) + helper(chunk.child2)
 
-    return np.prod([helper(c) for c in parse]) # ** (1 / (len(parse.utterance) - 1))
+    return sum(helper(c) for c in parse) # ** (1 / (len(parse.utterance) - 1))

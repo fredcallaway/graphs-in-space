@@ -48,7 +48,17 @@ class ProbNode(object):
 
 class ProbGraph(object):
     Node = ProbNode
-    """A graph for which outgoing edges from one Node sum to 1 or 0."""
+    """A graph where edges represent conditional probabilities.
+
+    Nodes represent entities and edge types represent relations. Weights
+    on edges represent the probability of the target node being in the
+    given relationship with the source node.
+
+    A.edge_weight(R, B) is the probability that B is in relation R
+    with B given that A has occurred. For example, if R represents
+    temporal precedence, then A.edge_weight(R, B) would be the probability
+    that B has previously occurred given that A just occurred.
+    """
     def __init__(self, edges, params) -> None:
         # read parameters from file, overwriting with keyword arguments
         self.params = params
