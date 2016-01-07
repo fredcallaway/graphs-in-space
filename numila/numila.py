@@ -6,8 +6,7 @@ import utils
 
 
 LOG = utils.get_logger(__name__, stream='INFO', file='INFO')
-
-HACK = {}
+TEST = {'on': False}
 
 
 class Numila(object):
@@ -100,32 +99,6 @@ class Numila(object):
         chunk.child2.predecessors.add(chunk.child1)
 
         LOG.debug('new chunk: %s', chunk)
-
-    def chunkability(self, node1, node2, generalize=None):
-        """How well two nodes form a chunk.
-
-        The geometric mean of forward transitional probability and
-        backward transitional probability.
-        """
-        if generalize is None:
-            generalize = self.params['GENERALIZE']
-        if generalize:
-            similar_chunks = (self.get_chunk(predecessor, follower)
-                              for predecessor in node2.predecessors
-                              for follower in node1.followers)
-            similar_chunks = [c for c in similar_chunks if c is not None]
-            LOG.debug(str(similar_chunks))
-
-            gen_chunkability = sum(chunk.chunkiness(generalize=False)
-                                   for chunk in similar_chunks)
-            # TODO make this 0 - 1 ?
-            
-            return (generalize * gen_chunkability + 
-                    (1-generalize) * self.chunkability(node1, node2, generalize=0))
-        else:
-            ftp = node1.edge_weight('ftp', node2)
-            btp = node2.edge_weight('btp', node1)
-            return (ftp * btp) ** 0.5  # geometric mean
 
     def speak(self, words, verbose=False, return_chunk=False):
         """Returns the list of words ordered properly."""
@@ -281,7 +254,8 @@ class Parse(list):
             self.log_chunkiness += np.log(best_chunkiness)
 
             # Add the chunk to the graph if it exceeds a threshold chunkiness.
-            if (best_chunk.id_string not in self.graph and
+            if (self.learn and
+                best_chunk.id_string not in self.graph and
                 best_chunk.chunkiness() > self.params['EXEMPLAR_THRESHOLD']):
                     self.model.add_chunk(best_chunk)      
         else:  # can't make a chunk
@@ -297,6 +271,7 @@ class Parse(list):
 
 
 def make_node_class(BaseNode):
+    """Returns a Node class that inherits from BaseNode"""
     
     class Node(BaseNode):
         """A node in Numila's graph."""
@@ -309,6 +284,7 @@ def make_node_class(BaseNode):
 
 
 def make_chunk_class(Node):
+    """Returns a Chunk class that inherits from Node."""
 
     class Chunk(Node):
         """A chunk of two nodes."""
@@ -333,6 +309,38 @@ def make_chunk_class(Node):
             The geometric mean of forward transitional probability and
             bakward transitional probability.
             """
-            return self.model.chunkability(self.child1, self.child2, generalize=generalize)
+
+            if generalize is None:
+                generalize = self.model.params['GENERALIZE']
+
+            if not generalize:
+                ftp = self.child1.edge_weight('ftp', self.child2)
+                btp = self.child2.edge_weight('btp', self.child1)
+                return (ftp * btp) ** 0.5  # geometric mean
+
+            else:
+                form, degree = generalize
+                if form == 'neighbor':
+                    return neighbor_generalize(self, degree)
+                else:
+                    raise ValueError('Bad GENERALIZE parameter.')
 
     return Chunk
+
+
+def neighbor_generalize(chunk, degree):
+    similar_chunks = (chunk.model.get_chunk(predecessor, follower)
+                      for predecessor in chunk.child2.predecessors
+                      for follower in chunk.child1.followers)
+    similar_chunks = [c for c in similar_chunks if c is not None]
+    TEST['similar_chunks'] = similar_chunks
+
+    # TODO make this 0 - 1
+    gen_chunkiness = sum(chunk.chunkiness(generalize=False)
+                         for chunk in similar_chunks)
+    
+    result =  (degree * gen_chunkiness + 
+                (1-degree) * chunk.chunkiness(generalize=False))
+    
+    assert not np.isnan(result)
+    return result

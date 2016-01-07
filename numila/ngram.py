@@ -17,7 +17,7 @@ class NGramModel(object):
         self.dir = tempfile.mkdtemp(dir='_srilm/')  # TODO
 
     def fit(self, train_data):
-        with utils.Timer('Ngram train time', LOG.info):
+        with utils.Timer('Ngram train time'):
             with open(self.dir + '/train.txt', 'w+') as f:
                 for line in train_data:
                     f.write(' '.join(line))

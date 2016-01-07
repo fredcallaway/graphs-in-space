@@ -1,4 +1,4 @@
-from numila import Numila
+import numila
 import numpy as np
 import main
 import utils
@@ -11,28 +11,55 @@ import utils
 #    assert len(no_brackets.split()) == len(words)
 #    print(utterance)
 
+CORPUS = list(main.cfg_corpus(500))
+Numila = numila.Numila
+TEST = numila.TEST
+
 
 def test_simple():
-    corpus = utils.read_corpus('corpora/test.txt')
-    numila = Numila(DIM=1000, ADD_BOUNDARIES=False).fit(corpus)
-    parse = numila.parse_utterance('the boy ate the boy')
-    assert parse
+    model = Numila(DIM=1000, ADD_BOUNDARIES=False).fit(CORPUS)
+    basic_tester(model)
 
 
 def test_prob():
-    corpus = utils.read_corpus('corpora/test.txt')
-    numila = Numila(DIM=1000, ADD_BOUNDARIES=False, GRAPH='probgraph').fit(corpus)
-    parse = numila.parse_utterance('the boy ate the boy')
-    assert parse
+    model = Numila(DIM=1000, ADD_BOUNDARIES=False, GRAPH='probgraph').fit(CORPUS)
+    basic_tester(model)
 
 
 def test_generalization():
-    return
-    numila = Numila(DIM=100, GENERALIZE=0.1, ADD_BOUNDARIES=False).fit(main.cfg_corpus(n=100))
-    #basic_tester(numila)
+    model = Numila(DIM=100, GENERALIZE=('neighbor', 0.2), ADD_BOUNDARIES=False).fit(CORPUS)
+    basic_tester(model)
+
+    chunks = [n for n in model.graph.nodes if hasattr(n, 'chunkiness')]
+    for chunk in chunks:
+        pass
+
+    TEST['on'] = True
+    chunk = chunks[0]
+    numila.neighbor_generalize(chunk, 0.5)
+    print(chunk)
+    print(TEST['similar_chunks'])
+    
+
+
+def verify_chunks(graph):
+    chunks = [n for n in graph.nodes if hasattr(n, 'chunkiness')]
+
+    # All chunk children are in the graph.
+    for chunk in chunks:
+        for child in (chunk.child1, chunk.child2):
+            assert child is graph[child.id_string]
+
+    # All chunks have unique ids
+    unique_ids = set(c.id_string for c in chunks)
+    assert len(unique_ids) == len(chunks)
 
 
 def basic_tester(numila):
+    verify_chunks(numila.graph)
+
+    return
+
     parse = numila.parse_utterance('the boy ate')
     
     equal = parse.log_chunkiness == log_chunkiness(parse)

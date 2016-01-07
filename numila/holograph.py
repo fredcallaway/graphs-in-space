@@ -89,6 +89,7 @@ class HoloGraph(object):
 
     def add_node(self, node):
         """Adds a node to the graph."""
+        assert isinstance(node, self.Node)
         idx = len(self.nodes)
         node.idx = idx
         self.string_to_index[str(node)] = idx

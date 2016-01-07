@@ -23,7 +23,7 @@ class VectorModel(object):
         
     def sparse(self):
         """Returns a new sparse vector."""
-        num_nonzero = int(self.dim * self.nonzero)
+        num_nonzero = int(np.ceil(self.dim * self.nonzero))
         
         indices = set()  # a set of num_nonzero unique indices between 0 and self.dim
         for _ in range(num_nonzero):
