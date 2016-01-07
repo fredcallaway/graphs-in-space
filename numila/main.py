@@ -1,89 +1,52 @@
 import numpy as np
 import pandas as pd
-from scipy import stats
 import itertools
-import joblib
 from collections import Counter, defaultdict
 
 from numila import Numila
 from ngram import NGramModel
-import plotting
 import utils
-import vectors
 
-import re
 
-from pprint import pprint, pformat
 
 LOG = utils.get_logger(__name__, stream='INFO', file='INFO')
-
-#####################
-## INSTROSPECTION  ##
-#####################
-
-
-def similarity_matrix(model, round_to=None, num=None) -> pd.DataFrame:
-    """A distance matrix of all nodes in the graph."""
-    graph = model.graph
-    if not graph.nodes:
-        raise ValueError("Graph is empty, can't make distance matrix.")
-    if num:
-        #ind = np.argpartition(graph.counts, -num)[-num:]
-        raise NotImplementedError()
-    row_vecs = [node.row_vec for node in graph.nodes]
-    num_nodes = len(graph.nodes)
-    matrix = np.zeros((num_nodes, num_nodes))
-    for i in range(num_nodes):
-        for j in range(i, num_nodes):
-            matrix[i,j] = matrix[j,i] = vectors.cosine(row_vecs[i], row_vecs[j])
-    if round_to is not None:
-        matrix = np.around(matrix, round_to)
-
-    labels = graph.string_to_index.keys()
-    return pd.DataFrame(matrix, 
-                     columns=labels,
-                     index=labels)
-
-
-def chunk_matrix(model, nodes='all') -> pd.DataFrame:
-    if nodes is 'all':
-        nodes = model.graph.nodes
-    else:
-        nodes = (model.graph.safe_get(node_str) for node_str in nodes)
-        nodes = [n for n in nodes if n is not None]
-    return pd.DataFrame({str(n1): {str(n2): model.chunkability(n1, n2) 
-                                   for n2 in nodes} 
-                        for n1 in nodes})
-
-
-def word_sim(model, word1, word2):
-    return vectors.cosine(model.graph[word1].row_vec, model.graph[word2].row_vec)
-
-
-def plot_prediction(count_predictions, vec_predictions, word):
-    the_dist = pd.DataFrame({'count': count_predictions['the'],
-                          'vector': vec_predictions['the']})
-    the_dist.plot(kind='bar')
-    import seaborn as sns
-    sns.plt.show()
-
-
-def syntax_tree_link(parse):
-    query = str(parse).replace('[', '[ ').replace(' ', '%20')
-    return 'http://mshang.ca/syntree/?i=' + query
-
-
-def node_frame(history, node, nodes):
-    df = history.minor_xs(node)
-    df['node'] = df.index
-    mdf = pd.melt(df, id_vars=['node'], var_name='utterance', value_name='chunkability')
-    return mdf[[x in nodes for x in mdf['node']]]
 
 
 
 #################
 ## SIMULATIONS ##
 #################
+
+def cfg_corpus(n=None):
+    corpus = utils.read_corpus('corpora/toy2.txt', num_utterances=n)
+    return corpus
+
+def syl_corpus(n=None):
+    corpus = utils.read_corpus('../PhillipsPearl_Corpora/English/English-syl.txt',
+                               token_delim=r'/| ', num_utterances=n)
+    return corpus
+
+
+## PRODUCTION ##
+def eval_production(production_func, test_corpus, metric_func):
+    """Evaluates a model's performance on a test corpus based on a given metric.
+    
+    metric_func takes in two lists and returns a number between 0 and 1
+    quantifying the similarity between the two lists.
+
+    Returns a list of metric scores comparing an adult utterance to
+    the model's reconstruction of that utterance from a
+    scrambeled "bag of words" version of the utterance.
+    """
+    scores = defaultdict(list)
+    for adult_utt in test_corpus:
+        if len(adult_utt) < 2 or len(adult_utt) > 6:  # TODO!!
+            continue  # can't evaluate a one word utterance
+        words = np.copy(adult_utt)
+        np.random.shuffle(words)
+        model_utt = production_func(words)
+        scores[len(model_utt)].append(metric_func(model_utt, adult_utt))
+    return scores
 
 def exactly_equal_metric(lst1, lst2):
     """1 if the lists are the same, otherwise 0"""
@@ -106,142 +69,86 @@ def common_neighbor_metric(lst1, lst2):
     return result
 
 
-def eval_production(production_func, test_corpus, metric_func):
-    """Evaluates a model's performance on a test corpus based on a given metric.
-    
-    metric_func takes in two lists and returns a number between 0 and 1
-    quantifying the similarity between the two lists.
-
-    Returns a list of metric scores comparing an adult utterance to
-    the model's reconstruction of that utterance from a
-    scrambeled "bag of words" version of the utterance.
-    """
-    scores = defaultdict(list)
-    for adult_utt in test_corpus:
-        if len(adult_utt) < 2 or len(adult_utt) > 6:  # TODO!!
-            continue  # can't evaluate a one word utterance
-        words = np.copy(adult_utt)
-        np.random.shuffle(words)
-        model_utt = production_func(words)
-        scores[len(model_utt)].append(metric_func(model_utt, adult_utt))
-    return scores
-
-
-def eval_comprehension(model, test_corpus):
-    scores = defaultdict(list)
-    for adult_utt in test_corpus:
-        parse = model.parse_utterance(adult_utt)
-        scores[len(parse.utterance)].append(parse.chunkiness)
-    return scores
-
-
-def eval_discrimination():
+## COMPREHENSION ##
+def eval_discrimination(num_train=5000, num_test=200):
     corpus = syl_corpus()
-    train = [next(corpus) for _ in range(5000)]
+    train = [next(corpus) for _ in range(num_train)]
     numila = Numila().fit(train)
-    
-    test = (next(corpus) for _ in range(200))
-    test = set(tuple(utt) for utt in test)  # no repeated utterances in test corpus
-    foils = itertools.chain.from_iterable(swapped(utt) for utt in test)
-    foils = set(tuple(utt) for utt in foils)
+    test_corpus = create_test_corpus(corpus, num_test)
 
-    with utils.Timer('chunkiness'):
-        chunkiness = pd.DataFrame(
-            [('true', numila.parse_utterance(utt).log_chunkiness)
-             for utt in test] +
-            [('foil', numila.parse_utterance(utt).log_chunkiness)
-             for utt in foils]
-            )
-    with utils.Timer('precision'):
-        precision = precision_recall(numila, test | foils, test)
+    grammaticality = score_utterances(numila, test_corpus)
+    precision = precision_recall(grammaticality)
 
-        chunkiness.to_pickle('pickles/chunkiness.pkl')
-        precision.to_pickle('pickles/precision.pkl')
+    #grammaticality.to_pickle('pickles/grammaticality.pkl')
+    #precision.to_pickle('pickles/precision.pkl')
         
-    return chunkiness, precision
+    return grammaticality, precision
 
-def swapped(utt):
-    for idx in range(len(utt) - 1):
-        swapped = list(utt)
+def create_test_corpus(corpus, length):
+    """Returns a test corpus with grammatical and neighbor-swapped utterances."""
+    correct = utils.take_unique(corpus, length, filter=lambda utt: len(utt) > 1)
+    foils = (foil for utt in correct for foil in swapped(utt))
+    foils = set(tuple(utt) for utt in foils)  # ensure uniqueness
+    return [('normal', utt) for utt in correct] + [('swapped', utt) for utt in foils]
+
+def swapped(lst):
+    """Yields all versions of a list with adjacent pairs swapped.
+
+    [1, 2, 3] -> [2, 1, 3], [1, 3, 2]
+    """
+    for idx in range(len(lst) - 1):
+        swapped = list(lst)
         swapped[idx], swapped[idx+1] = swapped[idx+1], swapped[idx]
         yield swapped
 
-def precision_recall(numila, test_corpus, correct):
-    ranked = sorted(test_corpus, key=lambda u: numila_score_utterance(numila, u))
+def nu_grammaticality(numila, utt):
+    """Returns a grammaticality score for an utterance. Lower is better. """
+    parse = numila.parse_utterance(utt, learn=False)
+    num_chunks = len(parse)
+    chunk_surprisal = - parse.log_chunkiness
+    return (num_chunks, chunk_surprisal)
 
+def score_utterances(numila, test_corpus):
+    """Returns grammaticality scores for a test corpus."""
+    data = []
+    for grammatical, utt in test_corpus:
+        num_chunks, chunk_surprisal = nu_grammaticality(numila, utt)
+        data.append({'grammatical': grammatical,
+                     'length': len(utt),
+                     'num_chunks': num_chunks,
+                     'chunk_surprisal': chunk_surprisal})
+    return pd.DataFrame(data)
+
+def precision_recall(grammaticality):
+    """Returns precisions and recalls on a test corpus with various thresholds.
+
+    There is one data point for every correct utterance. These data points
+    are the precision and recall if the model's grammaticality threshold is
+    set to allow that utterance.
+    """
+    # We sort first by num_chunks, then by chunk_surprisal, thus this list
+    # is sorted by nu_grammaticality()
+    ranked = grammaticality.sort_values(['num_chunks', 'chunk_surprisal'])
+    num_correct = grammaticality['grammatical'].value_counts()[True]
+
+    # Iterate through utterances, starting with best-ranked. Every time
+    # we find a correct one, we add a new data point: the recall and precision
+    # if the model were to set the threshold to allow only the utterances seen
+    # so far.
     data = []
     correct_seen = 0
     num_seen = 0
-    for num_seen, utt in enumerate(ranked, start=1):
-        if utt in correct:
+    for _, utt in ranked.iterrows():
+        num_seen += 1
+        if utt['grammatical']:
             correct_seen += 1
             precision = correct_seen / num_seen
-            recall = correct_seen / len(correct)
+            recall = correct_seen / num_correct
             data.append({'precision': precision, 'recall': recall})
-    
     return pd.DataFrame(data)
 
-def numila_score_utterance(numila, utt):
-    """Lower is better."""
-    parse = numila.parse_utterance(utt, learn=False)
-    num_chunks = len(parse)
-    neg_chunkiness = - parse.log_chunkiness
-    return (num_chunks, neg_chunkiness)
-            
-#########
 
-def recall_to_precision(recall, test_corpus, correct):
-    """Returns the precision when the model achieves the given recall."""
-    numila = Numila().fit(cfg_corpus())
-    ranked = sorted(test_corpus, key=lambda u: numila_score_utterance(numila, u))
-    
-    num_required = np.ceil(len(correct) * recall)
-    model_approved = list(keep_until_seen(ranked, correct, num_required=num_required))
-
-    precision = num_required / len(model_approved)
-    return precision
-            
-def keep_until_seen(iterable, targets, num_required=None):
-    seen = 0
-    if num_required == None:
-        num_required = len(targets)
-    for x in iterable:
-        yield x
-        if x in targets:
-            seen += 1
-        if seen >= num_required:
-            return
-    raise ValueError('Not enough targets in iterable.')
-
-#########
-
-def train(corpus, utterances=None, track=None, sample_rate=100, model_params={}):
-    history = {}
-    model = Numila(**model_params)
-    with utils.Timer('train time', LOG.info):
-        for i, s in enumerate(corpus):
-            i += 1  # index starting at 1
-            if track and i % sample_rate == 0:
-                history[i] = (chunk_matrix(model, nodes=track))
-            if i == utterances:
-                break
-            model.parse_utterance(s)
-        LOG.info('trained on {} utterances'.format(i))
-   
-    history = pd.Panel(history)
-
-    return model, history
-
-
-def cfg_corpus(n=None):
-    corpus = utils.read_corpus('corpora/toy2.txt', num_utterances=n)
-    return corpus
-
-def syl_corpus(n=None):
-    corpus = utils.read_corpus('../PhillipsPearl_Corpora/English/English-syl.txt',
-                               token_delim=r'/| ', num_utterances=n)
-    return corpus
-
+###########
 
 def master():
     corpus = syl_corpus()
@@ -329,6 +236,6 @@ def main():
 
 
 if __name__ == '__main__':
-    eval_discrimination()
+    eval_discrimination(10, 10)
 
 

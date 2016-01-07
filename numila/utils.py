@@ -13,7 +13,6 @@ def neighbors(iterable):
 
 def get_logger(name, stream='WARNING', file='INFO'):
     log = logging.getLogger(name)
-    log.setLevel(logging.DEBUG)
     format_ = '[%(name)s : %(levelname)s]\t%(message)s'
     if stream and not any(isinstance(h, logging.StreamHandler) for h in log.handlers):
         printer = logging.StreamHandler()
@@ -28,6 +27,19 @@ def get_logger(name, stream='WARNING', file='INFO'):
         log.addHandler(filer)
 
     return log
+
+
+def take_unique(lst, n, filter=None):
+    """Returns next n items in lst that meet the condition of filter"""
+    if filter is None:
+        filter = lambda x: True
+    # Returns the next n unique utterances in the lst
+    result = set()
+    while len(result) < n:
+        x = tuple(next(lst))   # list not hashable
+        if x not in result and filter(x):
+            result.add(x)
+    return result
 
 
 def read_corpus(file, token_delim=' ', utt_delim='\n', num_utterances=None) -> List[List[str]]:
