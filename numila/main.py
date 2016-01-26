@@ -6,17 +6,19 @@ from collections import Counter, defaultdict
 from numila import Numila
 from ngram import NGramModel
 import utils
+make = utils.make
 
 
 
 LOG = utils.get_logger(__name__, stream='INFO', file='INFO')
 
+
 class Dummy(object):
     """docstring for Dummy"""
-    def fit():
+    def fit(self, corpus):
         return self
 
-    def speak(words):
+    def speak(self, words):
         utt = list(words)
         np.random.shuffle(utt)
         return utt
@@ -26,18 +28,10 @@ class Dummy(object):
 ## SIMULATIONS ##
 #################
 
-def cfg_corpus(n=None):
-    corpus = utils.read_corpus('corpora/toy2.txt', num_utterances=n)
-    return corpus
-
-def syl_corpus(n=None):
-    corpus = utils.read_corpus('../PhillipsPearl_Corpora/English/English-syl.txt',
-                               token_delim=r'/| ', num_utterances=n)
-    return corpus
-
 
 ## PRODUCTION ##
 
+@make(pd.DataFrame)
 def eval_production(model, test_corpus, metric_func):
     """Evaluates a model's performance on a test corpus based on a given metric.
     
@@ -48,16 +42,14 @@ def eval_production(model, test_corpus, metric_func):
     the model's reconstruction of that utterance from a
     scrambeled "bag of words" version of the utterance.
     """
-    scores = []
     for adult_utt in test_corpus:
         if len(adult_utt) < 2 or len(adult_utt) > 6:  # TODO!!
             continue  # can't evaluate a one word utterance
         words = list(adult_utt)
         np.random.shuffle(words)
         model_utt = model.speak(words)
-        scores.append({'length': len(model_utt), 
-                       'accuracy': metric_func(model_utt, adult_utt)})
-    return pd.DataFrame(scores)
+        yield ({'length': len(model_utt), 
+                'accuracy': metric_func(model_utt, adult_utt)})
 
 def exactly_equal_metric(lst1, lst2):
     """1 if the lists are the same, otherwise 0"""
@@ -115,17 +107,17 @@ def nu_grammaticality(numila, utt):
     chunk_surprisal = - parse.log_chunkiness
     return (num_chunks, chunk_surprisal)
 
+@make(pd.DataFrame)
 def score_utterances(numila, test_corpus):
     """Returns grammaticality scores for a test corpus."""
-    data = []
     for grammatical, utt in test_corpus:
         num_chunks, chunk_surprisal = nu_grammaticality(numila, utt)
-        data.append({'grammatical': grammatical,
-                     'length': len(utt),
-                     'num_chunks': num_chunks,
-                     'chunk_surprisal': chunk_surprisal})
-    return pd.DataFrame(data)
+        yield {'grammatical': grammatical,
+               'length': len(utt),
+               'num_chunks': num_chunks,
+               'chunk_surprisal': chunk_surprisal}
 
+@make(pd.DataFrame)
 def precision_recall(grammaticality):
     """Returns precisions and recalls on a test corpus with various thresholds.
 
@@ -142,7 +134,6 @@ def precision_recall(grammaticality):
     # we find a correct one, we add a new data point: the recall and precision
     # if the model were to set the threshold to allow only the utterances seen
     # so far.
-    data = []
     correct_seen = 0
     num_seen = 0
     for _, utt in ranked.iterrows():
@@ -151,11 +142,9 @@ def precision_recall(grammaticality):
             correct_seen += 1
             precision = correct_seen / num_seen
             recall = correct_seen / num_correct
-            data.append({'precision': precision, 'recall': recall})
-
-    df = pd.DataFrame(data)
-    df['F_score'] = (df['precision'] * df['recall']) ** 0.5
-    return df
+            yield {'precision': precision,
+                   'recall': recall,
+                   'F_score': np.sqrt(precision * recall)}
 
 ## COMPARISONS ##
 
@@ -173,7 +162,7 @@ def compare_ngram():
         models['no_chunk'], _ = Numila(EXEMPLAR_THRESHOLD=1).fit(train_corpus)
         models['dummy'] = Dummy()
 
-        for name, model in model.items():
+        for name, model in models.items():
             results = eval_production(model, test_corpus, common_neighbor_metric)
             results['train length'] = train_len
             results['model'] = name
