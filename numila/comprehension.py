@@ -34,22 +34,24 @@ def swapped(lst):
         yield swapped
 
 def create_test_corpus(corpus, num_utterances):
-    """Returns a test corpus with grammatical and neighbor-swapped utterances."""
+    """Creates a test corpus with grammatical and neighbor-swapped utterances."""
     usable = (utt for utt in corpus if len(utt) > 3)
     correct = utils.take_unique(usable, num_utterances)
-    foils = (foil for utt in correct for foil in swapped(utt))
-    foils = set(tuple(utt) for utt in foils)  # ensure uniqueness
-    return ([('normal', utt) for utt in correct] + 
-            [('swapped', utt) for utt in foils])
-
+    for original_idx, utt in enumerate(correct):
+        yield ('normal', utt, original_idx)
+        for foil in swapped(utt):
+            # type, test utterance, original utterance
+            yield('swapped', foil, original_idx)
 
 def swapped_test(numila, test_corpus):
-    for grammatical, utt in test_corpus:
+    """Gets nu_grammaticality scores for items in the test_corpus"""
+    for utt_type, utt, original in test_corpus:
         chunk_ratio, chunkedness = nu_grammaticality(numila, utt)
-        yield {'utterance_type': grammatical,
+        yield {'utterance_type': utt_type,
                'length': len(utt),
                'chunk_ratio': chunk_ratio,
-               'chunkedness': chunkedness}
+               'chunkedness': chunkedness,
+               'original': original}
 
 
 def precision_recall(ranked):
@@ -80,14 +82,16 @@ def precision_recall(ranked):
                    'F_score': np.sqrt(precision * recall)}
 
 
+
 def main():
     corpus = utils.syl_corpus()
     train_corpus = [next(corpus) for _ in range(5000)]
     test_corpus = create_test_corpus(corpus, num_utterances=100)
+    
     numila = Numila().fit(train_corpus)
 
     df = pd.DataFrame(swapped_test(numila, test_corpus))
-    df.to_csv('swapped_test.csv')
+    df.replace('normal', 1).replace('swapped', 0).to_csv('swapped_test.csv')
     df.to_pickle('swapped.pkl')
     
     # We sort first by chunk_ratio, then by chunkedness. Thus this list
@@ -95,7 +99,7 @@ def main():
     nu_ranked = df.sort_values(['chunk_ratio', 'chunkedness'], ascending=False)
     nu_ranked_types = list(nu_ranked['utterance_type'])
     nu_precision = precision_recall(nu_ranked_types)
-    sns.jointplot('recall', 'precision', data=nu_precision)
+    #sns.jointplot('recall', 'precision', data=nu_precision)
 
 
 if __name__ == '__main__':

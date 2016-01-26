@@ -4,6 +4,36 @@ from typing import List
 import time
 import itertools
 
+
+
+def make(return_type):
+    """Decorator that makes a generator function return another type.
+
+    Generalizes the @vectorized decorator, as described here:
+    http://www.scipy-lectures.org/advanced/advanced_python/#a-while-loop-removing-decorator
+
+    Example:
+        >>> import pandas as pd
+        >>> @make(pd.DataFrame)
+        >>> def exponent_df(n):
+                for i in range(n):
+                    yield {'a': i, 'b': i ** 2, 'c': i ** 3}
+
+        >>> exponent_df(4)
+           a  b   c
+        0  0  0   0
+        1  1  1   1
+        2  2  4   8
+        3  3  9  27
+
+    """
+    from functools import update_wrapper
+    def maker(generator_func):
+        def wrapper(*args, **kwargs):
+            return return_type(generator_func(*args, **kwargs))
+        return update_wrapper(wrapper, generator_func)
+    return maker
+
 def neighbors(iterable):
     "s -> (s0,s1), (s1,s2), (s2, s3), ..."
     a, b = itertools.tee(iterable)
@@ -13,6 +43,7 @@ def neighbors(iterable):
 
 def get_logger(name, stream='WARNING', file='INFO'):
     log = logging.getLogger(name)
+    
     format_ = '[%(name)s : %(levelname)s]\t%(message)s'
     if stream and not any(isinstance(h, logging.StreamHandler) for h in log.handlers):
         printer = logging.StreamHandler()
@@ -29,15 +60,14 @@ def get_logger(name, stream='WARNING', file='INFO'):
     return log
 
 
-def take_unique(lst, n, filter=None):
-    """Returns next n items in lst that meet the condition of filter"""
-    if filter is None:
-        filter = lambda x: True
-    # Returns the next n unique utterances in the lst
+def take_unique(seq, n):
+    """Returns set of next n unique items in a sequence."""
     result = set()
     while len(result) < n:
-        x = tuple(next(lst))   # list not hashable
-        if x not in result and filter(x):
+        x = next(seq)
+        if isinstance(x, list):
+            x = tuple(x)
+        if x not in result:
             result.add(x)
     return result
 
@@ -53,6 +83,15 @@ def read_corpus(file, token_delim=' ', utt_delim='\n', num_utterances=None) -> L
             else:
                 tokens = list(utterance)  # split by character
             yield tokens
+
+def cfg_corpus(n=None):
+    corpus = read_corpus('corpora/toy2.txt', num_utterances=n)
+    return corpus
+
+def syl_corpus(n=None):
+    corpus = read_corpus('../PhillipsPearl_Corpora/English/English-syl.txt',
+                               token_delim=r'/| ', num_utterances=n)
+    return corpus
 
 
 class Timer(object):

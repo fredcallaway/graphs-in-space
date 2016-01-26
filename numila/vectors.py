@@ -2,7 +2,7 @@ import numpy as np
 import numba
 
 class VectorModel(object):
-    """docstring for VectorModel"""
+    """Represents points in a high dimensional space."""
     def __init__(self, dim, nonzero, bind_op):
         super(VectorModel, self).__init__()
         self.dim = dim

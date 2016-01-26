@@ -11,7 +11,7 @@ TEST = {'on': False}
 
 class Numila(object):
     """The premier language acquisition model."""
-    def __init__(self, param_file='params.yml', **params) -> None:
+    def __init__(self, param_file='params.yml', **params):
         LOG.info('parameters: %s', params)
 
         # Read default params from file, overwriting with keyword arguments.
@@ -26,18 +26,16 @@ class Numila(object):
         # in OCaml is a module parameterized by another module.
         graph = self.params['GRAPH'].lower()
         if graph == 'holograph':
-            from holograph import HoloGraph
-            Graph = HoloGraph
+            from holograph import HoloGraph as Graph
         elif graph == 'probgraph':
-            from probgraph import ProbGraph
-            Graph = ProbGraph
+            from probgraph import ProbGraph as Graph
         else:
             raise ValueError('Invalid GRAPH parameter: {}'.format(self.params['GRAPH']))
         
         self.graph = Graph(edges=['ftp', 'btp'], params=self.params)
 
         # This is kind of crazy. Each Numila instance has its own Node and
-        # Chunk classes. These two classes both inherit from the Node class
+        # Chunk classes. These two classes both inherit from the Npathode class
         # of the graph. We must use simple helper functions to allow for
         # this kind of dynamic inheritance.
         self.Node = make_node_class(Graph.Node)
@@ -141,7 +139,7 @@ class Parse(list):
         self.graph = model.graph
         self.params = model.params
         self.learn = learn
-        self.log_chunkiness = 0
+        self.chunkinesses = []
 
         self.memory = deque(maxlen=self.params['MEMORY_SIZE'])
         self.log = print if verbose else lambda *args: None  # dummy function
@@ -161,6 +159,17 @@ class Parse(list):
         while self.memory:  # there are nodes left to be processed
             self.update_weights()
             self.try_to_chunk()
+
+    @property
+    def num_chunks(self):
+        """The number of chunks made during this Parse."""
+        return len(self.chunkinesses)
+
+    @property
+    def chunkedness(self):
+        """Geometric mean of chunkinesses."""
+        return np.e ** ((1 / len(self.chunkinesses)) * 
+                        sum(np.log(x) for x in self.chunkinesses))
 
     def shift(self, token) -> None:
         """Adds a token to memory.
@@ -243,20 +252,20 @@ class Parse(list):
                   for node1, node2 in utils.neighbors(self.memory)]
         chunkinesses = [chunk.chunkiness() for chunk in chunks]
         best_idx = np.argmax(chunkinesses)
-        best_chunkiness = chunkinesses[best_idx]
         best_chunk = chunks[best_idx]
+        best_chunkiness = chunkinesses[best_idx]
 
         if best_chunkiness >= self.params['CHUNK_THRESHOLD']:  # TODO chunk threshold
             # Replace the two nodes in memory with one chunk.
             self.log('  -> create chunk: {}'.format(best_chunk))
             self.memory[best_idx] = best_chunk
             del self.memory[best_idx+1]
-            self.log_chunkiness += np.log(best_chunkiness)
+            self.chunkinesses.append(best_chunkiness)
 
             # Add the chunk to the graph if it exceeds a threshold chunkiness.
             if (self.learn and
                 best_chunk.id_string not in self.graph and
-                best_chunk.chunkiness() > self.params['EXEMPLAR_THRESHOLD']):
+                best_chunkiness > self.params['EXEMPLAR_THRESHOLD']):
                     self.model.add_chunk(best_chunk)      
         else:  # can't make a chunk
             # We remove the oldest node to make room for a new one.

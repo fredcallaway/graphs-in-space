@@ -45,29 +45,27 @@ class NGramModel(object):
 
         subprocess.check_output(cmd, shell=True)
 
+    def perplexity(self, utterances):
+      utts_string = '\n'.join(' '.join(u) for u in utterances)
+      cmd = ('echo "{utts_string}" | '
+             'ngram -order {self.order} '
+             '-lm {self.dir}/model.lm '
+             '-debug 1 '
+             '-ppl -'
+             ).format_map(locals())
+
+      out = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
+      perplex_re = re.compile(rb'\d+ zeroprobs, logprob= \S+ ppl= ([\d.e+]+) ppl1= ')
+
+      for block in out.split(b'\n\n')[:-1]:
+          line = block.rsplit(b'\n', 1)[-1]
+          yield float(perplex_re.match(line).group(1))
+
     def speak(self, words, verbose=False):
         """Returns a single node containing all of `words`."""
         assert len(words) < 7
         utts = list(itertools.permutations(words))
-        utts_string = '\n'.join(' '.join(u) for u in utts)
-        cmd = ('echo "{utts_string}" | '
-               'ngram -order {self.order} '
-               '-lm {self.dir}/model.lm '
-               '-debug 1 '
-               '-ppl -'
-               ).format_map(locals())
-
-        out = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
-        regex = re.compile(rb'\d+ zeroprobs, logprob= \S+ ppl= ([\d.e+]+) ppl1= ')
-
-        perplexities = []
-        test = []
-        for block in out.split(b'\n\n')[:-1]:
-            line = block.rsplit(b'\n', 1)[-1]
-            test.append(block.split(b'\n')[-3])
-            perplexities.append(float(regex.match(line).group(1)))
-        assert len(perplexities) == len(utts)
-
+        perplexities = list(self.perplexity(utts))
         best_idx = np.argmin(perplexities)
         return utts[best_idx]
 
