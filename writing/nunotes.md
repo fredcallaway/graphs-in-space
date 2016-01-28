@@ -5,22 +5,23 @@
 - competitive queeuing
     - competition among chunks
 
-- bring back chunk thresholdx
-
 - use complete generalization
 - ngram compare size of training set to real life
+- probgraph
 
-TODO
-- https://en.wikipedia.org/wiki/Mixed_model
+- chunkedness for all pairs not just actual chunks..
+
+
+- should generalization occur after trying normal chunkiness?
+- how to combine the two measures
+
+# TODO
 - complete scrambling
 - perplexity?
-- schedule meeting
-
-# Meeting
+- correct for smoothing using clean up ala Plate
 - generalization not 0 - 1
-- results
-- 
 
 # Abstract
 "we used a modified BLEU score"
 vague, but clear that it's been implemented
+

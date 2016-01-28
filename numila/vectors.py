@@ -1,5 +1,4 @@
 import numpy as np
-from numba import jit
 import itertools
 
 class VectorModel(object):
@@ -22,9 +21,9 @@ class VectorModel(object):
         self.perm2 = np.random.permutation(self.dim)
         self.inverse_perm2 = np.argsort(self.perm2)
 
-        self._ints = itertools.cycle((1, -1))  # 1, -1 , 1, -1 ...
+        self.alternating_ints = itertools.cycle((1, -1))  # 1, -1 , 1, -1 ...
     
-    @profile
+    #@profile
     def sparse(self):
         """Returns a new sparse vector."""
         num_nonzero = int(np.ceil(self.dim * self.nonzero))
@@ -39,11 +38,8 @@ class VectorModel(object):
 
         vector = np.zeros(self.dim)
         for i in indices:
-            vector[i] = next(self._ints)
+            vector[i] = next(self.alternating_ints)
         return vector
-
-    def rand(self):
-        return np.random.rand(self.dim) - 0.5
 
     def bind(self, v1, v2) -> np.ndarray:
         permuted_v1 = v1[self.perm1]

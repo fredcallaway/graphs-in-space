@@ -95,19 +95,47 @@ def syl_corpus(n=None):
 
 
 class Timer(object):
-    """Context manager timer"""
-    def __init__(self, name, print_func=print):
+    """A context manager which times the block it surrounds.
+
+    Args:
+        name (str): The name of the timer for time messages
+        print_func (callable): The function used to print messages
+          e.g. logging.debug
+
+    Based heavily on https://github.com/brouberol/contexttimer
+
+    Example:
+    >>> with Timer('Busy') as timer:
+            [i**2 for i in range(100000)]
+            timer.lap()
+            [i**2 for i in range(100000)]
+            timer.lap()
+            [i**2 for i in range(100000)]
+    Busy (0): 0.069 seconds
+    Busy (1): 0.126 seconds
+    Busy (total): 0.176 seconds
+    """
+    def __init__(self, name='Timer', print_func=print):
         self.name = name
         self.print_func = print_func
-    
+        self._lap_idx = 0
+
+    @property
+    def elapsed(self):
+        return time.time() - self.start
+
+    def lap(self, label=None):
+        if label is None:
+            label = self._lap_idx
+        self._lap_idx += 1
+        self.print_func("%s (%s): %0.3f seconds" % (self.name, label, self.elapsed))
+
     def __enter__(self):
         self.start = time.time()
-    
+        return self
+
     def __exit__(self,ty,val,tb):
-        end = time.time()
-        self.print_func("%s: %0.3f seconds" % 
-                        (self.name, end-self.start))
-        return False
+        self.lap('total')
 
 
 def flatten(lst):

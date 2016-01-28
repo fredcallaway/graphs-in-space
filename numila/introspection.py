@@ -4,6 +4,20 @@ import numpy as np
 import vectors
 import utils
 
+from collections import Counter
+
+def analyze_chunks(model):
+    chunks = [n for n in model.graph.nodes if hasattr(n, 'child1')]
+
+    def size(chunk):
+        return str(chunk).count('[') + 1
+
+    return pd.DataFrame({'chunks': chunks,
+                           'size': list(map(size, chunks))})
+
+
+
+
 def similarity_matrix(model, round_to=None, num=None) -> pd.DataFrame:
     """A distance matrix of all nodes in the graph."""
     graph = model.graph
@@ -74,3 +88,15 @@ def track_training(model, corpus, utterances=None, track=None, sample_rate=100):
     history = pd.Panel(history)
    
     return model, history
+
+
+if __name__ == '__main__':
+    from numila import Numila
+
+    corpus = utils.cfg_corpus()
+    train_corpus = list(corpus)
+    model = Numila(EXEMPLAR_THRESHOLD=0.1, CHUNK_THRESHOLD=0.1).fit(train_corpus)
+    df = analyze_chunks(model)
+    print(df['size'].value_counts())
+    import IPython; IPython.embed()
+

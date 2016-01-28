@@ -28,6 +28,7 @@ class ProbNode(object):
         """
         edge_count = self.graph.edge_counts[edge][self.id_string][node.id_string]
         self_count = sum(self.graph.edge_counts[edge][self.id_string].values())
+        self_count += 10   # TODO unmagic
         if self_count == 0:
             return 0
         else:
@@ -60,7 +61,6 @@ class ProbGraph(object):
     that B has previously occurred given that A just occurred.
     """
     def __init__(self, edges, params) -> None:
-        # read parameters from file, overwriting with keyword arguments
         self.params = params
         
         # Each token gets an int ID which specifies its index
@@ -68,6 +68,7 @@ class ProbGraph(object):
         self.string_to_index = OrderedDict()  # type: Dict[str, int]
         self.nodes = []
 
+        # Each edge is represented with a sparse matrix.
         self.edge_counts = {edge: defaultdict(Counter)
                             for edge in edges}
 

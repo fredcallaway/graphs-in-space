@@ -1,4 +1,4 @@
-from collections import Counter, defaultdict, OrderedDict
+from collections import Counter, defaultdict, OrderedDict, namedtuple
 from functools import lru_cache
 import itertools
 from typing import Dict, List
@@ -37,7 +37,7 @@ class HoloNode(object):
         edge_vec = node.id_vec[self.graph.edge_permutations[edge]]
         self.row_vec += factor * edge_vec
         
-        self.graph._edge_counts[edge][self.id_string][node.id_string] += 1
+        #self.graph._edge_counts[edge][self.id_string][node.id_string] += 1
         self.edge_weight.cache_clear()
 
     @lru_cache(maxsize=None)
@@ -84,8 +84,8 @@ class HoloGraph(object):
         self.edge_permutations = {edge: self.vector_model.permutation()
                                   for edge in edges}
 
-        self._edge_counts = {edge: defaultdict(Counter)
-                             for edge in edges}
+        #self._edge_counts = {edge: defaultdict(Counter)
+        #                     for edge in edges}
 
     def add_node(self, node):
         """Adds a node to the graph."""
