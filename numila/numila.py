@@ -35,12 +35,11 @@ class Numila(object):
         self.graph = Graph(edges=['ftp', 'btp'], params=self.params)
 
         # This is kind of crazy. Each Numila instance has its own Node and
-        # Chunk classes. These two classes both inherit from the Npathode class
+        # Chunk classes. These two classes both inherit from the Node class
         # of the graph. We must use simple helper functions to allow for
         # this kind of dynamic inheritance.
         self.Node = make_node_class(Graph.Node)
         self.Chunk = make_chunk_class(self.Node)
-
 
     def parse_utterance(self, utterance, learn=True, verbose=False):
         """Returns a Parse of the given utterance."""
@@ -74,10 +73,10 @@ class Numila(object):
             
         if not stored_only:
             if node1.id_string in self.graph and node1 is not self.graph[node1.id_string]:
-                LOG.warning('Fixing a chunk node')
+                LOG.debug('Fixing a chunk node')
                 node1 = self.graph[node1.id_string]
             if node2.id_string in self.graph and node2 is not self.graph[node2.id_string]:
-                LOG.warning('Fixing a chunk node')
+                LOG.debug('Fixing a chunk node')
                 node2 = self.graph[node2.id_string]
             chunk = self.Chunk(self, node1, node2)
             return chunk
@@ -110,19 +109,60 @@ class Numila(object):
 
         # combine the two chunkiest nodes into a chunk until only one node left
         while len(nodes) > 1:
-            chunks = [self.get_chunk(node1, node2, stored_only=False)
-                      for node1, node2 in itertools.permutations(nodes, 2)]
-            best_chunk = max(chunks, key=lambda chunk: chunk.chunkiness())
-            nodes.remove(best_chunk.child1)
-            nodes.remove(best_chunk.child2)
-            LOG.debug('\tchunk: %s', best_chunk)
-            nodes.append(best_chunk)
+            pairs = list(itertools.permutations(nodes, 2))
+            best_pair = max(pairs, key=lambda pair: self.chunkiness(*pair))
+            node1, node2 = best_pair
+            chunk = self.get_chunk(node1, node2, stored_only=False)
+
+            nodes.remove(node1)
+            nodes.remove(node2)
+            LOG.debug('\tchunk: %s', chunk)
+            nodes.append(chunk)
 
         final = nodes[0]
         if return_chunk:
             return final
         else:
             return utils.flatten_parse(final)
+
+    def chunkiness(self, node1, node2, generalize=None) -> float:
+        """How well two nodes form a chunk.
+
+        The geometric mean of forward transitional probability and
+        bakward transitional probability.
+        """
+
+        if generalize is None:
+            generalize = self.params['GENERALIZE']
+
+        if not generalize:
+            ftp = node1.edge_weight('ftp', node2)
+            btp = node2.edge_weight('btp', node1)
+            return (ftp * btp) ** 0.5  # geometric mean
+
+        else:
+            form, degree = generalize
+            if form == 'neighbor':
+                return self.neighbor_generalize(node1, node2, degree)
+            else:
+                raise ValueError('Bad GENERALIZE parameter.')
+
+    def neighbor_generalize(self, node1, node2, degree):
+        similar_chunks = (self.get_chunk(predecessor, follower)
+                          for predecessor in node2.predecessors
+                          for follower in node1.followers)
+        similar_chunks = [c for c in similar_chunks if c is not None]
+        TEST['similar_chunks'] = similar_chunks
+
+        # TODO make this 0 - 1
+        gen_chunkiness = sum(self.chunkiness(*chunk, generalize=False)
+                             for chunk in similar_chunks)
+        
+        result =  (degree * gen_chunkiness + 
+                   (1-degree) * self.chunkiness(node1, node2, generalize=False))
+        
+        assert not np.isnan(result)
+        return result
 
 
 class Parse(list):
@@ -132,6 +172,7 @@ class Parse(list):
     effects for the parent Numila instance (i.e. learning). The loop
     in __init__ is thus both the comprehension and learning algorithm.
     """
+    #@profile
     def __init__(self, model, utterance, learn=True, verbose=False) -> None:
         super().__init__()
         self.model = model
@@ -142,23 +183,32 @@ class Parse(list):
         self.chunkinesses = []
 
         self.memory = deque(maxlen=self.params['MEMORY_SIZE'])
-        self.log = print if verbose else lambda *args: None  # dummy function
+        self.log = print if verbose else lambda *args: 'dummy'
         self.log('\nPARSING: %s', ' '.join(utterance))
 
-        # This is the "main loop" of the model, i.e. it will run once for
-        # every token in the training corpus.
-        for token in utterance:
+        utterance = iter(utterance)
+
+        # Fill up memory before trying to chunk.
+        while len(self.memory) < self.params['MEMORY_SIZE']:
+            token = next(utterance, None)
+            if token is None:
+                break  # less than MEMORY_SIZE tokens in utterance
             self.shift(token)
             self.update_weights()
-            if len(self.memory) == self.params['MEMORY_SIZE']:
-                # Only attempt to chunk after filling memory.
-                self.try_to_chunk()  # always decreases number of nodes in memory by 1
 
-        self.log('no more tokens')
-        # Process the tail end.
-        while self.memory:  # there are nodes left to be processed
+        # Chunk, learn, and shift until we run out of tokens, at which point we
+        # keep chunking until we reduce the utterance to one chunk or drop
+        while self.memory:
+            success = self.try_to_chunk()
+            if not success:
+                # Couldn't make a chunk. We remove the oldest node 
+                # to make room for a new one.
+                self.append(self.memory.popleft())
+                self.log('  -> no chunk created')
             self.update_weights()
-            self.try_to_chunk()
+            token = next(utterance, None)
+            if token is not None:
+                self.shift(token)
 
     @property
     def num_chunks(self):
@@ -189,8 +239,9 @@ class Parse(list):
                 self.graph.add_node(node)
 
         self.memory.append(node)
-        self.log('memory = %s', self.memory)
+        self.log('memory = ', self.memory)
 
+    #@profile
     def update_weights(self) -> None:
         """Strengthens the connection between every adjacent pair of nodes in memory.
 
@@ -210,7 +261,7 @@ class Parse(list):
         # Increase the weight between every node in memory. Note that
         # some of these nodes may be chunks that are not in the graph. TODO
         for node1, node2 in utils.neighbors(self.memory):
-            self.log('  -> strengthen: %s & %s', node1, node2)
+            self.log('  -> strengthen:', node1, node2)
             if node1.id_string in self.graph and node2.id_string in self.graph:
                 node1.bump_edge('ftp', node2, ftp_factor)
                 node2.bump_edge('btp', node1, btp_factor)
@@ -233,29 +284,37 @@ class Parse(list):
             for node in self.memory:
                 update_chunk(node)
 
+    #@profile
     def try_to_chunk(self) -> None:
         """Attempts to combine two Nodes in memory into one Node.
 
-        If no Node pairs form a chunk, then the oldest node in memory is
-        dropped from memory. Thus, this method always reduces the numbe of
-        nodes in memory by 1.
+        Returns True for success, False for failure.
         """
 
         if len(self.memory) == 1:
             # We can't create a chunk when there's only one node left.
             # This can only happen while processing the tail, so we
             # must be done processing
-            self.append(self.memory.popleft())
-            return
+            return False
 
-        chunks = [self.model.get_chunk(node1, node2, stored_only=False)
-                  for node1, node2 in utils.neighbors(self.memory)]
-        chunkinesses = [chunk.chunkiness() for chunk in chunks]
+
+        pairs = list(utils.neighbors(self.memory))
+        chunkinesses = [self.model.chunkiness(node1, node2)
+                        for node1, node2 in pairs]
+        
         best_idx = np.argmax(chunkinesses)
-        best_chunk = chunks[best_idx]
         best_chunkiness = chunkinesses[best_idx]
 
+        #chunks = [self.model.get_chunk(node1, node2, stored_only=False)
+        #          for node1, node2 in utils.neighbors(self.memory)]
+        #chunkinesses = [chunk.chunkiness() for chunk in chunks]
+
+        #best_idx = np.argmax(chunkinesses)
+        #best_chunk = chunks[best_idx]
+        #best_chunkiness = chunkinesses[best_idx]
+
         if best_chunkiness >= self.params['CHUNK_THRESHOLD']:  # TODO chunk threshold
+            best_chunk = self.model.get_chunk(*pairs[best_idx], stored_only=False)
             # Replace the two nodes in memory with one chunk.
             self.log('  -> create chunk: {}'.format(best_chunk))
             self.memory[best_idx] = best_chunk
@@ -267,10 +326,9 @@ class Parse(list):
                 best_chunk.id_string not in self.graph and
                 best_chunkiness > self.params['EXEMPLAR_THRESHOLD']):
                     self.model.add_chunk(best_chunk)      
+            return True
         else:  # can't make a chunk
-            # We remove the oldest node to make room for a new one.
-            self.append(self.memory.popleft())
-            self.log('  -> no chunk created')
+            return False
 
     def __repr__(self):
         return super().__repr__().replace(',', ' |')[1:-1]
@@ -284,8 +342,8 @@ def make_node_class(BaseNode):
     
     class Node(BaseNode):
         """A node in Numila's graph."""
-        def __init__(self, model, id_string):
-            super().__init__(model.graph, id_string)
+        def __init__(self, model, id_string, **kwargs):
+            super().__init__(model.graph, id_string, **kwargs)
             self.followers = set()  # TODO document
             self.predecessors = set()
 
@@ -306,50 +364,16 @@ def make_chunk_class(Node):
             # allowing us to quickly find a chunk given its constituents.
             chunk_id_string = '[{node1.id_string} {node2.id_string}]'.format_map(locals())
 
-            # We violate the modularity of HoloGraph here in order
-            # to get compositional structure in the id_vectors.
-            #id_vec = model.graph.vector_model.bind(node1.id_vec, node2.id_vec)
-
-            super().__init__(model, chunk_id_string)
-
-        def chunkiness(self, generalize=None) -> float:
-            """How well two nodes form a chunk.
-
-            The geometric mean of forward transitional probability and
-            bakward transitional probability.
-            """
-
-            if generalize is None:
-                generalize = self.model.params['GENERALIZE']
-
-            if not generalize:
-                ftp = self.child1.edge_weight('ftp', self.child2)
-                btp = self.child2.edge_weight('btp', self.child1)
-                return (ftp * btp) ** 0.5  # geometric mean
-
+            if model.params['ID_VECTOR_COMPOSITION']:
+                # We violate the modularity of HoloGraph here in order
+                # to get compositional structure in the id_vectors.
+                id_vec = model.graph.vector_model.bind(node1.id_vec, node2.id_vec)
+                super().__init__(model, chunk_id_string, id_vec=id_vec)
             else:
-                form, degree = generalize
-                if form == 'neighbor':
-                    return neighbor_generalize(self, degree)
-                else:
-                    raise ValueError('Bad GENERALIZE parameter.')
+                super().__init__(model, chunk_id_string)
+
+
+        def chunkiness(self, **kwargs):
+            return self.model.chunkiness(self.child1, self.child2, **kwargs)
 
     return Chunk
-
-
-def neighbor_generalize(chunk, degree):
-    similar_chunks = (chunk.model.get_chunk(predecessor, follower)
-                      for predecessor in chunk.child2.predecessors
-                      for follower in chunk.child1.followers)
-    similar_chunks = [c for c in similar_chunks if c is not None]
-    TEST['similar_chunks'] = similar_chunks
-
-    # TODO make this 0 - 1
-    gen_chunkiness = sum(chunk.chunkiness(generalize=False)
-                         for chunk in similar_chunks)
-    
-    result =  (degree * gen_chunkiness + 
-                (1-degree) * chunk.chunkiness(generalize=False))
-    
-    assert not np.isnan(result)
-    return result
