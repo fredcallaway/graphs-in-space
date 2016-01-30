@@ -1,37 +1,70 @@
-from graph import Graph, Node
+from holograph import HoloGraph
+from probgraph import ProbGraph
+import pytest
 
-def test_graph():
-    graph = Graph(['edge'], {'DECAY_RATE': 0.1})
-    n1 = Node(graph, 'n1')
-    assert graph.get('n1') is None
-    graph.add_node(n1)
-    assert graph['n1'] is n1
-    assert graph.get('n1') is n1
+@pytest.fixture
+def holograph():
+    return HoloGraph(['edge'], {'DIM': 1000, 'PERCENT_NON_ZERO': .01, 
+                                'BIND_OPERATION': 'addition'})
+@pytest.fixture
+def probgraph():
+    return ProbGraph(['edge'], {'DECAY_RATE': 0.01})
 
-    n2 = Node(graph, 'n2')
-    graph.add_node(n2)
-    n1.bump_edge('edge', n2, 3)
-    assert n1.edge_weight('edge', n2) == 1
-    assert n2.edge_weight('edge', n1) == 0
+def test_probgraph(probgraph):
+    _test_graph(probgraph)
 
-    n3 = Node(graph, 'n3')
-    graph.add_node(n3)
-    n1.bump_edge('edge', n3, 1)
-    assert n1.edge_weight('edge', n2) == 3 / 4
-    assert n1.edge_weight('edge', n3) == 1 / 4
+def test_holograph(holograph):
+    _test_graph(holograph)
 
-    graph.decay()
-    assert n1.edge_weight('edge', n2) == (3 - 0.1) / (4 - 0.2)
-    assert n1.edge_weight('edge', n3) == (1 - 0.1) / (4 - 0.2)
+def _test_graph(graph):
+    a = graph.create_node('A')
+    b = graph.create_node('B')
+    c = graph.create_node('C')
+    assert 'A' not in graph
+
+    graph.add_node(a)
+    graph.add_node(b)
+    graph.add_node(c)
+    assert 'A' in graph
     
-    for _ in range(10):
-        graph.decay()
+    edge_counts = [
+       ((c, a), 8),
+       ((b, a), 6),
+       ((a, a), 4),
+       # Reverse order because higher ->a edges means lower ->b edges
+       ((a, b), 2),
+       ((b, b), 2),
+       ((c, b), 2),
 
-    assert n1.edge_weight('edge', n3) == 0
-    assert n1.edge_weight('edge', n2) == 1
+       ((a, c), 1),
+       ((b, c), 1),
+       ((c, c), 1),
+    ]
 
+    for pair, count in edge_counts:
+        graph.bump_edge('edge', *pair, count)
+
+    weights = [graph.edge_weight('edge', *pair) for pair, _ in edge_counts]
+    print(weights)
+    assert sorted(weights, reverse=True) == weights
+
+
+    assert graph.edge_weight('edge', a, b) > graph.edge_weight('edge', b, c)
+
+
+#def test_equivalence(holograph, probgraph):
+#    holo, prob = holograph, probgraph
+
+#    for graph in (holo, prob):
+#        a = graph.create_node('A')
+#        b = graph.create_node('B')
+#        c = graph.create_node('C')
+
+#        graph.add_node(a)
+#        graph.add_node(b)
+#        graph.add_node(c)
 
 
 
 if __name__ == '__main__':
-    test_graph()
+    pytest.main([__file__])

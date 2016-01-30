@@ -2,7 +2,7 @@ from collections import Counter, defaultdict, OrderedDict
 import utils
 
 
-LOG = utils.get_logger(__name__, stream='INFO', file='WARNING')
+from abstract_graph import MultiGraph
 
 
 class ProbNode(object):
@@ -10,35 +10,12 @@ class ProbNode(object):
 
     Attributes:
         string: e.g. [the [big dog]]
-        idx: an int identifier
     """
-    def __init__(self, graph, id_string) -> None:
-        self.graph = graph
+    def __init__(self, id_string) -> None:
         self.id_string = id_string
-        self.idx = None  # set when the node is added to graph
-
-    def bump_edge(self, edge, node, factor) -> None:
-        """Increases the weight of an edge to another node."""
-        self.graph.edge_counts[edge][self.id_string][node.id_string] += factor
-
-    def edge_weight(self, edge, node) -> float:
-        """Returns the weight of an edge to another node.
-
-        Between 0 and 1 inclusive.
-        """
-        edge_count = self.graph.edge_counts[edge][self.id_string][node.id_string]
-        self_count = sum(self.graph.edge_counts[edge][self.id_string].values())
-        self_count += 10   # TODO unmagic
-        if self_count == 0:
-            return 0
-        else:
-            return edge_count / self_count
 
     def __hash__(self) -> int:
-        if self.idx is not None:
-            return self.idx
-        else:
-            return str(self).__hash__()
+        return str(self).__hash__()
 
     def __repr__(self):
         return self.id_string
@@ -47,8 +24,7 @@ class ProbNode(object):
         return self.id_string
 
 
-class ProbGraph(object):
-    Node = ProbNode
+class ProbGraph(MultiGraph):
     """A graph where edges represent conditional probabilities.
 
     Nodes represent entities and edge types represent relations. Weights
@@ -62,22 +38,36 @@ class ProbGraph(object):
     """
     def __init__(self, edges, params) -> None:
         self.params = params
-        
-        # Each token gets an int ID which specifies its index
-        # in self.nodes and self.activations.
-        self.string_to_index = OrderedDict()  # type: Dict[str, int]
-        self.nodes = []
+        self.nodes = {}
 
         # Each edge is represented with a sparse matrix.
         self.edge_counts = {edge: defaultdict(Counter)
                             for edge in edges}
 
+    def create_node(self, id_string):
+        return ProbNode(id_string)
+
+    def bind(self, node1, node2):
+        id_string = '[{node1.id_string} {node2.id_string}]'.format_map(locals())
+        return ProbNode(id_string)
+
+    def bump_edge(self, edge, node1, node2, factor) -> None:
+        self.edge_counts[edge][node1.id_string][node2.id_string] += factor
+
+    def edge_weight(self, edge, node1, node2, verbose=False) -> float:
+        edge_count = self.edge_counts[edge][node1.id_string][node2.id_string]
+        self_count = sum(self.edge_counts[edge][node1.id_string].values())
+        self_count += 10   # TODO unmagic
+        if self_count == 0:
+            return 0
+        else:
+            if verbose:
+                print(edge_count, self_count)
+            return edge_count / self_count
+
     def add_node(self, node) -> None:
         """Adds a node to the graph."""
-        idx = len(self.nodes)
-        node.idx = idx
-        self.string_to_index[str(node)] = idx
-        self.nodes.append(node)
+        self.nodes[node.id_string] = node
 
     def decay(self) -> None:
         """Decays all learned connections between nodes."""
@@ -99,13 +89,12 @@ class ProbGraph(object):
         except KeyError:
             return default
 
-    def __getitem__(self, node_string) -> Node:
+    def __getitem__(self, node_string):
         try:
-            idx = self.string_to_index[node_string]
-            return self.nodes[idx]
+            return self.nodes[node_string]
         except KeyError:
             raise KeyError('{node_string} is not in the graph.'.format_map(locals()))
  
-    def __contains__(self, node_string) -> bool:
+    def __contains__(self, node_string):
         assert isinstance(node_string, str)
-        return node_string in self.string_to_index
+        return node_string in self.nodes
