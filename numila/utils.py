@@ -5,34 +5,48 @@ import time
 import itertools
 
 
+from contextlib import contextmanager
+@contextmanager
+def capture_logging(logger, level):
+    """Captures log messages at or above the given level on the given logger.
 
-def make(return_type):
-    """Decorator that makes a generator function return another type.
-
-    Generalizes the @vectorized decorator, as described here:
-    http://www.scipy-lectures.org/advanced/advanced_python/#a-while-loop-removing-decorator
+    Context object is a function that returns the captured log as a string.
 
     Example:
-        >>> import pandas as pd
-        >>> @make(pd.DataFrame)
-        >>> def exponent_df(n):
-                for i in range(n):
-                    yield {'a': i, 'b': i ** 2, 'c': i ** 3}
-
-        >>> exponent_df(4)
-           a  b   c
-        0  0  0   0
-        1  1  1   1
-        2  2  4   8
-        3  3  9  27
-
+        >>> with capture_logging('mylogger', 'DEBUG') as logged:
+                function_that_logs_to_mylogger()
+        >>> print(logged())
     """
-    from functools import update_wrapper
-    def maker(generator_func):
-        def wrapper(*args, **kwargs):
-            return return_type(generator_func(*args, **kwargs))
-        return update_wrapper(wrapper, generator_func)
-    return maker
+    import io
+    import logging
+    if isinstance(logger, str):
+        logger = logging.getLogger(logger)
+
+    stream = io.StringIO()
+    handler = logging.StreamHandler(stream)
+    handler.setLevel(level)
+
+    old_level = logger.level
+    logger.setLevel(level)
+    logger.addHandler(handler)
+
+    class LogStream:
+        def __call__(self):
+            try:
+                handler.flush()
+                val = stream.getvalue()
+                self.val = val
+                return val
+            except ValueError:
+                return self.val
+    
+    result = LogStream()
+    yield result
+    result()
+    stream.close()
+    logger.removeHandler(handler)
+    logger.setLevel(old_level)
+
 
 def neighbors(iterable):
     "s -> (s0,s1), (s1,s2), (s2, s3), ..."
@@ -47,13 +61,13 @@ def get_logger(name, stream='WARNING', file='INFO'):
     format_ = '[%(name)s : %(levelname)s]\t%(message)s'
     if stream and not any(isinstance(h, logging.StreamHandler) for h in log.handlers):
         printer = logging.StreamHandler()
-        printer.setLevel(getattr(logging, stream))
+        printer.setLevel(stream)
         printer.setFormatter(logging.Formatter(fmt=format_))
         log.addHandler(printer)
 
     if file and not any(isinstance(h, logging.FileHandler) for h in log.handlers):
         filer = logging.FileHandler('log.txt')
-        filer.setLevel(getattr(logging, file))
+        filer.setLevel(file)
         filer.setFormatter(logging.Formatter(fmt=format_))
         log.addHandler(filer)
 

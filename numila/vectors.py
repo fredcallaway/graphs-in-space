@@ -24,7 +24,7 @@ class VectorModel(object):
         self.alternating_ints = itertools.cycle((1, -1))  # 1, -1 , 1, -1 ...
     
     #@profile
-    def sparse(self):
+    def sparse(self) -> np.ndarray:
         """Returns a new sparse vector."""
         num_nonzero = int(np.ceil(self.dim * self.nonzero))
         
