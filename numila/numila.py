@@ -5,7 +5,7 @@ import yaml
 import utils
 
 
-LOG = utils.get_logger(__name__, stream='INFO', file='INFO')
+LOG = utils.get_logger(__name__, stream='WARNING', file='INFO')
 TEST = {'on': False}
 
 
@@ -19,6 +19,9 @@ class Numila(object):
             self.params = yaml.load(f.read())
         assert(all(k in self.params for k in params))
         self.params.update(params)
+
+        if self.params['CHUNK_THRESHOLD'] is None:
+            self.params['CHUNK_THRESHOLD'] = self.params['EXEMPLAR_THRESHOLD']
 
         # The GRAPH parameter determines which implementation of a Graph
         # this Numila instance should use. Thus, Numila is a class that
@@ -34,13 +37,6 @@ class Numila(object):
         
         self.graph = Graph(edges=['ftp', 'btp'], params=self.params)
 
-        # This is kind of crazy. Each Numila instance has its own Node and
-        # Chunk classes. These two classes both inherit from the Node class
-        # of the graph. We must use simple helper functions to allow for
-        # this kind of dynamic inheritance.
-        self.Node = make_node_class(Graph.Node)
-        self.Chunk = make_chunk_class(self.Node)
-
     def parse_utterance(self, utterance, learn=True, verbose=False):
         """Returns a Parse of the given utterance."""
         self.graph.decay()
@@ -55,6 +51,25 @@ class Numila(object):
             for utt in training_corpus:
                 self.parse_utterance(utt)
             return self
+
+    def create_node(self, string):
+        node = self.graph.create_node(string)
+        # Add extra links.
+        node.followers = set()
+        node.predecessors = set()
+        return node
+
+    def create_chunk(self, node1, node2):
+        node = self.graph.bind(node1, node2)
+        # Add extra links.
+        node.followers = set()
+        node.predecessors = set()
+        node.child1 = node1
+        node.child2 = node2
+
+        #print(node, self.graph.edge_counts['ftp'][node1.id_string][node2.id_string],
+              #'/', sum(self.graph.edge_counts['ftp'][node1.id_string].values()))
+        return node
 
     def get_chunk(self, node1, node2, stored_only=True):
         """Returns a chunk of node1 and node2 if the chunk is in the graph.
@@ -78,7 +93,7 @@ class Numila(object):
             if node2.id_string in self.graph and node2 is not self.graph[node2.id_string]:
                 LOG.debug('Fixing a chunk node')
                 node2 = self.graph[node2.id_string]
-            chunk = self.Chunk(self, node1, node2)
+            chunk = self.create_chunk(node1, node2)
             return chunk
 
     def add_chunk(self, chunk):
@@ -97,17 +112,23 @@ class Numila(object):
 
         LOG.debug('new chunk: %s', chunk)
 
-    def speak(self, words, verbose=False, return_chunk=False):
+    def speak(self, words, verbose=False, return_chunk=False, preshuffled=False):
         """Returns the list of words ordered properly."""
         def get_node(token):
             try:
                 return self.graph[token]
             except KeyError:
                 LOG.info('Unknown token seen while speaking.')
-                return self.Node(self, token)
+                return self.create_node(token)
         nodes = [get_node(w) for w in words]
 
-        # combine the two chunkiest nodes into a chunk until only one node left
+        if not preshuffled:
+            # In the case of a tie, the first pair is chosen, thus we shuffle
+            # to make this effect random.
+            np.random.shuffle(nodes)
+
+
+        # Combine the two chunkiest nodes into a chunk until only one node left.
         while len(nodes) > 1:
             pairs = list(itertools.permutations(nodes, 2))
             best_pair = max(pairs, key=lambda pair: self.chunkiness(*pair))
@@ -136,8 +157,8 @@ class Numila(object):
             generalize = self.params['GENERALIZE']
 
         if not generalize:
-            ftp = node1.edge_weight('ftp', node2)
-            btp = node2.edge_weight('btp', node1)
+            ftp = self.graph.edge_weight('ftp', node1, node2)
+            btp = self.graph.edge_weight('btp', node2, node1)
             return (ftp * btp) ** 0.5  # geometric mean
 
         else:
@@ -234,7 +255,7 @@ class Parse(list):
         try:
             node = self.graph[token]
         except KeyError:  # a new token
-            node = self.model.Node(self.model, token)
+            node = self.model.create_node(token)
             if self.learn:
                 self.graph.add_node(node)
 
@@ -256,15 +277,15 @@ class Parse(list):
         # These factors determine how much we should increase the weight
         # of each type of edge.
         ftp_factor = self.params['LEARNING_RATE'] * self.params['FTP_PREFERENCE'] 
-        btp_factor = self.params['LEARNING_RATE'] * (1 - self.params['FTP_PREFERENCE']) 
+        btp_factor = self.params['LEARNING_RATE']
 
         # Increase the weight between every node in memory. Note that
         # some of these nodes may be chunks that are not in the graph. TODO
         for node1, node2 in utils.neighbors(self.memory):
             self.log('  -> strengthen:', node1, node2)
             if node1.id_string in self.graph and node2.id_string in self.graph:
-                node1.bump_edge('ftp', node2, ftp_factor)
-                node2.bump_edge('btp', node1, btp_factor)
+                self.graph.bump_edge('ftp', node1, node2, ftp_factor)
+                self.graph.bump_edge('btp', node2, node1, btp_factor)
 
         if self.params['CHUNK_LEARNING']:
             # Incerase the weight between nodes that are in chunks in memory.
@@ -276,8 +297,8 @@ class Parse(list):
                 if not hasattr(chunk, 'chunkiness'):
                     return
                 if chunk.child1.id_string in self.graph and chunk.child2.id_string in self.graph:
-                    chunk.child1.bump_edge('ftp', chunk.child2, ftp_factor)
-                    chunk.child2.bump_edge('btp', chunk.child1, btp_factor)
+                    self.graph.bump_edge('ftp', chunk.child1, chunk.child2, ftp_factor)
+                    self.graph.bump_edge('btp', chunk.child2, chunk.child1, btp_factor)
                 update_chunk(chunk.child1)
                 update_chunk(chunk.child2)
 
@@ -336,44 +357,3 @@ class Parse(list):
     def __str__(self):
         return self.__repr__()
 
-
-def make_node_class(BaseNode):
-    """Returns a Node class that inherits from BaseNode"""
-    
-    class Node(BaseNode):
-        """A node in Numila's graph."""
-        def __init__(self, model, id_string, **kwargs):
-            super().__init__(model.graph, id_string, **kwargs)
-            self.followers = set()  # TODO document
-            self.predecessors = set()
-
-    return Node
-
-
-def make_chunk_class(Node):
-    """Returns a Chunk class that inherits from Node."""
-
-    class Chunk(Node):
-        """A chunk of two nodes."""
-        def __init__(self, model, node1, node2):
-            self.model = model
-            self.child1 = node1
-            self.child2 = node2
-
-            # A chunk's id_string is determined by its constituents id_strings,
-            # allowing us to quickly find a chunk given its constituents.
-            chunk_id_string = '[{node1.id_string} {node2.id_string}]'.format_map(locals())
-
-            if model.params['ID_VECTOR_COMPOSITION']:
-                # We violate the modularity of HoloGraph here in order
-                # to get compositional structure in the id_vectors.
-                id_vec = model.graph.vector_model.bind(node1.id_vec, node2.id_vec)
-                super().__init__(model, chunk_id_string, id_vec=id_vec)
-            else:
-                super().__init__(model, chunk_id_string)
-
-
-        def chunkiness(self, **kwargs):
-            return self.model.chunkiness(self.child1, self.child2, **kwargs)
-
-    return Chunk
