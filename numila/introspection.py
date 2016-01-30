@@ -90,13 +90,27 @@ def track_training(model, corpus, utterances=None, track=None, sample_rate=100):
     return model, history
 
 
-if __name__ == '__main__':
+def main():
     from numila import Numila
+    from production import eval_production, common_neighbor_metric
 
-    corpus = utils.cfg_corpus()
-    train_corpus = list(corpus)
-    model = Numila(EXEMPLAR_THRESHOLD=0.1, CHUNK_THRESHOLD=0.1).fit(train_corpus)
-    df = analyze_chunks(model)
-    print(df['size'].value_counts())
-    import IPython; IPython.embed()
+    for graph in ('probgraph', 'holograph'):
+        corpus = utils.syl_corpus()
+        test_corpus = [next(corpus) for _ in range(500)]
+        train_corpus = [next(corpus) for _ in range(5000)]
+
+        model = Numila(GRAPH=graph, EXEMPLAR_THRESHOLD=.1, LEARNING_RATE=1).fit(train_corpus)
+        #model = Numila(GRAPH='probgraph', EXEMPLAR_THRESHOLD=1, LEARNING_RATE=1).fit(train_corpus)
+
+        production_results = pd.DataFrame(eval_production(model, test_corpus, common_neighbor_metric))
+        print(production_results['accuracy'].mean())
+
+        df = analyze_chunks(model)
+        print(df['size'].value_counts())
+        #import IPython; IPython.embed()
+
+
+if __name__ == '__main__':
+    main()
+
 
