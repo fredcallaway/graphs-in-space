@@ -202,10 +202,9 @@ class Parse(list):
         self.params = model.params
         self.learn = learn
         self.chunkinesses = []
-
         self.memory = deque(maxlen=self.params['MEMORY_SIZE'])
-        self.log = print if verbose else lambda *args: 'dummy'
-        self.log('\nPARSING: %s', ' '.join(utterance))
+
+        LOG.debug('\nPARSING: %s', utterance)
 
         utterance = iter(utterance)
 
@@ -213,20 +212,22 @@ class Parse(list):
         while len(self.memory) < self.params['MEMORY_SIZE']:
             token = next(utterance, None)
             if token is None:
+                LOG.debug('break')
                 break  # less than MEMORY_SIZE tokens in utterance
-            self.shift(token)
+            LOG.debug('\nmemory = %s', self.memory)
             self.update_weights()
+            self.shift(token)
 
         # Chunk, learn, and shift until we run out of tokens, at which point we
-        # keep chunking until we reduce the utterance to one chunk or drop
+        # keep chunking until we reduce the utterance to one chunk or drop everything.
         while self.memory:
+            LOG.debug('\nmemory = %s', self.memory)
+            self.update_weights()
             success = self.try_to_chunk()
             if not success:
                 # Couldn't make a chunk. We remove the oldest node 
                 # to make room for a new one.
                 self.append(self.memory.popleft())
-                self.log('  -> no chunk created')
-            self.update_weights()
             token = next(utterance, None)
             if token is not None:
                 self.shift(token)
@@ -250,7 +251,7 @@ class Parse(list):
         node in the graph for it.
         """
         assert len(self.memory) < self.memory.maxlen
-        self.log('shift: %s', token)
+        LOG.debug('shift: %s', token)
 
         try:
             node = self.graph[token]
@@ -260,7 +261,6 @@ class Parse(list):
                 self.graph.add_node(node)
 
         self.memory.append(node)
-        self.log('memory = ', self.memory)
 
     #@profile
     def update_weights(self) -> None:
@@ -282,7 +282,7 @@ class Parse(list):
         # Increase the weight between every node in memory. Note that
         # some of these nodes may be chunks that are not in the graph. TODO
         for node1, node2 in utils.neighbors(self.memory):
-            self.log('  -> strengthen:', node1, node2)
+            LOG.debug('  strengthen %s and %s', node1, node2)
             if node1.id_string in self.graph and node2.id_string in self.graph:
                 self.graph.bump_edge('ftp', node1, node2, ftp_factor)
                 self.graph.bump_edge('btp', node2, node1, btp_factor)
@@ -316,6 +316,7 @@ class Parse(list):
             # We can't create a chunk when there's only one node left.
             # This can only happen while processing the tail, so we
             # must be done processing
+            LOG.debug('done parsing')
             return False
 
 
@@ -337,7 +338,6 @@ class Parse(list):
         if best_chunkiness >= self.params['CHUNK_THRESHOLD']:  # TODO chunk threshold
             best_chunk = self.model.get_chunk(*pairs[best_idx], stored_only=False)
             # Replace the two nodes in memory with one chunk.
-            self.log('  -> create chunk: {}'.format(best_chunk))
             self.memory[best_idx] = best_chunk
             del self.memory[best_idx+1]
             self.chunkinesses.append(best_chunkiness)
@@ -347,8 +347,10 @@ class Parse(list):
                 best_chunk.id_string not in self.graph and
                 best_chunkiness > self.params['EXEMPLAR_THRESHOLD']):
                     self.model.add_chunk(best_chunk)      
+            LOG.debug('create chunk: %s', best_chunk)
             return True
         else:  # can't make a chunk
+            LOG.debug('no chunk created')
             return False
 
     def __repr__(self):

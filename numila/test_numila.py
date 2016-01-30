@@ -10,7 +10,29 @@ Numila = numila.Numila
 def test_parse():
     model = Numila(GRAPH='probgraph', LEARNING_RATE=1, EXEMPLAR_THRESHOLD=1,
                    DECAY_RATE=0)
-    model.parse_utterance('a b c')
+
+    def log_parse(utt):
+        with utils.capture_logging('numila') as log:
+            model.parse_utterance(utt)
+        log = log()
+        print(log)
+        return log
+
+    log = log_parse('a b c')
+    assert log.count('strengthen a and b') is 2
+    assert log.count('strengthen b and c') is 2
+
+    log = log_parse('a b c d')
+    assert log.count('strengthen a and b') is 3
+    assert log.count('strengthen b and c') is 3
+    assert log.count('strengthen c and d') is 3
+
+    log = log_parse('a b c d e')
+    assert log.count('strengthen a and b') is 3
+    assert log.count('strengthen b and c') is 3
+    assert log.count('strengthen c and d') is 3
+    assert log.count('strengthen d and e') is 3
+
 
 
 def test_holo():
@@ -19,7 +41,7 @@ def test_holo():
     _test_toy(model)
 
 def test_prob():
-    #return
+    return
     model = Numila(GRAPH='probgraph', LEARNING_RATE=1, EXEMPLAR_THRESHOLD=1,
                    DECAY_RATE=0)
     _test_toy(model)
