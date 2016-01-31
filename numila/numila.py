@@ -4,7 +4,6 @@ import numpy as np
 import yaml
 import utils
 
-
 LOG = utils.get_logger(__name__, stream='WARNING', file='INFO')
 TEST = {'on': False}
 
@@ -12,13 +11,14 @@ TEST = {'on': False}
 class Numila(object):
     """The premier language acquisition model."""
     def __init__(self, param_file='params.yml', **params):
-        LOG.info('parameters: %s', params)
 
         # Read default params from file, overwriting with keyword arguments.
         with open(param_file) as f:
             self.params = yaml.load(f.read())
         assert(all(k in self.params for k in params))
         self.params.update(params)
+        LOG.info('parameters:\n\n%s\n', 
+                 yaml.dump(self.params, default_flow_style=False))
 
         if self.params['CHUNK_THRESHOLD'] is None:
             self.params['CHUNK_THRESHOLD'] = self.params['EXEMPLAR_THRESHOLD']
@@ -47,9 +47,11 @@ class Numila(object):
         return Parse(self, utterance, learn=learn, verbose=verbose)
 
     def fit(self, training_corpus):
-        with utils.Timer('Numila train time'):
-            for utt in training_corpus:
+        with utils.Timer(print_func=None) as timer:
+            for count, utt in enumerate(training_corpus, 1):
                 self.parse_utterance(utt)
+            LOG.warning('Trained on %s utterances in %s seconds', 
+                        count, timer.elapsed)
             return self
 
     def create_node(self, string):
@@ -118,7 +120,7 @@ class Numila(object):
             try:
                 return self.graph[token]
             except KeyError:
-                LOG.info('Unknown token seen while speaking.')
+                LOG.debug('Unknown token while speaking: %s', token)
                 return self.create_node(token)
         nodes = [get_node(w) for w in words]
 

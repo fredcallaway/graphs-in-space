@@ -66,7 +66,7 @@ def quick_test(train_len=1000, **kwargs):
 
     production_results = DataFrame(eval_production(model, test_corpus, common_neighbor_metric))
     result = production_results['accuracy'].mean()
-    print(result)
+    LOG.warning('quicktest: %s', result)
     return result
 
 def compare(*paramss, num_trials=5, train_len=1000):
@@ -115,7 +115,7 @@ def compare_ngram():
 
 
 if __name__ == '__main__':
-    quick_test(GRAPH='probgraph', CHUNK_THRESHOLD=0.1, LEARNING_RATE=1, train_len=500)
+    quick_test(GRAPH='probgraph', CHUNK_THRESHOLD=0.1, LEARNING_RATE=1, train_len=100)
     exit()
     quick_test(GRAPH='holograph', CHUNK_THRESHOLD=0.1, LEARNING_RATE=1, train_len=100)
     #quick_test(GRAPH='probgraph', CHUNK_THRESHOLD=0.1, LEARNING_RATE=1, train_len=10000)

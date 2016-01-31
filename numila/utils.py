@@ -3,17 +3,17 @@ import re
 from typing import List
 import time
 import itertools
-
-
 from contextlib import contextmanager
+from functools import wraps
+
 @contextmanager
-def capture_logging(logger, level):
+def capture_logging(logger, level='DEBUG'):
     """Captures log messages at or above the given level on the given logger.
 
     Context object is a function that returns the captured log as a string.
 
     Example:
-        >>> with capture_logging('mylogger', 'DEBUG') as logged:
+        >>> with capture_logging('mylogger', 'INFO') as logged:
                 function_that_logs_to_mylogger()
         >>> print(logged())
     """
@@ -58,7 +58,7 @@ def neighbors(iterable):
 def get_logger(name, stream='WARNING', file='INFO'):
     log = logging.getLogger(name)
     
-    format_ = '[%(name)s : %(levelname)s]\t%(message)s'
+    format_ = '[%(name)s]\t%(message)s'
     if stream and not any(isinstance(h, logging.StreamHandler) for h in log.handlers):
         printer = logging.StreamHandler()
         printer.setLevel(stream)
@@ -71,6 +71,7 @@ def get_logger(name, stream='WARNING', file='INFO'):
         filer.setFormatter(logging.Formatter(fmt=format_))
         log.addHandler(filer)
 
+    log.setLevel(min(filer.level, printer.level))
     return log
 
 
@@ -131,12 +132,14 @@ class Timer(object):
     """
     def __init__(self, name='Timer', print_func=print):
         self.name = name
-        self.print_func = print_func
+        self.print_func = print_func or (lambda *args: None)
         self._lap_idx = 0
+        self._done = None
 
     @property
     def elapsed(self):
-        return time.time() - self.start
+        current = self._done or time.time()
+        return current - self.start
 
     def lap(self, label=None):
         if label is None:
