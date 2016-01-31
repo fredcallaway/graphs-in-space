@@ -10,9 +10,9 @@ class ProbNode(object):
     Attributes:
         string: e.g. [the [big dog]]
     """
-    def __init__(self, id_string, edges) -> None:
+    def __init__(self, id_string, edges, edge_counts=None) -> None:
         self.id_string = id_string
-        self.edge_counts = {edge: Counter() for edge in edges}
+        self.edge_counts = edge_counts or {edge: Counter() for edge in edges}
 
     def bump_edge(self, edge, node, factor) -> None:
         self.edge_counts[edge][node.id_string] +=  factor
@@ -59,9 +59,10 @@ class ProbGraph(MultiGraph):
     def create_node(self, id_string) -> ProbNode:
         return ProbNode(id_string, self.edges)
 
-    def bind(self, node1, node2) -> ProbNode:
+    def bind(self, node1, node2, edges={}) -> ProbNode:
         id_string = '[{node1.id_string} {node2.id_string}]'.format_map(locals())
-        return ProbNode(id_string, self.edges)
+        edge_counts = {edge: node.edge_counts[edge] for edge, node in edges.items()}
+        return ProbNode(id_string, self.edges, edge_counts)
 
     def bump_edge(self, edge, node1, node2, factor) -> None:
         node1.bump_edge(edge, node2, factor)

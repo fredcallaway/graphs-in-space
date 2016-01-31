@@ -30,6 +30,7 @@ def eval_production(model, test_corpus, metric_func):
     the model's reconstruction of that utterance from a
     scrambeled "bag of words" version of the utterance.
     """
+    np.random.seed(0)
     for adult_utt in test_corpus:
         if len(adult_utt) < 2:
             continue  # can't evaluate a one word utterance

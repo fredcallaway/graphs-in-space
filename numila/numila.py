@@ -62,7 +62,8 @@ class Numila(object):
         return node
 
     def create_chunk(self, node1, node2):
-        node = self.graph.bind(node1, node2)
+        edges = {'btp': node1, 'ftp': node2} if self.params['BIND'] else {}
+        node = self.graph.bind(node1, node2, edges=edges)
         # Add extra links.
         node.followers = set()
         node.predecessors = set()
