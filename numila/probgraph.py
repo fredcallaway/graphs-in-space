@@ -1,6 +1,5 @@
-from collections import Counter, defaultdict, OrderedDict
+from collections import Counter, defaultdict
 import utils
-
 
 from abstract_graph import MultiGraph
 
@@ -11,11 +10,23 @@ class ProbNode(object):
     Attributes:
         string: e.g. [the [big dog]]
     """
-    def __init__(self, id_string) -> None:
+    def __init__(self, id_string, edges) -> None:
         self.id_string = id_string
+        self.edge_counts = {edge: Counter() for edge in edges}
+
+    def bump_edge(self, edge, node, factor) -> None:
+        self.edge_counts[edge][node.id_string] +=  factor
+
+    def edge_weight(self, edge, node) -> float:
+        edge_count = self.edge_counts[edge][node.id_string]
+        self_count = sum(self.edge_counts[edge].values())
+        if self_count == 0:
+            return 0
+        else:
+            return edge_count / self_count
 
     def __hash__(self) -> int:
-        return str(self).__hash__()
+        return hash(self.id_string)
 
     def __repr__(self):
         return self.id_string
@@ -37,6 +48,7 @@ class ProbGraph(MultiGraph):
     that B has previously occurred given that A just occurred.
     """
     def __init__(self, edges, params) -> None:
+        self.edges = edges
         self.params = params
         self.nodes = {}
 
@@ -44,26 +56,18 @@ class ProbGraph(MultiGraph):
         self.edge_counts = {edge: defaultdict(Counter)
                             for edge in edges}
 
-    def create_node(self, id_string):
-        return ProbNode(id_string)
+    def create_node(self, id_string) -> ProbNode:
+        return ProbNode(id_string, self.edges)
 
-    def bind(self, node1, node2):
+    def bind(self, node1, node2) -> ProbNode:
         id_string = '[{node1.id_string} {node2.id_string}]'.format_map(locals())
-        return ProbNode(id_string)
+        return ProbNode(id_string, self.edges)
 
     def bump_edge(self, edge, node1, node2, factor) -> None:
-        self.edge_counts[edge][node1.id_string][node2.id_string] += factor
+        node1.bump_edge(edge, node2, factor)
 
-    def edge_weight(self, edge, node1, node2, verbose=False) -> float:
-        edge_count = self.edge_counts[edge][node1.id_string][node2.id_string]
-        self_count = sum(self.edge_counts[edge][node1.id_string].values())
-        self_count += 10   # TODO unmagic
-        if self_count == 0:
-            return 0
-        else:
-            if verbose:
-                print(edge_count, self_count)
-            return edge_count / self_count
+    def edge_weight(self, edge, node1, node2) -> float:
+        return node1.edge_weight(edge, node2)
 
     def add_node(self, node) -> None:
         """Adds a node to the graph."""
