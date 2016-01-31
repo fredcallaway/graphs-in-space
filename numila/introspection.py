@@ -110,7 +110,3 @@ def main():
         #import IPython; IPython.embed()
 
 
-if __name__ == '__main__':
-    main()
-
-

@@ -111,25 +111,3 @@ def compare_ngram():
     df = pd.concat(data())
     df.to_pickle('pickles/ngram_comparison.pkl')
     return df
-
-
-
-if __name__ == '__main__':
-    quick_test(GRAPH='probgraph', CHUNK_THRESHOLD=0.1, LEARNING_RATE=1, train_len=100)
-    exit()
-    quick_test(GRAPH='holograph', CHUNK_THRESHOLD=0.1, LEARNING_RATE=1, train_len=100)
-    #quick_test(GRAPH='probgraph', CHUNK_THRESHOLD=0.1, LEARNING_RATE=1, train_len=10000)
-
-
-    for i in [i*200 for i in range(1, 20)]:
-        print()
-        print(i)
-        quick_test(GRAPH='probgraph', CHUNK_THRESHOLD=0.1, train_len=i)
-    exit()
-    df = compare({'CHUNK_THRESHOLD': 0.1}, 
-                 {'CHUNK_THRESHOLD': 0.2},
-                 {'CHUNK_THRESHOLD': 0.3},
-                 num_trials=1, train_len=5000)
-    import seaborn as sns
-    sns.factorplot('CHUNK_THRESHOLD', 'accuracy', data=df)
-    sns.plt.show()
