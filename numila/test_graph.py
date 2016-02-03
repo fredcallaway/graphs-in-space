@@ -4,19 +4,16 @@ import pytest
 
 @pytest.fixture
 def holograph():
-    return HoloGraph(['edge'], {'DIM': 1000, 'PERCENT_NON_ZERO': .01, 
+    graph = HoloGraph(['edge'], {'DIM': 1000, 'PERCENT_NON_ZERO': .01, 
                                 'BIND_OPERATION': 'addition'})
+    _add_nodes(graph)
+    return graph
+
 @pytest.fixture
 def probgraph():
     return ProbGraph(['edge'], {'DECAY_RATE': 0.01})
 
-def test_probgraph(probgraph):
-    _test_graph(probgraph)
-
-def test_holograph(holograph):
-    _test_graph(holograph)
-
-def _test_graph(graph):
+def _add_nodes(graph):
     a = graph.create_node('A')
     b = graph.create_node('B')
     c = graph.create_node('C')
@@ -26,6 +23,16 @@ def _test_graph(graph):
     graph.add_node(b)
     graph.add_node(c)
     assert 'A' in graph
+
+def test_probgraph(probgraph):
+    _test_graph(probgraph)
+
+def test_holograph(holograph):
+    _test_graph(holograph)
+
+
+def _test_graph(graph):
+
     
     edge_counts = [
        ((c, a), 8),

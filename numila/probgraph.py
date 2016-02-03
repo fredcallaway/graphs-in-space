@@ -52,10 +52,6 @@ class ProbGraph(MultiGraph):
         self.params = params
         self.nodes = {}
 
-        # Each edge is represented with a sparse matrix.
-        self.edge_counts = {edge: defaultdict(Counter)
-                            for edge in edges}
-
     def create_node(self, id_string) -> ProbNode:
         return ProbNode(id_string, self.edges)
 
@@ -76,16 +72,27 @@ class ProbGraph(MultiGraph):
 
     def decay(self) -> None:
         """Decays all learned connections between nodes."""
-        for edge_type in self.edge_counts:
-            for node1, edges in self.edge_counts[edge_type].items():
-                for node2 in edges:
-                    edges[node2] -= self.params['DECAY_RATE']
+        for node1 in self.nodes.values():
+            for edge_type, counter in node1.edge_counts.items():
+                # Decay every edge of this type out of node1.
+                for node2 in counter:
+                    counter[node2] -= self.params['DECAY_RATE']
+                # Delete non-positive edges.
+                non_pos = [node for node, weight in counter.items()
+                           if weight <= 0]
+                for node in non_pos:
+                    del counter[node]
+
+        #for edge_type in self.edge_counts:
+        #    for node1, edges in self.edge_counts[edge_type].items():
+        #        for node2 in edges:
+        #            edges[node2] -= self.params['DECAY_RATE']
                 
-                non_pos_edges = [node2
-                                 for node2, weight in edges.items()
-                                 if weight <= 0]
-                for node2 in non_pos_edges:
-                    del edges[node2]
+        #        non_pos_edges = [node2
+        #                         for node2, weight in edges.items()
+        #                         if weight <= 0]
+        #        for node2 in non_pos_edges:
+        #            del edges[node2]
 
     def get(self, node_string, default=None):
         """Returns the node if it's in the graph, else `default`."""

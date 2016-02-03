@@ -3,13 +3,22 @@
 ## Model
 - binding operation
     - C -> A -> B -> D   becomes   C -> AB -> D
+    - try de-weighting the bind edges?
 - learning at multiple levels
     - build into ID vectors of chunks?
     - do explicitly?
 - reconsider learning algo
+    - current has less learning for short utterances
+    - first 4 always get bumped, not true for others
+- phonoloop
+    - simulate with activation
+    - allow chunks to stick around for short periods of time
 - generalization
     - try complete on comprehension task
     - neighbor not 0 - 1
+- decay
+    - greatly reduces probgraph performance
+    - slightly reduced holograph performance
 
 ## Analysis
 - grammaticality measure

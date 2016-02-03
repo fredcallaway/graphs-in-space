@@ -57,7 +57,7 @@ class HoloGraph(MultiGraph):
     def create_node(self, id_string):
         return HoloNode(self, id_string)
 
-    def bind(self, node1, node2) -> HoloNode:
+    def bind(self, node1, node2, edges=None) -> HoloNode:
         id_string = '[{node1.id_string} {node2.id_string}]'.format_map(locals())
         id_vec = self.vector_model.bind(node1.id_vec, node2.id_vec)
         return HoloNode(self, id_string, id_vec=id_vec)
