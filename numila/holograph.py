@@ -23,16 +23,16 @@ class HoloNode(object):
         id_vec: a random sparse vector that never changes
     """
     def __init__(self, graph, id_string, id_vec=None):
-        self.graph = graph
         self.id_string = id_string
         if id_vec is not None:
             self.id_vec = id_vec
         else:
-            self.id_vec = self.graph.vector_model.sparse()
-        self.row_vec = np.copy(self.id_vec)
+            self.id_vec = graph.vector_model.sparse()
+        self.row_vec = graph.vector_model.sparse()
+        self._original_row = np.copy(self.row_vec)
 
     def __hash__(self):
-        return str(self).__hash__()
+        return hash(self.id_string)
 
     def __repr__(self):
         return self.id_string
@@ -95,7 +95,7 @@ class HoloGraph(MultiGraph):
         its row vector, effectively making each node more similar
         to its initial state"""
         for node in self.nodes.values():
-            node.row_vec += node.id_vec * self.params['DECAY_RATE']
+            node.row_vec += node._original_row * self.params['DECAY_RATE']
 
     def get(self, node_string, default=None):
         """Returns the node if it's in the graph, else `default`."""
