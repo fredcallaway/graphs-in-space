@@ -9,7 +9,7 @@ Numila = numila.Numila
 
 def test_parse():
     model = Numila(GRAPH='probgraph', LEARNING_RATE=1, EXEMPLAR_THRESHOLD=1,
-                   DECAY_RATE=0)
+                   DECAY=0)
 
     def log_parse(utt):
         with utils.capture_logging('numila') as log:
@@ -43,7 +43,7 @@ def test_holo():
 def test_prob():
     return
     model = Numila(GRAPH='probgraph', LEARNING_RATE=1, EXEMPLAR_THRESHOLD=1,
-                   DECAY_RATE=0)
+                   DECAY=0)
     _test_toy(model)
 
 

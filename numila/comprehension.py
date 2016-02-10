@@ -2,15 +2,17 @@ import pandas as pd
 import numpy as np
 from scipy import stats
 import seaborn as sns
+from joblib import Parallel, delayed
 
 import utils
+literal = utils.literal
 from numila import Numila
 
+LOG = utils.get_logger(__name__, stream='INFO', file='INFO')
 
-
-def nu_grammaticality(numila, utt):
+def nu_grammaticality(model, utt):
     """Returns a grammaticality score for an utterance."""
-    parse = numila.parse_utterance(utt, learn=False)
+    parse = model.parse_utterance(utt, learn=False)
     possible_chunks = len(parse.utterance) - 1
     
     chunk_ratio = parse.num_chunks / possible_chunks    
@@ -43,10 +45,18 @@ def create_test_corpus(corpus, num_utterances):
             # type, test utterance, original utterance
             yield('swapped', foil, original_idx)
 
-def swapped_test(numila, test_corpus):
+def add_foils(corpus):
+    """Creates a test corpus with grammatical and neighbor-swapped utterances."""
+    for original_idx, utt in enumerate(corpus):
+        yield ('normal', utt, original_idx)
+        for foil in swapped(utt):
+            # type, test utterance, original utterance
+            yield('swapped', foil, original_idx)
+
+def swapped_test(model, test_corpus):
     """Gets nu_grammaticality scores for items in the test_corpus"""
     for utt_type, utt, original in test_corpus:
-        chunk_ratio, chunkedness = nu_grammaticality(numila, utt)
+        chunk_ratio, chunkedness = nu_grammaticality(model, utt)
         yield {'utterance_type': utt_type,
                'length': len(utt),
                'chunk_ratio': chunk_ratio,
@@ -63,6 +73,7 @@ def precision_recall(ranked):
     are the precision and recall if the model's grammaticality threshold is
     set to allow that utterance.
     """
+    ranked = list(ranked)
     num_normal = ranked.count('normal')
 
     # Iterate through utterances, starting with best-ranked. Every time
@@ -79,30 +90,40 @@ def precision_recall(ranked):
             recall = normal_seen / num_normal
             yield {'precision': precision,
                    'recall': recall,
-                   'F_score': np.sqrt(precision * recall)}
+                   'f_score': np.sqrt(precision * recall)}
 
 
 
-def main():
+def quick_test(train_len):
     corpus = utils.syl_corpus()
-    train_corpus = [next(corpus) for _ in range(5000)]
     test_corpus = create_test_corpus(corpus, num_utterances=100)
-    
-    numila = Numila().fit(train_corpus)
+    train_corpus = [next(corpus) for _ in range(train_len)]
+    model = Numila(**params).fit(train_corpus)
 
-    df = pd.DataFrame(swapped_test(numila, test_corpus))
-    df.replace('normal', 1).replace('swapped', 0).to_csv('swapped_test.csv')
-    df.to_pickle('swapped.pkl')
+    df = pd.DataFrame(swapped_test(model, test_corpus))
     
     # We sort first by chunk_ratio, then by chunkedness. Thus this list
     # is sorted by nu_grammaticality()
-    nu_ranked = df.sort_values(['chunk_ratio', 'chunkedness'], ascending=False)
-    nu_ranked_types = list(nu_ranked['utterance_type'])
-    nu_precision = precision_recall(nu_ranked_types)
-    #sns.jointplot('recall', 'precision', data=nu_precision)
+    ranked = df.sort_values(['chunk_ratio', 'chunkedness'], ascending=False)
+    ranked_types = list(ranked['utterance_type'])
+    precision = pd.DataFrame(precision_recall(ranked_types))
+
+    result = max(precision['f_score'])
+    LOG.critical('best F: %s', result)
+    return result
 
 
-if __name__ == '__main__':
-    main()
+def eval_grammaticality_judgement(model, test_corpus):
+    test_corpus = add_foils(test_corpus)
+    ranked = sorted(test_corpus, key=lambda item: model.score(item[1]), reverse=True)
+    ranked_types = (item[0] for item in ranked)
+    scores = precision_recall(ranked_types)
+    return max(scores, key=lambda item: item['f_score'])
 
 
+def compare_models(models, test_corpus):
+    for name, model in models.items():
+        with utils.Timer(literal('{name} grammaticality')):
+            score = eval_grammaticality_judgement(model, test_corpus)
+            score['model'] = name
+            yield score

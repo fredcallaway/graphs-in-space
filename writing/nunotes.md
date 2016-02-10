@@ -1,4 +1,7 @@
 # TODO
+- keep all most recently closed chunks in memory, learn at every level
+__  __
+A B C D
 
 ## Model
 - binding operation
@@ -32,7 +35,8 @@
 
 
 # MISC
-
+- Numila has a lot of ad hoc stuff
+    - "Within-slot interchangeability within a short time window"
 - Reading time data for evaluating broad-coverage models of English sentence processing
 - Cowan (2000) for choice of 4 window size
 

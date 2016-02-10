@@ -1,12 +1,14 @@
 from collections import deque
 import itertools
 import numpy as np
+from scipy import stats
+
 import yaml
+
 import utils
 
 LOG = utils.get_logger(__name__, stream='WARNING', file='INFO')
 TEST = {'on': False}
-
 
 class Numila(object):
     """The premier language acquisition model."""
@@ -15,7 +17,11 @@ class Numila(object):
         # Read default params from file, overwriting with keyword arguments.
         with open(param_file) as f:
             self.params = yaml.load(f.read())
-        assert(all(k in self.params for k in params))
+        if not all(k in self.params for k in params):
+            raise ValueError
+        for k in params:
+            if k not in self.params:
+                raise ValueError(k + 'is not a valid parameter.')
         self.params.update(params)
         LOG.info('parameters:\n\n%s\n', 
                  yaml.dump(self.params, default_flow_style=False))
@@ -37,6 +43,7 @@ class Numila(object):
         
         self.graph = Graph(edges=['ftp', 'btp'], params=self.params)
 
+
     def parse_utterance(self, utterance, learn=True, verbose=False):
         """Returns a Parse of the given utterance."""
         self.graph.decay()
@@ -53,6 +60,21 @@ class Numila(object):
             LOG.warning('Trained on %s utterances in %s seconds', 
                         count, timer.elapsed)
             return self
+
+    def score(self, utt):
+        """Returns a grammaticality score for an utterance."""
+        parse = self.parse_utterance(utt, learn=False)
+        possible_chunks = len(parse.utterance) - 1
+        
+        chunk_ratio = parse.num_chunks / possible_chunks    
+        
+        if parse.chunkinesses:
+            chunkedness = stats.gmean(parse.chunkinesses)
+        else:  # no chunks made
+            chunkedness = np.nan
+        
+        return (chunk_ratio, chunkedness)
+
 
     def create_node(self, string):
         node = self.graph.create_node(string)
@@ -160,7 +182,8 @@ class Numila(object):
             generalize = self.params['GENERALIZE']
 
         if not generalize:
-            ftp = self.graph.edge_weight('ftp', node1, node2)
+            ftp = (self.graph.edge_weight('ftp', node1, node2) *
+                   self.params['FTP_PREFERENCE'])
             btp = self.graph.edge_weight('btp', node2, node1)
             return (ftp * btp) ** 0.5  # geometric mean
 
@@ -196,7 +219,6 @@ class Parse(list):
     effects for the parent Numila instance (i.e. learning). The loop
     in __init__ is thus both the comprehension and learning algorithm.
     """
-    #@profile
     def __init__(self, model, utterance, learn=True, verbose=False) -> None:
         super().__init__()
         self.model = model
@@ -265,7 +287,6 @@ class Parse(list):
 
         self.memory.append(node)
 
-    #@profile
     def update_weights(self) -> None:
         """Strengthens the connection between every adjacent pair of nodes in memory.
 
@@ -279,7 +300,7 @@ class Parse(list):
 
         # These factors determine how much we should increase the weight
         # of each type of edge.
-        ftp_factor = self.params['LEARNING_RATE'] * self.params['FTP_PREFERENCE'] 
+        ftp_factor = self.params['LEARNING_RATE']
         btp_factor = self.params['LEARNING_RATE']
 
         # Increase the weight between every node in memory. Note that
@@ -308,7 +329,6 @@ class Parse(list):
             for node in self.memory:
                 update_chunk(node)
 
-    #@profile
     def try_to_chunk(self) -> None:
         """Attempts to combine two Nodes in memory into one Node.
 
@@ -361,4 +381,7 @@ class Parse(list):
 
     def __str__(self):
         return self.__repr__()
+
+
+
 

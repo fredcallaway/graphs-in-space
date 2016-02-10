@@ -183,3 +183,21 @@ def generate_args(params):
     product = itertools.product(*valss)
     return [{k: v for k, v in zip(keys, vals)} for vals in product]
 
+
+def literal(string):
+    """Literal string interpolation.
+
+    Implements pep 0498:
+    https://www.python.org/dev/peps/pep-0498/
+
+    literal(string) is equivalent to string.format(**locals())
+
+    Example:
+        >>> name = 'eric'
+        >>> age = 16
+        >>> literal('{name} is {age}')
+        'eric is 16'
+    """
+    import inspect
+    env = inspect.stack()[1][0].f_locals
+    return string.format(**env)

@@ -9,12 +9,14 @@ import re
 import os
 import shutil
 
+LOG = utils.get_logger(__name__, stream='INFO', file='INFO')
+
 class NGramModel(object):
     """A wrapper around SRILM"""
     def __init__(self, order):
         self.order = order
         os.makedirs('_srilm/', exist_ok=True)
-        self.dir = tempfile.mkdtemp(dir='_srilm/')  # TODO
+        self.dir = tempfile.mkdtemp(dir='_srilm/')
 
     def fit(self, train_data):
         with utils.Timer('Ngram train time'):
@@ -26,7 +28,7 @@ class NGramModel(object):
                    '-text {self.dir}/train.txt '
                    '-order {self.order} '
                    '-lm {self.dir}/model.lm '
-                   #'-kndiscount '  TODO
+                   '-kndiscount '
                    ).format_map(locals())
 
             subprocess.check_call(cmd, shell=True)
@@ -69,6 +71,9 @@ class NGramModel(object):
         best_idx = np.argmin(perplexities)
         return utts[best_idx]
 
+    def score(self, utterance):
+        return next(self.perplexity([utterance]))
+
     def __del__(self):
         # This is not great practice for cleaning up, but it will have to do.
         shutil.rmtree(self.dir)
@@ -77,10 +82,14 @@ class NGramModel(object):
 
 
 def main():
-    corpus = utils.read_corpus('/usr/local/share/srilm/examples/train.txt')
-    model = NGramModel(3).fit(corpus)
+    import production
+    import main
+    from pandas import DataFrame
+    train, test = main.corpora(5000, 100)
+    model = NGramModel(2).fit(train)
+    trials = DataFrame(production.eval_production(model, test, production.common_neighbor_metric))
+    print(trials['accuracy'].mean())
 
-    print(model.speak('acb'))
 
 if __name__ == '__main__':
     main()

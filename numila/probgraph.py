@@ -25,9 +25,6 @@ class ProbNode(object):
         else:
             return edge_count / self_count
 
-    def __hash__(self) -> int:
-        return hash(self.id_string)
-
     def __repr__(self):
         return self.id_string
 
@@ -72,11 +69,14 @@ class ProbGraph(MultiGraph):
 
     def decay(self) -> None:
         """Decays all learned connections between nodes."""
+        decay = self.params['DECAY']
+        if not decay:
+            return
         for node1 in self.nodes.values():
             for edge_type, counter in node1.edge_counts.items():
                 # Decay every edge of this type out of node1.
                 for node2 in counter:
-                    counter[node2] -= self.params['DECAY_RATE']
+                    counter[node2] -= decay
                 # Delete non-positive edges.
                 non_pos = [node for node, weight in counter.items()
                            if weight <= 0]
@@ -86,7 +86,7 @@ class ProbGraph(MultiGraph):
         #for edge_type in self.edge_counts:
         #    for node1, edges in self.edge_counts[edge_type].items():
         #        for node2 in edges:
-        #            edges[node2] -= self.params['DECAY_RATE']
+        #            edges[node2] -= self.params['DECAY']
                 
         #        non_pos_edges = [node2
         #                         for node2, weight in edges.items()

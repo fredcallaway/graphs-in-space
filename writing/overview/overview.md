@@ -79,13 +79,13 @@ $$
 
 where $E$ is the set of edge types, $N$ is the set of nodes, $P_e$ is a permutation vector for edge $e$, $\text{id-vector}(n)$ is the id-vector of node $n$, and $\text{edge-count}(e, n_1, n_2)$ is an integer weight on the edge of type $e$ connecting $n_1$ to $n_2$^[We assume all possible edges exist with default 0 weights.]. For example, in Nümila, $\text{edge-count}(FTP, the, dog)$ would indicate the number of times "dog" followed "the" in the training corpus.
 
-For example, here is part 1 of the __update weights__ step in graphical terms and vector terms:  
+Here is part 1 of the __update weights__ step in graphical terms and vector terms:  
 (1) increase the weight of the forward edge from $n_1$ to $n_2$  
-(1) add $P_{FTP}(\text{id-vector}(n))$ to the row vector of $n_1$.  
+(1) add $P_{FTP}(\text{id-vector}(n_2))$ to the row vector of $n_1$.  
 
 We use cosine similarity to approximately recover the edge weights summed into a row-vector. For an edge of type $e$ connecting $n_1$ to $n_2$, we define edge-weight as
 
-$$ \text{edge-weight}(e, n_0, n) = 
+$$ \text{edge-weight}(e, n_1, n_2) = 
         \cos \big(\text{row-vector}(n_1), 
               P_e(\text{id-vector}(n_2))\big)
 $$

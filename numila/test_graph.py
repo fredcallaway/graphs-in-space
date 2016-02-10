@@ -11,7 +11,7 @@ def holograph():
 
 @pytest.fixture
 def probgraph():
-    return ProbGraph(['edge'], {'DECAY_RATE': 0.01})
+    return ProbGraph(['edge'], {'DECAY': 0.01})
 
 def _add_nodes(graph):
     a = graph.create_node('A')

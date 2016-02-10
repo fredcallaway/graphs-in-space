@@ -16,8 +16,6 @@ def analyze_chunks(model):
                            'size': list(map(size, chunks))})
 
 
-
-
 def similarity_matrix(model, round_to=None, num=None) -> pd.DataFrame:
     """A distance matrix of all nodes in the graph."""
     graph = model.graph

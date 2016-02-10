@@ -9,16 +9,6 @@ from ngram import NGramModel
 
 LOG = utils.get_logger(__name__, stream='INFO', file='INFO')
 
-class Dummy(object):
-    """docstring for Dummy"""
-    def fit(self, corpus):
-        return self
-
-    def speak(self, words):
-        utt = list(words)
-        np.random.shuffle(utt)
-        return utt
-
 
 def eval_production(model, test_corpus, metric_func):
     """Evaluates a model's performance on a test corpus based on a given metric.
@@ -67,10 +57,10 @@ def quick_test(train_len=1000, **kwargs):
 
     production_results = DataFrame(eval_production(model, test_corpus, common_neighbor_metric))
     result = production_results['accuracy'].mean()
-    LOG.warning('quicktest: %s', result)
+    LOG.critical('quicktest: %s', result)
     return result
 
-def compare(*paramss, num_trials=5, train_len=1000):
+def compare_params(*paramss, num_trials=5, train_len=1000):
     corpus = utils.syl_corpus()
     test_corpus = [next(corpus) for _ in range(100)]
     train_corpus = [next(corpus) for _ in range(train_len)]
@@ -88,27 +78,14 @@ def compare(*paramss, num_trials=5, train_len=1000):
     df.to_pickle('pickles/comparison.')
     return df
 
+def simple_test(model, test_corpus):
+    results = DataFrame(eval_production(model, test_corpus, common_neighbor_metric))
+    return results['accuracy'].mean()
 
-def compare_ngram():
-    def data():
-        for train_len in [1000, 2000, 4000]:
-            corpus = utils.syl_corpus()
-            test_corpus = [next(corpus) for _ in range(500)]
-            train_corpus = [next(corpus) for _ in range(train_len)]
+def compare_models(models, test_corpus):
+    for name, model in models.items():
+        results = eval_production(model, test_corpus, common_neighbor_metric)
+        for trial in results:
+            trial['model'] = name
+            yield trial
 
-            models = {}
-            models['bigram'] = NGramModel(2).fit(train_corpus)
-            models['trigram'] = NGramModel(3).fit(train_corpus)
-            models['numila'] = Numila().fit(train_corpus)
-            models['no_chunk'] = Numila(EXEMPLAR_THRESHOLD=1).fit(train_corpus)
-            models['dummy'] = Dummy()
-
-            for name, model in models.items():
-                results = DataFrame(eval_production(model, test_corpus, common_neighbor_metric))
-                results['train length'] = train_len
-                results['model'] = name
-                yield results
-
-    df = pd.concat(data())
-    df.to_pickle('pickles/ngram_comparison.pkl')
-    return df

@@ -31,8 +31,8 @@ class HoloNode(object):
         self.row_vec = graph.vector_model.sparse()
         self._original_row = np.copy(self.row_vec)
 
-    def __hash__(self):
-        return hash(self.id_string)
+    #def __hash__(self):
+    #    return hash(self.id_string)
 
     def __repr__(self):
         return self.id_string
@@ -94,8 +94,11 @@ class HoloGraph(MultiGraph):
         This is done by adding a small factor of each nodes id_vec to
         its row vector, effectively making each node more similar
         to its initial state"""
+        decay = self.params['DECAY']
+        if not decay:
+            return
         for node in self.nodes.values():
-            node.row_vec += node._original_row * self.params['DECAY_RATE']
+            node.row_vec += node._original_row * decay
 
     def get(self, node_string, default=None):
         """Returns the node if it's in the graph, else `default`."""
