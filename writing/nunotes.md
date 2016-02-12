@@ -47,3 +47,14 @@ A B C D
 
 - should generalization occur after trying normal chunkiness?
 - how to combine the two measures
+
+GEN 0.3 EXEMP 0.3
+[numila]  Trained on 1105 utterances in 34605.541867017746 seconds
+0.626
+{'precision': 0.3732193732193732, 'f_score': 0.49442763824314012, 'recall': 0.655}
+
+
+GEN 0.4
+[numila]  Trained on 1115 utterances in 37820.506844997406 seconds
+0.63425
+{'recall': 0.735, 'precision': 0.3475177304964539, 'f_score': 0.50539641066680874}

@@ -72,7 +72,7 @@ class NGramModel(object):
         return utts[best_idx]
 
     def score(self, utterance):
-        return next(self.perplexity([utterance]))
+        return - next(self.perplexity([utterance]))
 
     def __del__(self):
         # This is not great practice for cleaning up, but it will have to do.

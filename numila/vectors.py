@@ -24,7 +24,7 @@ class VectorModel(object):
         self.alternating_ints = itertools.cycle((1, -1))  # 1, -1 , 1, -1 ...
     
     #@profile
-    def sparse(self) -> np.ndarray:
+    def sparse(self):
         """Returns a new sparse vector."""
         num_nonzero = int(np.ceil(self.dim * self.nonzero))
         
@@ -41,12 +41,12 @@ class VectorModel(object):
             vector[i] = next(self.alternating_ints)
         return vector
 
-    def bind(self, v1, v2) -> np.ndarray:
+    def bind(self, v1, v2):
         permuted_v1 = v1[self.perm1]
         permuted_v2 = v2[self.perm2]
         return self.bind_op(permuted_v1, permuted_v2)
 
-    def permutation(self) -> np.ndarray:
+    def permutation(self):
         return np.random.permutation(self.dim)
 
 
@@ -64,7 +64,10 @@ def cosine(a,b):
     sum_sq_a = np.sum(a**2.0)
     sum_sq_b = np.sum(b**2.0)
     result = np.dot(a,b) * (sum_sq_a * sum_sq_b) ** -0.5
-    assert -1 <= result <= 1
+    try:
+        assert -1.1 <= result <= 1.1
+    except:
+        import ipdb; ipdb.set_trace()
     return result
 
 def normalize(a):

@@ -36,30 +36,54 @@ def corpora(train_len, test_len):
 
 
 def fit(name, model, train_corpus):
+    if name == 'generalized':
+        return name, model.fit(train_corpus, lap=10)
     return name, model.fit(train_corpus)
 
-def main(train_len=5000, test_len=500):
-    train_corpus, test_corpus = corpora(train_len, test_len)
-    
+import joblib
+
+def get_models(train_corpus, parallel=False):
     models = {
+        'generalized': Numila(GENERALIZE=('full', 0.3)),
         'numila': Numila(),
-        'no_chunk': Numila(EXEMPLAR_THRESHOLD=1),
         'probgraph': Numila(GRAPH='probgraph', EXEMPLAR_THRESHOLD=0.05),
-        'dummy': Dummy(),
+        'no_chunk': Numila(EXEMPLAR_THRESHOLD=1),
+        'dummy': Dummy()
     }
-    jobs = (delayed(fit)(name, model, train_corpus) 
-            for name, model in models.items())
-    sys.setrecursionlimit(10000)  # for unpickling done in Parallel
-    models = dict(Parallel(-2)(jobs))
+    if parallel:
+        jobs = (delayed(fit)(name, model, train_corpus) 
+                for name, model in models.items())
+        sys.setrecursionlimit(10000)  # for unpickling done in Parallel
+        models = dict(Parallel(-2)(jobs))
+    else:
+        for name, m in models.items():
+            if name == 'generalized':
+                m.fit(train_corpus, lap=10)
+            else:
+                m.fit(train_corpus)
+
     models.update({'bigram': NGramModel(2).fit(train_corpus),  # can't do parallel
-                   'trigram': NGramModel(3).fit(train_corpus),
-                   'infant': Numila()})
+                   'trigram': NGramModel(3).fit(train_corpus)})
 
-    grammaticality = DataFrame(comprehension.compare_models(models, test_corpus))
-    grammaticality.to_pickle('pickles/grammaticality.pkl')
+    return models
 
-    bleu = DataFrame(production.compare_models(models, test_corpus))
-    bleu.to_pickle('pickles/production.pkl')
+def main(train_len=3000, test_len=300):
+    train_corpus, test_corpus = corpora(train_len, test_len)
+    models = get_models(train_corpus)
+
+    for name, m in models.items():
+        joblib.dump(m, 'pickles/' + name)
+
+    try:
+        grammaticality = DataFrame(comprehension.compare_models(models, test_corpus))
+        grammaticality.to_pickle('pickles/grammaticality.pkl')
+        bleu = DataFrame(production.compare_models(models, test_corpus))
+        bleu.to_pickle('pickles/production.pickles')
+    except KeyboardInterrupt:
+        pass
+
+    import IPython; IPython.embed()
+
 
 
 def optimizer(train_len=5000, test_len=500):
@@ -76,7 +100,7 @@ def optimizer(train_len=5000, test_len=500):
     def make_name(params):
         a = params['GRAPH'][0]
         b = params['MEMORY_SIZE']
-        return a, b
+        return a, bs
 
     models = {make_name(ps): Numila(**ps) for ps in paramss}
 
@@ -92,48 +116,22 @@ def optimizer(train_len=5000, test_len=500):
     bleu.to_pickle('pickles/opt-production.pkl')
 
 
-def gazorp(train_len=5000, test_len=500):
+
+def test_gen(train_len=2000, test_len=200):
     train_corpus, test_corpus = corpora(train_len, test_len)
+    model = Numila(GENERALIZE=('full', 0.3)).fit(train_corpus, lap=10)
 
-    for x in [0.5, 0.75, 1, 1.25, 1.5]:
-        model = Numila(GRAPH='holograph', FTP_PREFERENCE=x).fit(train_corpus)
-        print()
-        print(production.simple_test(model, test_corpus))
-        print(comprehension.eval_grammaticality_judgement(model, test_corpus))
+    import IPython; IPython.embed()
 
-
-def oldmain():
-    comprehension.quick_test(train_len=5000, DECAY=0)
-    comprehension.quick_test(GRAPH='probgraph', train_len=5000, DECAY=0)
-
-    production.quick_test(GRAPH='probgraph',
-                          CHUNK_THRESHOLD=0.2,
-                          LEARNING_RATE=.1,
-                          BIND=False,
-                          train_len=5000)
-
-    #quick_test(GRAPH='probgraph',
-    #           CHUNK_THRESHOLD=0.2,
-    #           LEARNING_RATE=.1,
-    #           DECAY=0,
-    #           BIND=False,
-    #           train_len=5000)
-
-    #for decay in (i * 2000 for i in range(1, 15)):
-    #    print('decay:', decay)
-    #    quick_test(GRAPH='probgraph',
-    #               CHUNK_THRESHOLD=0.3,
-    #               LEARNING_RATE=0.1,
-    #               DECAY=decay,
-    #               BIND=False,
-    #               train_len=10000)
+    print(production.simple_test(model, test_corpus))
+    print(comprehension.eval_grammaticality_judgement(model, test_corpus))
 
 
 
 
 if __name__ == '__main__':
     try:
-        optimizer()
+        test_gen()
     except:
         import traceback
         tb = traceback.format_exc()

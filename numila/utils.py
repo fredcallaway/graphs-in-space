@@ -71,7 +71,11 @@ def get_logger(name, stream='WARNING', file='INFO'):
         filer.setFormatter(logging.Formatter(fmt=format_))
         log.addHandler(filer)
 
-    log.setLevel(min(filer.level, printer.level))
+    if filer:
+        min_level = min(filer.level, printer.level)
+    else:
+        min_level = printer.level
+    log.setLevel(min_level)
     return log
 
 
@@ -87,7 +91,7 @@ def take_unique(seq, n):
     return result
 
 
-def read_corpus(file, token_delim=' ', utt_delim='\n', num_utterances=None) -> List[List[str]]:
+def read_corpus(file, token_delim=' ', utt_delim='\n', num_utterances=None):
     """A list of lists of tokens in a corpus"""
     with open(file) as f:
         for idx, utterance in enumerate(re.split(utt_delim, f.read())):

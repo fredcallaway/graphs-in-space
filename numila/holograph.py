@@ -22,23 +22,26 @@ class HoloNode(object):
         idx: an int identifier
         id_vec: a random sparse vector that never changes
     """
-    def __init__(self, graph, id_string, id_vec=None):
+    def __init__(self, graph, id_string, id_vec=None, row_vec=None):
+        self.graph = graph
         self.id_string = id_string
-        if id_vec is not None:
-            self.id_vec = id_vec
-        else:
-            self.id_vec = graph.vector_model.sparse()
-        self.row_vec = graph.vector_model.sparse()
+        self.id_vec = id_vec if id_vec is not None else graph.vector_model.sparse()
+        self.row_vec = row_vec if row_vec is not None else graph.vector_model.sparse()
         self._original_row = np.copy(self.row_vec)
 
     #def __hash__(self):
     #    return hash(self.id_string)
+
+    def similarity(self, node):
+        return vectors.cosine(self.row_vec, node.row_vec)
 
     def __repr__(self):
         return self.id_string
 
     def __str__(self):
         return self.id_string
+
+
 
 
 class HoloGraph(MultiGraph):
@@ -87,6 +90,26 @@ class HoloGraph(MultiGraph):
             return 0.0
         else:
             return weight
+
+    def sum(self, nodes, weights=None):
+        weights = list(weights)
+        if weights:
+            ids = [n.id_vec * w for n, w in zip(self.nodes.values(), weights)]
+            rows = [n.row_vec * w for n, w in zip(self.nodes.values(), weights)]
+        else:
+            ids = [n.id_vec for n in nodes]
+            rows = [n.row_vec for n in nodes]
+        
+        id_vec = np.sum(ids, axis=0)
+        row_vec = np.sum(rows, axis=0)
+        node =  HoloNode(self, '__SUM__', id_vec, row_vec)
+        return node
+
+
+
+        
+
+
 
     def decay(self):
         """Decays all learned connections between nodes.

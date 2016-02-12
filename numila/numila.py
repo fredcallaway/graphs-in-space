@@ -10,6 +10,7 @@ import utils
 LOG = utils.get_logger(__name__, stream='WARNING', file='INFO')
 TEST = {'on': False}
 
+
 class Numila(object):
     """The premier language acquisition model."""
     def __init__(self, param_file='params.yml', **params):
@@ -53,28 +54,28 @@ class Numila(object):
             utterance = ['#'] + utterance + ['#']
         return Parse(self, utterance, learn=learn, verbose=verbose)
 
-    def fit(self, training_corpus):
-        with utils.Timer(print_func=None) as timer:
-            for count, utt in enumerate(training_corpus, 1):
-                self.parse_utterance(utt)
+    def fit(self, training_corpus, lap=None):
+        with utils.Timer(print_func=LOG.warning) as timer:
+            try:
+                for count, utt in enumerate(training_corpus, 1):
+                    self.parse_utterance(utt)
+                    if lap and count % lap == 0:
+                        timer.lap(count)
+            except KeyboardInterrupt:
+                pass  # allow interruption of training
             LOG.warning('Trained on %s utterances in %s seconds', 
                         count, timer.elapsed)
             return self
 
-    def score(self, utt):
+    def score(self, utt, type='chunk_ratio'):
         """Returns a grammaticality score for an utterance."""
         parse = self.parse_utterance(utt, learn=False)
         possible_chunks = len(parse.utterance) - 1
         
-        chunk_ratio = parse.num_chunks / possible_chunks    
-        
-        if parse.chunkinesses:
-            chunkedness = stats.gmean(parse.chunkinesses)
-        else:  # no chunks made
-            chunkedness = np.nan
-        
-        return (chunk_ratio, chunkedness)
+        chunk_ratio = parse.num_chunks / possible_chunks
 
+        
+        return chunk_ratio
 
     def create_node(self, string):
         node = self.graph.create_node(string)
@@ -171,7 +172,7 @@ class Numila(object):
         else:
             return utils.flatten_parse(final)
 
-    def chunkiness(self, node1, node2, generalize=None) -> float:
+    def chunkiness(self, node1, node2, generalize=None):
         """How well two nodes form a chunk.
 
         The geometric mean of forward transitional probability and
@@ -191,6 +192,8 @@ class Numila(object):
             form, degree = generalize
             if form == 'neighbor':
                 return self.neighbor_generalize(node1, node2, degree)
+            elif form == 'full':
+                return self.full_generalize(node1, node2, degree)
             else:
                 raise ValueError('Bad GENERALIZE parameter.')
 
@@ -211,6 +214,22 @@ class Numila(object):
         assert not np.isnan(result)
         return result
 
+    def full_generalize(self, node1, node2, degree):
+        def make_gen_node(node):
+            sims = [node.similarity(other_node)
+                    for other_node in self.graph.nodes.values()]
+            gen_node = self.graph.sum(self.graph.nodes.values(), weights=sims)
+            return gen_node
+
+        gnode1, gnode2 = map(make_gen_node, (node1, node2))
+        gen_chunkiness = self.chunkiness(gnode1, gnode2, generalize=False)
+
+        result = (degree * gen_chunkiness + 
+                  (1-degree) * self.chunkiness(node1, node2, generalize=False))
+        assert not np.isnan(result)
+        return result
+
+
 
 class Parse(list):
     """A parse of an utterance represented as a list of Nodes.
@@ -219,7 +238,7 @@ class Parse(list):
     effects for the parent Numila instance (i.e. learning). The loop
     in __init__ is thus both the comprehension and learning algorithm.
     """
-    def __init__(self, model, utterance, learn=True, verbose=False) -> None:
+    def __init__(self, model, utterance, learn=True, verbose=False):
         super().__init__()
         self.model = model
         self.utterance = utterance
@@ -264,11 +283,13 @@ class Parse(list):
 
     @property
     def chunkedness(self):
-        """Geometric mean of chunkinesses."""
-        return np.e ** ((1 / len(self.chunkinesses)) * 
-                        sum(np.log(x) for x in self.chunkinesses))
+        # TODO: total chunkedness
+        between = [self.model.chunkiness(n1, n2)
+                   for n1, n2 in utils.neighbors(self)]
+        total = between + self.chunkinesses
+        return stats.gmean(total)
 
-    def shift(self, token) -> None:
+    def shift(self, token):
         """Adds a token to memory.
 
         This method can only be called when there is an empty slot in
@@ -287,7 +308,7 @@ class Parse(list):
 
         self.memory.append(node)
 
-    def update_weights(self) -> None:
+    def update_weights(self):
         """Strengthens the connection between every adjacent pair of nodes in memory.
 
         Additionally, we increase the connection between nodes that are in a 
@@ -329,7 +350,7 @@ class Parse(list):
             for node in self.memory:
                 update_chunk(node)
 
-    def try_to_chunk(self) -> None:
+    def try_to_chunk(self):
         """Attempts to combine two Nodes in memory into one Node.
 
         Returns True for success, False for failure.

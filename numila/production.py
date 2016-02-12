@@ -60,7 +60,7 @@ def quick_test(train_len=1000, **kwargs):
     LOG.critical('quicktest: %s', result)
     return result
 
-def compare_params(*paramss, num_trials=5, train_len=1000):
+def compare_params(paramss, num_trials=5, train_len=1000):
     corpus = utils.syl_corpus()
     test_corpus = [next(corpus) for _ in range(100)]
     train_corpus = [next(corpus) for _ in range(train_len)]

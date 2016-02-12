@@ -40,18 +40,18 @@ def create_test_corpus(corpus, num_utterances):
     usable = (utt for utt in corpus if len(utt) > 3)
     correct = utils.take_unique(usable, num_utterances)
     for original_idx, utt in enumerate(correct):
-        yield ('normal', utt, original_idx)
+        yield (1, utt, original_idx)
         for foil in swapped(utt):
             # type, test utterance, original utterance
-            yield('swapped', foil, original_idx)
+            yield(0, foil, original_idx)
 
 def add_foils(corpus):
     """Creates a test corpus with grammatical and neighbor-swapped utterances."""
     for original_idx, utt in enumerate(corpus):
-        yield ('normal', utt, original_idx)
+        yield (1, utt, original_idx)
         for foil in swapped(utt):
             # type, test utterance, original utterance
-            yield('swapped', foil, original_idx)
+            yield(0, foil, original_idx)
 
 def swapped_test(model, test_corpus):
     """Gets nu_grammaticality scores for items in the test_corpus"""
@@ -74,7 +74,7 @@ def precision_recall(ranked):
     set to allow that utterance.
     """
     ranked = list(ranked)
-    num_normal = ranked.count('normal')
+    num_normal = ranked.count(1)
 
     # Iterate through utterances, starting with best-ranked. Every time
     # we find a normal one, we add a new data point: the recall and precision
@@ -84,14 +84,38 @@ def precision_recall(ranked):
     num_seen = 0
     for utt_type in ranked:
         num_seen += 1
-        if utt_type == 'normal':
+        if utt_type == 1:
             normal_seen += 1
             precision = normal_seen / num_seen
             recall = normal_seen / num_normal
             yield {'precision': precision,
                    'recall': recall,
-                   'f_score': np.sqrt(precision * recall)}
+                   'f_score': 2 * precision * recall / (precision + recall)}
 
+
+def roc_curve(ranked):
+    """Returns precisions and recalls on a test corpus with various thresholds.
+    
+    ranked is a list of utterance types, ranked by some metric.
+
+    There is one data point for every utterance. These data points
+    are the precision and recall if the model's grammaticality threshold is
+    set to allow that utterance.
+    """
+    ranked = list(ranked)
+    num_normal = ranked.count(1)
+
+    correct_accepted = 0
+    total_accepted = 0
+    for utt_type in ranked:
+        total_accepted += 1
+        if utt_type == 1:
+            correct_accepted += 1
+
+        false_pos = (total_accepted - correct_accepted) / total_accepted
+        true_pos = correct_accepted / num_normal
+        yield {'false_pos': false_pos,
+               'true_pos': true_pos}
 
 
 def quick_test(train_len):
@@ -114,8 +138,8 @@ def quick_test(train_len):
 
 
 def eval_grammaticality_judgement(model, test_corpus):
-    test_corpus = add_foils(test_corpus)
-    ranked = sorted(test_corpus, key=lambda item: model.score(item[1]), reverse=True)
+    full_test_corpus = add_foils(test_corpus)
+    ranked = list(sorted(full_test_corpus, key=lambda item: model.score(item[1]), reverse=True))
     ranked_types = (item[0] for item in ranked)
     scores = precision_recall(ranked_types)
     return max(scores, key=lambda item: item['f_score'])
