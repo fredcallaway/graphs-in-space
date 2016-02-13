@@ -67,15 +67,25 @@ class Numila(object):
                         count, timer.elapsed)
             return self
 
-    def score(self, utt, type='chunk_ratio'):
+    def score(self, utt, ratio=0, freebie=-1):
         """Returns a grammaticality score for an utterance."""
         parse = self.parse_utterance(utt, learn=False)
-        possible_chunks = len(parse.utterance) - 1
-        
-        chunk_ratio = parse.num_chunks / possible_chunks
 
-        
-        return chunk_ratio
+
+        def chunk_ratio():
+            possible_chunks = len(parse.utterance) - 1
+            return parse.num_chunks / possible_chunks
+
+        def chunkiness():
+            between = [self.chunkiness(n1, n2)
+                       for n1, n2 in utils.neighbors(parse)]
+            within = [max(chunkiness, freebie) for chunkiness in parse.chunkinesses]    
+            total = np.array(between + within)
+            total += .001  # smoothing
+            return stats.gmean(total)
+
+        return chunk_ratio() * ratio + chunkiness() * (1-ratio)
+
 
     def create_node(self, string):
         node = self.graph.create_node(string)
@@ -186,7 +196,9 @@ class Numila(object):
             ftp = (self.graph.edge_weight('ftp', node1, node2) *
                    self.params['FTP_PREFERENCE'])
             btp = self.graph.edge_weight('btp', node2, node1)
-            return (ftp * btp) ** 0.5  # geometric mean
+            result = (ftp * btp) ** 0.5  # geometric mean
+            assert not np.isnan(result)
+            return result
 
         else:
             form, degree = generalize
@@ -271,7 +283,8 @@ class Parse(list):
             if not success:
                 # Couldn't make a chunk. We remove the oldest node 
                 # to make room for a new one.
-                self.append(self.memory.popleft())
+                oldest = self.memory.popleft()
+                self.append(oldest)
             token = next(utterance, None)
             if token is not None:
                 self.shift(token)
@@ -280,14 +293,6 @@ class Parse(list):
     def num_chunks(self):
         """The number of chunks made during this Parse."""
         return len(self.chunkinesses)
-
-    @property
-    def chunkedness(self):
-        # TODO: total chunkedness
-        between = [self.model.chunkiness(n1, n2)
-                   for n1, n2 in utils.neighbors(self)]
-        total = between + self.chunkinesses
-        return stats.gmean(total)
 
     def shift(self, token):
         """Adds a token to memory.

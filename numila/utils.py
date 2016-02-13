@@ -1,5 +1,6 @@
 import logging
 import re
+import sys
 from typing import List
 import time
 import itertools
@@ -59,6 +60,8 @@ def get_logger(name, stream='WARNING', file='INFO'):
     log = logging.getLogger(name)
     
     format_ = '[%(name)s]\t%(message)s'
+    printer = None
+    writer = None
     if stream and not any(isinstance(h, logging.StreamHandler) for h in log.handlers):
         printer = logging.StreamHandler()
         printer.setLevel(stream)
@@ -66,16 +69,14 @@ def get_logger(name, stream='WARNING', file='INFO'):
         log.addHandler(printer)
 
     if file and not any(isinstance(h, logging.FileHandler) for h in log.handlers):
-        filer = logging.FileHandler('log.txt')
-        filer.setLevel(file)
-        filer.setFormatter(logging.Formatter(fmt=format_))
-        log.addHandler(filer)
+        writer = logging.FileHandler('log.txt')
+        writer.setLevel(file)
+        writer.setFormatter(logging.Formatter(fmt=format_))
+        log.addHandler(writer)
 
-    if filer:
-        min_level = min(filer.level, printer.level)
-    else:
-        min_level = printer.level
-    log.setLevel(min_level)
+    writer_level = writer.level if writer else 100
+    printer_level = printer.level if printer else 100
+    log.setLevel(min(writer_level, printer_level))
     return log
 
 
@@ -205,3 +206,30 @@ def literal(string):
     import inspect
     env = inspect.stack()[1][0].f_locals
     return string.format(**env)
+
+class debug(object):
+    def __init__(self, func):
+        self._locals = {}
+        self.func = func
+
+    def __call__(self, *args, **kwargs):
+        def tracer(frame, event, arg):
+            if event=='return':
+                self._locals = frame.f_locals.copy()
+
+        # tracer is activated on next call, return or exception
+        sys.setprofile(tracer)
+        try:
+            # trace the function call
+            res = self.func(*args, **kwargs)
+        finally:
+            # disable tracer and replace with old one
+            sys.setprofile(None)
+        return res
+
+    def clear_locals(self):
+        self._locals = {}
+
+    @property
+    def locals(self):
+        return self._locals
