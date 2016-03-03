@@ -1,23 +1,24 @@
 from collections import Counter, defaultdict
 import utils
 
-from abstract_graph import MultiGraph
+from abstract_graph import HiGraph, HiNode
 
 
-class ProbNode(object):
+class ProbNode(HiNode):
     """A node in a ProbGraph.
 
     Attributes:
         string: e.g. [the [big dog]]
     """
-    def __init__(self, id_string, edges, edge_counts=None) -> None:
-        self.id_string = id_string
+    def __init__(self, graph, id_string, edges, edge_counts=None) -> None:
+        super().__init__(graph, id_string)
         self.edge_counts = edge_counts or {edge: Counter() for edge in edges}
 
-    def bump_edge(self, edge, node, factor) -> None:
+    def bump_edge(self, node, edge, factor=1) -> None:
         self.edge_counts[edge][node.id_string] +=  factor
 
-    def edge_weight(self, edge, node) -> float:
+    @utils.contract(lambda x: 0 <= x <= 1)
+    def edge_weight(self, node, edge) -> float:
         edge_count = self.edge_counts[edge][node.id_string]
         self_count = sum(self.edge_counts[edge].values())
         if self_count == 0:
@@ -25,14 +26,11 @@ class ProbNode(object):
         else:
             return edge_count / self_count
 
-    def __repr__(self):
-        return self.id_string
-
-    def __str__(self):
-        return self.id_string
+    def similarity(self, node):
+        return 0.0
 
 
-class ProbGraph(MultiGraph):
+class ProbGraph(HiGraph):
     """A graph where edges represent conditional probabilities.
 
     Nodes represent entities and edge types represent relations. Weights
@@ -47,32 +45,22 @@ class ProbGraph(MultiGraph):
     def __init__(self, edges, params) -> None:
         self.edges = edges
         self.params = params
-        self.nodes = {}
+        self._nodes = {}
 
     def create_node(self, id_string) -> ProbNode:
-        return ProbNode(id_string, self.edges)
+        return ProbNode(self, id_string, self.edges)
 
     def bind(self, node1, node2, edges={}) -> ProbNode:
         id_string = '[{node1.id_string} {node2.id_string}]'.format_map(locals())
         edge_counts = {edge: node.edge_counts[edge] for edge, node in edges.items()}
-        return ProbNode(id_string, self.edges, edge_counts)
-
-    def bump_edge(self, edge, node1, node2, factor) -> None:
-        node1.bump_edge(edge, node2, factor)
-
-    def edge_weight(self, edge, node1, node2) -> float:
-        return node1.edge_weight(edge, node2)
-
-    def add_node(self, node) -> None:
-        """Adds a node to the graph."""
-        self.nodes[node.id_string] = node
+        return ProbNode(self, id_string, self.edges, edge_counts=edge_counts)
 
     def decay(self) -> None:
         """Decays all learned connections between nodes."""
         decay = self.params['DECAY']
         if not decay:
             return
-        for node1 in self.nodes.values():
+        for node1 in self.nodes:
             for edge_type, counter in node1.edge_counts.items():
                 # Decay every edge of this type out of node1.
                 for node2 in counter:
@@ -93,20 +81,3 @@ class ProbGraph(MultiGraph):
         #                         if weight <= 0]
         #        for node2 in non_pos_edges:
         #            del edges[node2]
-
-    def get(self, node_string, default=None):
-        """Returns the node if it's in the graph, else `default`."""
-        try:
-            return self[node_string]
-        except KeyError:
-            return default
-
-    def __getitem__(self, node_string):
-        try:
-            return self.nodes[node_string]
-        except KeyError:
-            raise KeyError('{node_string} is not in the graph.'.format_map(locals()))
- 
-    def __contains__(self, node_string):
-        assert isinstance(node_string, str)
-        return node_string in self.nodes

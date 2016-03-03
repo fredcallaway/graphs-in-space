@@ -6,14 +6,19 @@ import pytest
 def holograph():
     graph = HoloGraph(['edge'], {'DIM': 1000, 'PERCENT_NON_ZERO': .01, 
                                 'BIND_OPERATION': 'addition'})
-    _add_nodes(graph)
     return graph
 
 @pytest.fixture
 def probgraph():
     return ProbGraph(['edge'], {'DECAY': 0.01})
 
-def _add_nodes(graph):
+@pytest.fixture(params=['holo', 'graph'])
+def graph(request):
+    if request.param == 'holo':
+        graph = holograph()
+    else:
+        graph = probgraph()
+
     a = graph.create_node('A')
     b = graph.create_node('B')
     c = graph.create_node('C')
@@ -24,16 +29,11 @@ def _add_nodes(graph):
     graph.add_node(c)
     assert 'A' in graph
 
-def test_probgraph(probgraph):
-    _test_graph(probgraph)
-
-def test_holograph(holograph):
-    _test_graph(holograph)
+    return graph
 
 
-def _test_graph(graph):
-
-    
+def test_weights(graph):
+    a, b, c = graph.nodes
     edge_counts = [
        ((c, a), 8),
        ((b, a), 6),
@@ -48,30 +48,15 @@ def _test_graph(graph):
        ((c, c), 1),
     ]
 
-    for pair, count in edge_counts:
-        graph.bump_edge('edge', *pair, count)
+    for (n1, n2), count in edge_counts:
+        n1.bump_edge(n2, 'edge', count)
 
-    weights = [graph.edge_weight('edge', *pair) for pair, _ in edge_counts]
+    weights = [n1.edge_weight(n2, 'edge') for (n1, n2), _ in edge_counts]
     print(weights)
     assert sorted(weights, reverse=True) == weights
 
-
-    assert graph.edge_weight('edge', a, b) > graph.edge_weight('edge', b, c)
-
-
-#def test_equivalence(holograph, probgraph):
-#    holo, prob = holograph, probgraph
-
-#    for graph in (holo, prob):
-#        a = graph.create_node('A')
-#        b = graph.create_node('B')
-#        c = graph.create_node('C')
-
-#        graph.add_node(a)
-#        graph.add_node(b)
-#        graph.add_node(c)
-
-
+    #assert graph.edge_weight('edge', a, b) > graph.edge_weight('edge', b, c)
+    assert a.edge_weight(b, 'edge') > b.edge_weight(c, 'edge')
 
 if __name__ == '__main__':
     pytest.main([__file__])

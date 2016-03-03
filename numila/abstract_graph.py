@@ -15,12 +15,12 @@ class HiNode(metaclass=ABCMeta):
         self.id_string = id_string
 
     @abstractmethod
-    def bump_edge(self, edg, node, factor):
+    def bump_edge(self, node, edge, factor=1):
         """Increases the weight of the given edge type to another node."""
         pass
 
     @abstractmethod
-    def edge_weight(self, edge, node):
+    def edge_weight(self, node, edge):
         """Returns the weight of the given edge type to another node.
 
         Between 0 and 1 inclusive.
@@ -64,19 +64,6 @@ class HiGraph(metaclass=ABCMeta):
     @abstractmethod
     def bind(self, node1, node2):
         """Returns a node representing the combination of two nodes."""
-        pass
-    
-    @abstractmethod
-    def bump_edge(self, edge, node1, node2, factor) -> None:
-        """Increases the weight of the given edge type between two nodes."""
-        pass
-    
-    @abstractmethod
-    def edge_weight(self, edge, node1, node2) -> float:
-        """Returns the weight of the given edge type between two nodes.
-
-        Between 0 and 1 inclusive.
-        """
         pass
 
     @abstractmethod
