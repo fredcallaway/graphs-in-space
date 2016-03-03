@@ -10,9 +10,10 @@ class HiNode(metaclass=ABCMeta):
     All HiNodes must have a parent HiGraph. However, they
     do not necessarily need to be in the graph as such.
     """
-    def __init__(self, graph, id_string):
+    def __init__(self, graph, id_string, children=()):
         self.graph = graph
         self.id_string = id_string
+        self.children = tuple(children)
 
     @abstractmethod
     def bump_edge(self, node, edge, factor=1):

@@ -58,5 +58,10 @@ def test_weights(graph):
     #assert graph.edge_weight('edge', a, b) > graph.edge_weight('edge', b, c)
     assert a.edge_weight(b, 'edge') > b.edge_weight(c, 'edge')
 
+def test_bind(graph):
+  a, b, c = graph.nodes
+  ab = graph.bind(a, b)
+  assert ab.children == (a, b)
+
 if __name__ == '__main__':
     pytest.main([__file__])

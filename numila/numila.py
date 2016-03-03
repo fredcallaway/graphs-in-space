@@ -94,8 +94,6 @@ class Numila(object):
         # Add extra links.
         node.followers = set()
         node.predecessors = set()
-        node.child1 = None
-        node.child2 = None
         return node
 
     def create_chunk(self, node1, node2):
@@ -104,11 +102,6 @@ class Numila(object):
         # Add extra links.
         node.followers = set()
         node.predecessors = set()
-        node.child1 = node1
-        node.child2 = node2
-
-        #print(node, self.graph.edge_counts['ftp'][node1.id_string][node2.id_string],
-              #'/', sum(self.graph.edge_counts['ftp'][node1.id_string].values()))
         return node
 
     def get_chunk(self, node1, node2, stored_only=True):

@@ -22,8 +22,8 @@ class HoloNode(HiNode):
         idx: an int identifier
         id_vec: a random sparse vector that never changes
     """
-    def __init__(self, graph, id_string, id_vec=None, row_vec=None):
-        super().__init__(graph, id_string)
+    def __init__(self, graph, id_string, children=(), id_vec=None, row_vec=None):
+        super().__init__(graph, id_string, children)
 
         self.id_vec = id_vec if id_vec is not None else graph.vector_model.sparse()
         self.row_vec = row_vec if row_vec is not None else graph.vector_model.sparse()
@@ -72,12 +72,13 @@ class HoloGraph(HiGraph):
         id_string = '[{node1.id_string} {node2.id_string}]'.format_map(locals())
 
         if composition:
+            assert 0
             id_vec = self.vector_model.bind(node1.id_vec, node2.id_vec)
             comp_vec = self.vector_model.bind(node1.row_vec, node2.row_vec)
             chunks = [n for n in self.nodes]
         else:
             id_vec = None
-        return HoloNode(self, id_string, id_vec=id_vec)
+        return HoloNode(self, id_string, children=(node1, node2), id_vec=id_vec)
 
     def sum(self, nodes, weights=None):
         weights = list(weights)

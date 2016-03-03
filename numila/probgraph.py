@@ -10,9 +10,12 @@ class ProbNode(HiNode):
     Attributes:
         string: e.g. [the [big dog]]
     """
-    def __init__(self, graph, id_string, edges, edge_counts=None) -> None:
-        super().__init__(graph, id_string)
-        self.edge_counts = edge_counts or {edge: Counter() for edge in edges}
+    def __init__(self, graph, id_string, edges, children=()) -> None:
+        super().__init__(graph, id_string, children)
+        if isinstance(edges, dict):
+            self.edge_counts = edges
+        else:
+            self.edge_counts = {edge: Counter() for edge in edges}
 
     def bump_edge(self, node, edge, factor=1) -> None:
         self.edge_counts[edge][node.id_string] +=  factor
@@ -50,10 +53,10 @@ class ProbGraph(HiGraph):
     def create_node(self, id_string) -> ProbNode:
         return ProbNode(self, id_string, self.edges)
 
-    def bind(self, node1, node2, edges={}) -> ProbNode:
+    def bind(self, node1, node2, edges=None) -> ProbNode:
         id_string = '[{node1.id_string} {node2.id_string}]'.format_map(locals())
-        edge_counts = {edge: node.edge_counts[edge] for edge, node in edges.items()}
-        return ProbNode(self, id_string, self.edges, edge_counts=edge_counts)
+        #edge_counts = {edge: node.edge_counts[edge] for edge, node in edges.items()}
+        return ProbNode(self, id_string, self.edges, children=(node1, node2))
 
     def decay(self) -> None:
         """Decays all learned connections between nodes."""
