@@ -1,4 +1,3 @@
-from collections import deque
 import itertools
 import numpy as np
 from scipy import stats
@@ -6,6 +5,7 @@ from scipy import stats
 import yaml
 
 import utils
+from parse import Parse
 
 LOG = utils.get_logger(__name__, stream='WARNING', file='INFO')
 TEST = {'on': False}
@@ -45,7 +45,7 @@ class Numila(object):
         self.graph = Graph(edges=['ftp', 'btp'], params=self.params)
 
 
-    def parse_utterance(self, utterance, learn=True, verbose=False):
+    def parse(self, utterance, learn=True, verbose=False):
         """Returns a Parse of the given utterance."""
         self.graph.decay()
         if isinstance(utterance, str):
@@ -58,7 +58,7 @@ class Numila(object):
         with utils.Timer(print_func=LOG.warning) as timer:
             try:
                 for count, utt in enumerate(training_corpus, 1):
-                    self.parse_utterance(utt)
+                    self.parse(utt)
                     if lap and count % lap == 0:
                         timer.lap(count)
             except KeyboardInterrupt:
@@ -69,7 +69,7 @@ class Numila(object):
 
     def score(self, utt, ratio=0, freebie=-1):
         """Returns a grammaticality score for an utterance."""
-        parse = self.parse_utterance(utt, learn=False)
+        parse = self.parse(utt, learn=False)
 
 
         def chunk_ratio():
@@ -86,12 +86,16 @@ class Numila(object):
 
         return chunk_ratio() * ratio + chunkiness() * (1-ratio)
 
+    def map_score(self, utts, **kwargs):
+        return [self.score(u, **kwargs) for u in utts]
 
     def create_node(self, string):
         node = self.graph.create_node(string)
         # Add extra links.
         node.followers = set()
         node.predecessors = set()
+        node.child1 = None
+        node.child2 = None
         return node
 
     def create_chunk(self, node1, node2):
@@ -182,6 +186,7 @@ class Numila(object):
         else:
             return utils.flatten_parse(final)
 
+    @utils.contract(lambda x: 0 <= x <= 1)
     def chunkiness(self, node1, node2, generalize=None):
         """How well two nodes form a chunk.
 
@@ -193,10 +198,12 @@ class Numila(object):
             generalize = self.params['GENERALIZE']
 
         if not generalize:
-            ftp = (self.graph.edge_weight('ftp', node1, node2) *
-                   self.params['FTP_PREFERENCE'])
-            btp = self.graph.edge_weight('btp', node2, node1)
-            result = (ftp * btp) ** 0.5  # geometric mean
+            ftp_weight = self.params['FTP_PREFERENCE']
+            btp_weight = 1
+            ftp = node1.edge_weight(node2, 'ftp') ** ftp_weight
+            btp = node2.edge_weight(node1, 'btp')
+            sum_weights = btp_weight + ftp_weight
+            result = (ftp * btp) ** (1 / sum_weights)  # geometric mean
             assert not np.isnan(result)
             return result
 
@@ -229,8 +236,8 @@ class Numila(object):
     def full_generalize(self, node1, node2, degree):
         def make_gen_node(node):
             sims = [node.similarity(other_node)
-                    for other_node in self.graph.nodes.values()]
-            gen_node = self.graph.sum(self.graph.nodes.values(), weights=sims)
+                    for other_node in self.graph.nodes]
+            gen_node = self.graph.sum(self.graph.nodes, weights=sims)
             return gen_node
 
         gnode1, gnode2 = map(make_gen_node, (node1, node2))
@@ -240,174 +247,4 @@ class Numila(object):
                   (1-degree) * self.chunkiness(node1, node2, generalize=False))
         assert not np.isnan(result)
         return result
-
-
-
-class Parse(list):
-    """A parse of an utterance represented as a list of Nodes.
-
-    The parse is computed upon intialization. This computation has side
-    effects for the parent Numila instance (i.e. learning). The loop
-    in __init__ is thus both the comprehension and learning algorithm.
-    """
-    def __init__(self, model, utterance, learn=True, verbose=False):
-        super().__init__()
-        self.model = model
-        self.utterance = utterance
-        self.graph = model.graph
-        self.params = model.params
-        self.learn = learn
-        self.chunkinesses = []
-        self.memory = deque(maxlen=self.params['MEMORY_SIZE'])
-
-        LOG.debug('\nPARSING: %s', utterance)
-
-        utterance = iter(utterance)
-
-        # Fill up memory before trying to chunk.
-        while len(self.memory) < self.params['MEMORY_SIZE']:
-            token = next(utterance, None)
-            if token is None:
-                LOG.debug('break')
-                break  # less than MEMORY_SIZE tokens in utterance
-            LOG.debug('\nmemory = %s', self.memory)
-            self.update_weights()
-            self.shift(token)
-
-        # Chunk, learn, and shift until we run out of tokens, at which point we
-        # keep chunking until we reduce the utterance to one chunk or drop everything.
-        while self.memory:
-            LOG.debug('\nmemory = %s', self.memory)
-            self.update_weights()
-            success = self.try_to_chunk()
-            if not success:
-                # Couldn't make a chunk. We remove the oldest node 
-                # to make room for a new one.
-                oldest = self.memory.popleft()
-                self.append(oldest)
-            token = next(utterance, None)
-            if token is not None:
-                self.shift(token)
-
-    @property
-    def num_chunks(self):
-        """The number of chunks made during this Parse."""
-        return len(self.chunkinesses)
-
-    def shift(self, token):
-        """Adds a token to memory.
-
-        This method can only be called when there is an empty slot in
-        memory. If token has never been seen, this method creates a new
-        node in the graph for it.
-        """
-        assert len(self.memory) < self.memory.maxlen
-        LOG.debug('shift: %s', token)
-
-        try:
-            node = self.graph[token]
-        except KeyError:  # a new token
-            node = self.model.create_node(token)
-            if self.learn:
-                self.graph.add_node(node)
-
-        self.memory.append(node)
-
-    def update_weights(self):
-        """Strengthens the connection between every adjacent pair of nodes in memory.
-
-        Additionally, we increase the connection between nodes that are in a 
-        chunk in memory. For a pair ([the big], dog) we increase the weight of 
-        the forward edge, [the big] -> dog, and the backward edge, dog -> [the big],
-        as well as the forward edge, the -> big, and backward edge, big -> the.
-        """
-        if not self.learn:
-            return
-
-        # These factors determine how much we should increase the weight
-        # of each type of edge.
-        ftp_factor = self.params['LEARNING_RATE']
-        btp_factor = self.params['LEARNING_RATE']
-
-        # Increase the weight between every node in memory. Note that
-        # some of these nodes may be chunks that are not in the graph. TODO
-        for node1, node2 in utils.neighbors(self.memory):
-            LOG.debug('  strengthen %s and %s', node1, node2)
-            if node1.id_string in self.graph and node2.id_string in self.graph:
-                self.graph.bump_edge('ftp', node1, node2, ftp_factor)
-                self.graph.bump_edge('btp', node2, node1, btp_factor)
-
-        if self.params['CHUNK_LEARNING']:
-            # Incerase the weight between nodes that are in chunks in memory.
-            ftp_factor *= self.params['CHUNK_LEARNING']
-            btp_factor *= self.params['CHUNK_LEARNING']
-
-            def update_chunk(chunk):
-                """Recursively updates weights between elements of the chunk"""
-                if not hasattr(chunk, 'chunkiness'):
-                    return
-                if chunk.child1.id_string in self.graph and chunk.child2.id_string in self.graph:
-                    self.graph.bump_edge('ftp', chunk.child1, chunk.child2, ftp_factor)
-                    self.graph.bump_edge('btp', chunk.child2, chunk.child1, btp_factor)
-                update_chunk(chunk.child1)
-                update_chunk(chunk.child2)
-
-            for node in self.memory:
-                update_chunk(node)
-
-    def try_to_chunk(self):
-        """Attempts to combine two Nodes in memory into one Node.
-
-        Returns True for success, False for failure.
-        """
-
-        if len(self.memory) == 1:
-            # We can't create a chunk when there's only one node left.
-            # This can only happen while processing the tail, so we
-            # must be done processing
-            LOG.debug('done parsing')
-            return False
-
-
-        pairs = list(utils.neighbors(self.memory))
-        chunkinesses = [self.model.chunkiness(node1, node2)
-                        for node1, node2 in pairs]
-        
-        best_idx = np.argmax(chunkinesses)
-        best_chunkiness = chunkinesses[best_idx]
-
-        #chunks = [self.model.get_chunk(node1, node2, stored_only=False)
-        #          for node1, node2 in utils.neighbors(self.memory)]
-        #chunkinesses = [chunk.chunkiness() for chunk in chunks]
-
-        #best_idx = np.argmax(chunkinesses)
-        #best_chunk = chunks[best_idx]
-        #best_chunkiness = chunkinesses[best_idx]
-
-        if best_chunkiness >= self.params['CHUNK_THRESHOLD']:  # TODO chunk threshold
-            best_chunk = self.model.get_chunk(*pairs[best_idx], stored_only=False)
-            # Replace the two nodes in memory with one chunk.
-            self.memory[best_idx] = best_chunk
-            del self.memory[best_idx+1]
-            self.chunkinesses.append(best_chunkiness)
-
-            # Add the chunk to the graph if it exceeds a threshold chunkiness.
-            if (self.learn and
-                best_chunk.id_string not in self.graph and
-                best_chunkiness > self.params['EXEMPLAR_THRESHOLD']):
-                    self.model.add_chunk(best_chunk)      
-            LOG.debug('create chunk: %s', best_chunk)
-            return True
-        else:  # can't make a chunk
-            LOG.debug('no chunk created')
-            return False
-
-    def __repr__(self):
-        return super().__repr__().replace(',', ' |')[1:-1]
-
-    def __str__(self):
-        return self.__repr__()
-
-
-
 
