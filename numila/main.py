@@ -8,7 +8,7 @@ import production
 import introspection
 import comprehension
 import utils
-from ngram import NGramModel
+from ngram import NGramModel, get_ngrams
 from numila import Numila
 
 LOG = utils.get_logger(__name__, stream='INFO', file='WARNING')
@@ -26,6 +26,9 @@ class Dummy(object):
     def score(self, utt):
         return np.random.random()
 
+    def map_score(self, utts):
+        return list(map(self.score, utts))
+
 
 def corpora(train_len, test_len):
     corpus = utils.syl_corpus()
@@ -42,13 +45,14 @@ def fit(name, model, train_corpus):
 
 import joblib
 
+
 def get_models(train_corpus, parallel=False):
     models = {
-        'generalized': Numila(GENERALIZE=('full', 0.3)),
-        'numila': Numila(),
-        'probgraph': Numila(GRAPH='probgraph', EXEMPLAR_THRESHOLD=0.05),
-        'no_chunk': Numila(EXEMPLAR_THRESHOLD=1),
-        'dummy': Dummy()
+        'holo': Numila(),
+        'prob': Numila(GRAPH='probgraph', EXEMPLAR_THRESHOLD=0.05),
+        #'prob_chunkless': Numila(GRAPH='probgraph', EXEMPLAR_THRESHOLD=1),
+        'trigram': NGramModel(3, '-addsmooth .0001'),
+        'random': Dummy()
     }
     if parallel:
         jobs = (delayed(fit)(name, model, train_corpus) 
@@ -61,9 +65,6 @@ def get_models(train_corpus, parallel=False):
                 m.fit(train_corpus, lap=10)
             else:
                 m.fit(train_corpus)
-
-    models.update({'bigram': NGramModel(2).fit(train_corpus),  # can't do parallel
-                   'trigram': NGramModel(3).fit(train_corpus)})
 
     return models
 
@@ -117,7 +118,7 @@ def optimizer(train_len=5000, test_len=500):
 
 
 
-def test_gen(train_len=2000, test_len=200):
+def test_gen(train_len=100, test_len=200):
     train_corpus, test_corpus = corpora(train_len, test_len)
     model = Numila(GENERALIZE=('full', 0.3)).fit(train_corpus, lap=10)
 
@@ -127,6 +128,46 @@ def test_gen(train_len=2000, test_len=200):
     print(comprehension.eval_grammaticality_judgement(model, test_corpus))
 
 
+from sklearn import metrics
+
+def setup(lang, train_len=4000):
+    # Create corpora.
+    corpus = utils.corpus(lang, 'syl')
+    train_corpus = [next(corpus) for _ in range(train_len)]
+
+    testable = (utt for utt in corpus if 2 < len(utt))
+    #roc_test_corpus = utils.take_unique(testable, 100)
+    roc_test_corpus = [next(testable) for _ in range(100)]
+
+    producable = (utt for utt in corpus if 2 < len(utt) < 7)
+    #bleu_test_corpus = utils.take_unique(producable, 100)
+    bleu_test_corpus = [next(producable) for _ in range(100)]
+
+    models = get_models(train_corpus)
+    # models = get_ngrams(train_corpus)
+    
+    return {'language': lang,
+            'roc_test_corpus': roc_test_corpus,
+            'bleu_test_corpus': bleu_test_corpus,
+            'models': models}
+
+def roc(model, y, targets):
+    scores = model.map_score(targets)
+    fpr, tpr, thresholds = metrics.roc_curve(y, scores)
+    return fpr, tpr
+
+def roc_lang(lang):
+    full_test = comprehension.add_foils(lang['roc_test_corpus'])
+    y, targets, _ = list(zip(*full_test))
+
+    for name, model in lang['models'].items():
+        fpr, tpr = roc(model, y, targets)
+        auc = metrics.auc(fpr, tpr)
+        yield {'language': lang['language'],
+               'model': name,
+               'fpr': fpr,
+               'tpr': tpr,
+               'ROC area under curve': auc}
 
 
 if __name__ == '__main__':

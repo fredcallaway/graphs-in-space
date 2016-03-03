@@ -7,7 +7,7 @@ import utils
 from collections import Counter
 
 def analyze_chunks(model):
-    chunks = [n for n in model.graph.nodes if hasattr(n, 'child1')]
+    chunks = [n for n in model.graph.nodes if n.child1]
 
     def size(chunk):
         return str(chunk).count('[') + 1
@@ -82,7 +82,7 @@ def track_training(model, corpus, utterances=None, track=None, sample_rate=100):
                 history[i] = (chunk_matrix(model, nodes=track))
             if i == utterances:
                 break
-            model.parse_utterance(s)
+            model.parse(s)
     history = pd.Panel(history)
    
     return model, history
@@ -101,7 +101,7 @@ def main():
         #model = Numila(GRAPH='probgraph', EXEMPLAR_THRESHOLD=1, LEARNING_RATE=1).fit(train_corpus)
 
         production_results = pd.DataFrame(eval_production(model, test_corpus, common_neighbor_metric))
-        print(production_results['accuracy'].mean())
+        print(production_results['BLEU'].mean())
 
         df = analyze_chunks(model)
         print(df['size'].value_counts())

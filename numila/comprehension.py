@@ -11,7 +11,7 @@ LOG = utils.get_logger(__name__, stream='INFO', file='INFO')
 
 def nu_grammaticality(model, utt):
     """Returns a grammaticality score for an utterance."""
-    parse = model.parse_utterance(utt, learn=False)
+    parse = model.parse(utt, learn=False)
     possible_chunks = len(parse.utterance) - 1
     
     chunk_ratio = parse.num_chunks / possible_chunks    

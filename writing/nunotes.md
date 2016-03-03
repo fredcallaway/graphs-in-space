@@ -1,12 +1,28 @@
 # TODO
 - keep all most recently closed chunks in memory, learn at every level
-__  __
-A B C D
+
+- try to improve NGram models
+- finish new numila alogirithm
+- trying alternative speaking algorithm
+- get fucking generalization to work
+
+# Jones meeting
+- why the $\phi$   the `foo`
 
 ## Model
 - binding operation
-    - C -> A -> B -> D   becomes   C -> AB -> D
-    - try de-weighting the bind edges?
+    - desiderata
+        - a function: V x V -> V
+        - non-commutative
+        - function depends on both input vectors
+    - simple graph surgery
+        - C -> A -> B -> D   becomes   C -> AB -> D
+        - try de-weighting the bind edges?
+    - convolve and map
+        - comp_vec = convolve(v1, v2)
+        - sem_vec = map(comp_vec)
+
+[foo] 
 - learning at multiple levels
     - build into ID vectors of chunks?
     - do explicitly?
