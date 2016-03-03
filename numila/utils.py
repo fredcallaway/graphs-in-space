@@ -7,6 +7,22 @@ import itertools
 from contextlib import contextmanager
 from functools import wraps
 
+
+def contract(assertion):
+    def decorator(func):
+        
+        @wraps(func)
+        def wrapped(*args, **kwargs):
+            result = func(*args, **kwargs)
+            if assertion(result):
+                return result
+            else:
+                raise ValueError(literal('bad return value: {result}'))
+        
+        return wrapped
+    return decorator
+
+
 @contextmanager
 def capture_logging(logger, level='DEBUG'):
     """Captures log messages at or above the given level on the given logger.
@@ -94,7 +110,7 @@ def take_unique(seq, n):
 
 def read_corpus(file, token_delim=' ', utt_delim='\n', num_utterances=None):
     """A list of lists of tokens in a corpus"""
-    with open(file) as f:
+    with open(file, encoding=None) as f:
         for idx, utterance in enumerate(re.split(utt_delim, f.read())):
             if idx == num_utterances:
                 break
@@ -113,6 +129,10 @@ def syl_corpus(n=None):
                                token_delim=r'/| ', num_utterances=n)
     return corpus
 
+def corpus(lang, kind):
+    file = ('../PhillipsPearl_Corpora/{lang}/{lang}-{kind}.txt'
+            .format(lang=lang, kind=kind))
+    return read_corpus(file, token_delim=r'/| ')
 
 class Timer(object):
     """A context manager which times the block it surrounds.
@@ -233,3 +253,13 @@ class debug(object):
     @property
     def locals(self):
         return self._locals
+
+if __name__ == '__main__':
+    langs = ['English', 'Farsi', 'German',
+             'Italian', 'Japanese', 'Spanish', ]
+    for lang, kind in itertools.product(langs, ['syl']):
+        try:
+            print(lang, len(list(corpus(lang, kind))))
+        except:
+            print(lang, 'ERROR')
+

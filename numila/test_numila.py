@@ -12,26 +12,26 @@ def test_parse():
                    DECAY=0)
 
     def log_parse(utt):
-        with utils.capture_logging('numila') as log:
-            model.parse_utterance(utt)
+        with utils.capture_logging('parse') as log:
+            model.parse(utt)
         log = log()
         print(log)
         return log
 
     log = log_parse('a b c')
-    assert log.count('strengthen a and b') is 2
-    assert log.count('strengthen b and c') is 2
+    assert log.count('strengthen a -> b') is 2
+    assert log.count('strengthen b -> c') is 2
 
     log = log_parse('a b c d')
-    assert log.count('strengthen a and b') is 3
-    assert log.count('strengthen b and c') is 3
-    assert log.count('strengthen c and d') is 3
+    assert log.count('strengthen a -> b') is 3
+    assert log.count('strengthen b -> c') is 3
+    assert log.count('strengthen c -> d') is 3
 
     log = log_parse('a b c d e')
-    assert log.count('strengthen a and b') is 3
-    assert log.count('strengthen b and c') is 3
-    assert log.count('strengthen c and d') is 3
-    assert log.count('strengthen d and e') is 3
+    assert log.count('strengthen a -> b') is 3
+    assert log.count('strengthen b -> c') is 3
+    assert log.count('strengthen c -> d') is 3
+    assert log.count('strengthen d -> e') is 3
 
 
 
@@ -50,9 +50,11 @@ def test_prob():
 def _test_toy(model):
     # One simple utterance 50 times.
     corpus = ['a b a c b d'] * 50
-    model.parse_utterance(corpus[0])
+    model.parse(corpus[0])
     a, b, c, d = (model.graph[x] for x in 'abcd')  # node objects
     weight = model.graph.edge_weight  # shorten function name
+    def weight(edge, n1, n2):
+        return n1.edge_weight(n2, edge)
 
     # Check that all connections are positive after one utterance
     assert weight('ftp', a, b)
@@ -82,12 +84,12 @@ def _test_toy(model):
     assert weight('btp', a, c)
 
     w1 = weight('ftp', a, b)
-    model.parse_utterance('b c')
+    model.parse('b c')
     w2 = weight('ftp', a, b)
     assert w1 - w2 < .001
 
     w1 = weight('btp', b, a)
-    model.parse_utterance('d a d a d a d a d a d a')
+    model.parse('d a d a d a d a d a d a')
     w2 = weight('btp', b, a)
     assert w1 - w2 < .001
 
@@ -177,7 +179,7 @@ def basic_tester(numila):
 
     return
 
-    parse = numila.parse_utterance('the boy ate')
+    parse = numila.parse('the boy ate')
     
     equal = parse.log_chunkiness == log_chunkiness(parse)
     # We check explicitly for np.nan because np.nan != np.nan
@@ -187,12 +189,12 @@ def basic_tester(numila):
     assert not np.isnan(parse.log_chunkiness)
 
     print('\nFIRST parse of foo bar')
-    numila.parse_utterance('foo bar', verbose=True)
-    #numila.parse_utterance('foo bar')
-    #numila.parse_utterance('foo bar')
-    #numila.parse_utterance('foo bar')
+    numila.parse('foo bar', verbose=True)
+    #numila.parse('foo bar')
+    #numila.parse('foo bar')
+    #numila.parse('foo bar')
     print('\nSECOND parse of foo bar')
-    foobar = numila.parse_utterance('foo bar', verbose=True)
+    foobar = numila.parse('foo bar', verbose=True)
     assert foobar.log_chunkiness == log_chunkiness(foobar)
     assert numila.speak(['foo', 'bar']) == ['foo', 'bar']
 
