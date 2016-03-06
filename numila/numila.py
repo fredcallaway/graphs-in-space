@@ -5,6 +5,7 @@ from scipy import stats
 import yaml
 
 import utils
+fmt = utils.literal
 from parse import Parse
 
 LOG = utils.get_logger(__name__, stream='WARNING', file='INFO')
@@ -97,11 +98,13 @@ class Numila(object):
         return node
 
     def create_chunk(self, node1, node2):
-        edges = {'btp': node1, 'ftp': node2} if self.params['BIND'] else {}
+        edges = self.params['BIND'] and {'btp': node1, 'ftp': node2}
         node = self.graph.bind(node1, node2, edges=edges)
-        # Add extra links.
+        
+        # Add extra links for neighbor generalize algorithm.
         node.followers = set()
         node.predecessors = set()
+
         return node
 
     def get_chunk(self, node1, node2, stored_only=True):
@@ -114,8 +117,7 @@ class Numila(object):
         If the chunk doesn't exist, we check if the pair is chunkable
         enough for a new chunk to be created. If so, the new chunk is returned.
         """
-        # See note regarding chunk id string in `Chunk.__init__()`
-        chunk_id_string = '[{node1.id_string} {node2.id_string}]'.format_map(locals())
+        chunk_id_string = fmt('[{node1.id_string} {node2.id_string}]')
         if chunk_id_string in self.graph:
             return self.graph[chunk_id_string]
             

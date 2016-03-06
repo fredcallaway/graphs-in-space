@@ -15,6 +15,14 @@ class HiNode(metaclass=ABCMeta):
         self.id_string = id_string
         self.children = tuple(children)
 
+    @property
+    def child1(self):
+        return self.children[0] if self.children else None
+
+    @property
+    def child2(self):
+        return self.children[1] if self.children else None
+
     @abstractmethod
     def bump_edge(self, node, edge, factor=1):
         """Increases the weight of the given edge type to another node."""
@@ -78,6 +86,9 @@ class HiGraph(metaclass=ABCMeta):
             return self._nodes[node_string]
         except KeyError:
             return default
+
+    def __len__(self):
+        return len(self._nodes)
 
     def __getitem__(self, node_string):
         try:

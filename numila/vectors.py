@@ -1,6 +1,8 @@
 import numpy as np
 import itertools
 
+import utils
+
 class VectorModel(object):
     """Represents points in a high dimensional space."""
     def __init__(self, dim, nonzero, bind_op):
@@ -24,9 +26,12 @@ class VectorModel(object):
         self.alternating_ints = itertools.cycle((1, -1))  # 1, -1 , 1, -1 ...
     
     #@profile
-    def sparse(self):
+    def sparse(self, dim=None):
         """Returns a new sparse vector."""
+        dim = dim or self.dim()
         num_nonzero = int(np.ceil(self.dim * self.nonzero))
+        if not num_nonzero:
+            raise ValueError('Too sparse!')
         
         indices = set()  # a set of num_nonzero unique indices between 0 and self.dim
         for _ in range(num_nonzero):
@@ -36,10 +41,15 @@ class VectorModel(object):
                 idx = np.random.randint(self.dim)
             indices.add(idx)
 
+        assert len(indices) == num_nonzero
         vector = np.zeros(self.dim)
         for i in indices:
             vector[i] = next(self.alternating_ints)
         return vector
+
+    def zeros(self):
+        """Returns a new 0 vector."""
+        return np.zeros(self.dim)
 
     def bind(self, v1, v2):
         permuted_v1 = v1[self.perm1]
@@ -59,15 +69,14 @@ def ccorr(a, b):
     """Computes the circular correlation (inverse convolution) of vectors a and b."""
     return cconv(np.roll(a[::-1], 1), b)
 
+@utils.contract(lambda result: -1.1 <= result <= 1.1)
 def cosine(a,b):
     """Computes the cosine of the angle between the vectors a and b."""
+    assert len(np.nonzero(a)[0])
+    assert len(np.nonzero(b)[0])
     sum_sq_a = np.sum(a**2.0)
     sum_sq_b = np.sum(b**2.0)
     result = np.dot(a,b) * (sum_sq_a * sum_sq_b) ** -0.5
-    try:
-        assert -1.1 <= result <= 1.1
-    except:
-        import ipdb; ipdb.set_trace()
     return result
 
 def normalize(a):

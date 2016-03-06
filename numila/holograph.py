@@ -24,7 +24,6 @@ class HoloNode(HiNode):
     """
     def __init__(self, graph, id_string, children=(), id_vec=None, row_vec=None):
         super().__init__(graph, id_string, children)
-
         self.id_vec = id_vec if id_vec is not None else graph.vector_model.sparse()
         self.row_vec = row_vec if row_vec is not None else graph.vector_model.sparse()
         self._original_row = np.copy(self.row_vec)
@@ -71,14 +70,24 @@ class HoloGraph(HiGraph):
     def bind(self, node1, node2, edges=None, composition=False):
         id_string = '[{node1.id_string} {node2.id_string}]'.format_map(locals())
 
-        if composition:
-            assert 0
+        if self.params['COMPOSITION']:
+            # Create id_vec by binding the children id vectors.
             id_vec = self.vector_model.bind(node1.id_vec, node2.id_vec)
             comp_vec = self.vector_model.bind(node1.row_vec, node2.row_vec)
-            chunks = [n for n in self.nodes]
+            
+            # Create a row vector based on other chunks.
+            row_vec = self.vector_model.sparse()
+            for blob in (node for node in self.nodes if node.children):
+                c1, c2 = blob.children
+                blob_comp_vec = self.vector_model.bind(c1.row_vec, c2.row_vec)
+                similarity = vectors.cosine(comp_vec, blob_comp_vec)
+                row_vec += (similarity * blob.row_vec)
         else:
+            row_vec = None
             id_vec = None
-        return HoloNode(self, id_string, children=(node1, node2), id_vec=id_vec)
+
+        return HoloNode(self, id_string, children=(node1, node2),
+                        id_vec=id_vec, row_vec=row_vec)
 
     def sum(self, nodes, weights=None):
         weights = list(weights)
@@ -107,5 +116,5 @@ class HoloGraph(HiGraph):
             node.row_vec += node._original_row * decay
 
 if __name__ == '__main__':
-    h = HoloNode(None, None)
-    #h = HoloGraph(['foo'], None)
+    import pytest
+    pytest.main(['test_graph.py'])

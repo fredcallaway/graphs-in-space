@@ -4,8 +4,8 @@ from nltk.grammar import PCFG
 from nltk.probability import DictionaryProbDist
 
 # modified function from NLTK
-def generate(grammar, n, start=None, depth=5):
-    """Yields n sentences from the distribution defined by a grammar.
+def generate(grammar, start=None, depth=5):
+    """Returns 1 tree from the distribution defined by a grammar.
 
     :param grammar: The Grammar used to generate sentences.
     :param start: The Nonterminal from which to start generate sentences.
@@ -28,25 +28,28 @@ def generate(grammar, n, start=None, depth=5):
                 return [generate_one(grammar, elem, depth-1) for elem in rhs]
         else:
             raise DepthExceededError()
-            raise 
 
     if not start:
         start = grammar.start()
 
-    for _ in range(n):
-        sent = False
-        while not sent:
-            try:
-                sent = generate_one(grammar, start, depth)
-            except DepthExceededError:  # exceeded max depth
-                pass
-        yield sent
+
+    for _ in range(1000):  # max tries
+        try:
+            return generate_one(grammar, start, depth)
+        except DepthExceededError:
+            pass  # try again
 
 
-def random_sentences(grammar_string, n):
+def random_sentences(grammar_string, depth=5):
     grammar = PCFG.fromstring(grammar_string)
-    for tree in generate(grammar, n, depth=5):
+    while True:
+        tree = generate(grammar, depth=depth)
         yield ' '.join(utils.flatten(tree))
+
+def toy2():
+    with open('corpora/toy_pcfg2.txt') as f:
+        grammar = f.read()
+    return random_sentences(grammar)
 
 
 def draw_tree(tree_string):
@@ -63,8 +66,6 @@ def draw_tree(tree_string):
     cf.destroy
 
 if __name__ == '__main__':
-    with open('corpora/toy_pcfg2.txt') as f:
-        grammar = f.read()
-    with open('corpora/toy2.txt', 'w+') as f:
-        for s in random_sentences(grammar, 1000):
-            f.write(' '.join(s) + '\n')
+    gen = toy2()
+    for s in (next(gen) for _ in range(4)):
+        print(s)
