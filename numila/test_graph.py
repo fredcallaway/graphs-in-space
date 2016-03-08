@@ -2,11 +2,12 @@ from holograph import HoloGraph
 from probgraph import ProbGraph
 import pytest
 import string
+import vectors
 
 @pytest.fixture
 def holograph():
     graph = HoloGraph(['edge'], {'DIM': 1000, 'PERCENT_NON_ZERO': .01, 
-                                'BIND_OPERATION': 'addition'})
+                                'BIND_OPERATION': 'addition', 'GENERALIZE': False})
     _add_nodes(graph)
     return graph
 
@@ -95,6 +96,41 @@ def test_bind(holograph):
     # But it *should* result in a weak link to af.
     af = graph.bind(a, f)
     #assert e.edge_weight(af, 'edge') > 0.5    # or should it?
+
+def test_dynamic_gen(holograph):
+    graph = HoloGraph(['edge'], {'DIM': 1000, 'PERCENT_NON_ZERO': .01, 
+                                'BIND_OPERATION': 'addition', 'GENERALIZE': 'dynamic2',
+                                'DYNAMIC':0.3})
+    _add_nodes(graph)
+    a, b, c, d, e, f = (graph[x] for x in 'ABCDEF')
+
+    edge_counts = [
+        ((a, c), 5),
+        ((a, d), 5),
+        ((a, e), 5),
+        ((b, d), 5),
+        ((b, e), 5),
+        ((b, f), 5),
+    ]
+
+    for (n1, n2), count in edge_counts:
+        n1.bump_edge(n2, 'edge', count)
+
+    assert a.edge_weight(c, 'edge') > 0.3
+    assert a.edge_weight(d, 'edge') > 0.3
+    assert a.edge_weight(e, 'edge') > 0.3
+    assert b.edge_weight(d, 'edge') > 0.3
+    assert b.edge_weight(e, 'edge') > 0.3
+    assert b.edge_weight(f, 'edge') > 0.2
+    
+    assert vectors.cosine(d.dynamic_vec, a.row_vec) > 0.4
+    # B is connected to C because A is connected to C
+    # and B is connected to similar nodes as A.
+    assert b.edge_weight(c, 'edge') > 0.2
+
+
+
+
 
 
 if __name__ == '__main__':

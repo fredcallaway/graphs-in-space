@@ -28,21 +28,21 @@ class VectorModel(object):
     #@profile
     def sparse(self, dim=None):
         """Returns a new sparse vector."""
-        dim = dim or self.dim()
-        num_nonzero = int(np.ceil(self.dim * self.nonzero))
+        dim = dim or self.dim
+        num_nonzero = int(np.ceil(dim * self.nonzero))
         if not num_nonzero:
             raise ValueError('Too sparse!')
         
-        indices = set()  # a set of num_nonzero unique indices between 0 and self.dim
+        indices = set()  # a set of num_nonzero unique indices between 0 and dim
         for _ in range(num_nonzero):
-            idx = np.random.randint(self.dim)
+            idx = np.random.randint(dim)
             while idx in indices:
                 # resample until we get a new index
-                idx = np.random.randint(self.dim)
+                idx = np.random.randint(dim)
             indices.add(idx)
 
         assert len(indices) == num_nonzero
-        vector = np.zeros(self.dim)
+        vector = np.zeros(dim)
         for i in indices:
             vector[i] = next(self.alternating_ints)
         return vector

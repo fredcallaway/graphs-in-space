@@ -11,6 +11,7 @@ LOG = utils.get_logger(__name__, stream='INFO', file='WARNING')
 
 COUNT = 0
 
+
 class HoloNode(HiNode):
     """A node in a HoloGraph.
 
@@ -24,15 +25,48 @@ class HoloNode(HiNode):
     """
     def __init__(self, graph, id_string, children=(), id_vec=None, row_vec=None):
         super().__init__(graph, id_string, children)
-        self.id_vec = id_vec if id_vec is not None else graph.vector_model.sparse()
+        params = self.graph.params
+        
+        if params['GENERALIZE'] == 'dynamic':
+            # Use a dynamic id_vec for generalization.
+            id_vec = np.zeros(params['DIM'])
+            static_len = (1 - params['DYNAMIC']) * params['DIM']
+            static_vec = graph.vector_model.sparse(static_len)
+            id_vec[:static_len] = static_vec
+
+            # These vectors are all pointers to the same array.
+            self.id_vec = id_vec
+            self.static_vec = id_vec[:static_len]
+            self.dynamic_vec = id_vec[static_len:]
+        else:
+            self.id_vec = id_vec if id_vec is not None else graph.vector_model.sparse()
+
+        if params['GENERALIZE'] == 'dynamic2':
+            self.dynamic_vec = self.graph.vector_model.sparse()
+            #self.dynamic_vec = np.ones(params['DIM'])
+
         self.row_vec = row_vec if row_vec is not None else graph.vector_model.sparse()
         self._original_row = np.copy(self.row_vec)
 
     def bump_edge(self, node, edge, factor=1):
         """Increases the weight of an edge to another node."""
+        # Add other node's id_vec to this node's row_vec
         edge_vec = node.id_vec[self.graph.edge_permutations[edge]]
         self.row_vec += factor * edge_vec
         self.edge_weight.cache_clear()
+        
+        if self.graph.params['GENERALIZE'] == 'dynamic':
+            # Add this node's row_vec to other node's id_vec
+            compressed_row_vec = vectors.compress(self.row_vec, len(node.dynamic_vec))
+            node.dynamic_vec += compressed_row_vec
+
+        if self.graph.params['GENERALIZE'] == 'dynamic2':
+            print('{node} dynamic += {self} row'.format_map(locals()))
+            print('{self} row += {node} dynamic'.format_map(locals()))
+            node.dynamic_vec += self.row_vec
+            self.row_vec += node.dynamic_vec * self.graph.params['DYNAMIC']
+
+
 
     @lru_cache(maxsize=None)
     def edge_weight(self, node, edge):

@@ -9,6 +9,16 @@
 # Jones meeting
 - why the $\phi$   the `foo`
 
+## Dynamic generalization
+- WHEN bump edge from A to X
+    - add A's row_vec to X's dynamic_vec
+    - add X's dynamic_vec to A's row_vec
+- WHEN bump edge from B to X
+    - add X's dynamic_vec to B's row_vec
+        - implicitly because dynamic_vec is in id_vec
+        - indirectly add A's row_vec to B's row_vec
+- what is effect on edge wight revocery?
+
 ## Model
 - binding operation
     - desiderata
