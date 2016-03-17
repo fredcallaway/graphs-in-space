@@ -3,18 +3,34 @@ import numpy as np
 from scipy import stats
 
 import yaml
+# ADDIU $12, $0, PC
+# ADDU $13, $0, $20
+# LUI $14, 0x123
+# SLL $13, $13, 2 
+# SLLV $15, $14, $3
+# J 0x24 
+# JR $5 
+# JALR $31, $5 
+# JALR $5
+# BEQ $5, $6, -12 
+# BEQ $5, $6, my_loop_top 
+# BLEZ $9, 16 
+# BLEZ $9, my_loop_done
+# LW $12, -4($30) 
 
 import utils
 fmt = utils.literal
 from parse import Parse
 
-LOG = utils.get_logger(__name__, stream='WARNING', file='INFO')
+#LOG = utils.get_logger(__name__, stream='WARNING', file='INFO')
 TEST = {'on': False}
 
 
 class Numila(object):
     """The premier language acquisition model."""
-    def __init__(self, param_file='params.yml', **params):
+    def __init__(self, param_file='params.yml', name='numila', log_stream='WARNING',
+                 log_file='WARNING', **params):
+        self.log = utils.get_logger(name, stream=log_stream, file=log_file)
 
         # Read default params from file, overwriting with keyword arguments.
         with open(param_file) as f:
@@ -25,7 +41,7 @@ class Numila(object):
             if k not in self.params:
                 raise ValueError(k + 'is not a valid parameter.')
         self.params.update(params)
-        LOG.info('parameters:\n\n%s\n', 
+        self.log.info('parameters:\n\n%s\n', 
                  yaml.dump(self.params, default_flow_style=False))
 
         if self.params['CHUNK_THRESHOLD'] is None:
@@ -56,7 +72,7 @@ class Numila(object):
         return Parse(self, utterance, learn=learn, verbose=verbose)
 
     def fit(self, training_corpus, lap=None):
-        with utils.Timer(print_func=LOG.warning) as timer:
+        with utils.Timer(print_func=self.log.warning) as timer:
             try:
                 for count, utt in enumerate(training_corpus, 1):
                     self.parse(utt)
@@ -64,14 +80,13 @@ class Numila(object):
                         timer.lap(count)
             except KeyboardInterrupt:
                 pass  # allow interruption of training
-            LOG.warning('Trained on %s utterances in %s seconds', 
+            self.log.warning('Trained on %s utterances in %s seconds', 
                         count, timer.elapsed)
             return self
 
     def score(self, utt, ratio=0, freebie=-1):
         """Returns a grammaticality score for an utterance."""
         parse = self.parse(utt, learn=False)
-
 
         def chunk_ratio():
             possible_chunks = len(parse.utterance) - 1
@@ -123,10 +138,10 @@ class Numila(object):
             
         if not stored_only:
             if node1.id_string in self.graph and node1 is not self.graph[node1.id_string]:
-                LOG.debug('Fixing a chunk node')
+                self.log.debug('Fixing a chunk node')
                 node1 = self.graph[node1.id_string]
             if node2.id_string in self.graph and node2 is not self.graph[node2.id_string]:
-                LOG.debug('Fixing a chunk node')
+                self.log.debug('Fixing a chunk node')
                 node2 = self.graph[node2.id_string]
             chunk = self.create_chunk(node1, node2)
             return chunk
@@ -137,7 +152,7 @@ class Numila(object):
                 # This is a strange edge case that can happen when there is
                 # a low exemplar threshold. We just move on without adding
                 # the chunk.
-                LOG.info('Tried to add a chunk with a non-chunk child: %s', chunk)
+                self.log.info('Tried to add a chunk with a non-chunk child: %s', chunk)
                 return
         self.graph.add_node(chunk)
         assert chunk.child1 is self.graph[chunk.child1.id_string]
@@ -145,7 +160,7 @@ class Numila(object):
         chunk.child1.followers.add(chunk.child2)
         chunk.child2.predecessors.add(chunk.child1)
 
-        LOG.debug('new chunk: %s', chunk)
+        self.log.debug('new chunk: %s', chunk)
 
     def speak(self, words, verbose=False, return_chunk=False, preshuffled=False):
         """Returns the list of words ordered properly."""
@@ -153,7 +168,7 @@ class Numila(object):
             try:
                 return self.graph[token]
             except KeyError:
-                LOG.debug('Unknown token while speaking: %s', token)
+                self.log.debug('Unknown token while speaking: %s', token)
                 return self.create_node(token)
         nodes = [get_node(w) for w in words]
 
@@ -172,7 +187,7 @@ class Numila(object):
 
             nodes.remove(node1)
             nodes.remove(node2)
-            LOG.debug('\tchunk: %s', chunk)
+            self.log.debug('\tchunk: %s', chunk)
             nodes.append(chunk)
 
         final = nodes[0]

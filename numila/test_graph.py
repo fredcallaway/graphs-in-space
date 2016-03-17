@@ -6,7 +6,7 @@ import vectors
 
 @pytest.fixture
 def holograph():
-    graph = HoloGraph(['edge'], {'DIM': 1000, 'PERCENT_NON_ZERO': .01, 
+    graph = HoloGraph(['edge'], {'DIM': 1000, 'PERCENT_NON_ZERO': .01, 'DYNAMIC': 0,
                                 'BIND_OPERATION': 'addition', 'GENERALIZE': False})
     _add_nodes(graph)
     return graph
@@ -71,11 +71,13 @@ def test_bind(holograph):
     b.bump_edge(c, 'edge', 3)
     b.bump_edge(d, 'edge', 5)
     assert a.similarity(b) > 0.5
+    assert b.similarity(a) > 0.5
     c.bump_edge(a, 'edge', 5)
     c.bump_edge(b, 'edge', 3)
     d.bump_edge(a, 'edge', 3)
     d.bump_edge(b, 'edge', 5)
-    assert b.similarity(a) > 0.5
+    assert c.similarity(d) > 0.5
+    assert d.similarity(c) > 0.5
 
     # Create AC and give it an edge profile.
     ac = graph.bind(a, c)
@@ -86,6 +88,8 @@ def test_bind(holograph):
     # BD should be similar to AC.
     bd = graph.bind(b, d)
     assert bd.similarity(ac) > 0.5
+    assert bd.edge_weight(e, 'edge') > 0.5
+    assert bd.edge_weight(f, 'edge') > 0.5
     assert bd.similarity(b) < 0.1
     assert bd.similarity(d) < 0.1
 
@@ -100,7 +104,7 @@ def test_bind(holograph):
 def test_dynamic_gen(holograph):
     graph = HoloGraph(['edge'], {'DIM': 1000, 'PERCENT_NON_ZERO': .01, 
                                 'BIND_OPERATION': 'addition', 'GENERALIZE': 'dynamic2',
-                                'DYNAMIC':0.3})
+                                'DYNAMIC':2})
     _add_nodes(graph)
     a, b, c, d, e, f = (graph[x] for x in 'ABCDEF')
 
@@ -122,6 +126,16 @@ def test_dynamic_gen(holograph):
     assert b.edge_weight(d, 'edge') > 0.3
     assert b.edge_weight(e, 'edge') > 0.3
     assert b.edge_weight(f, 'edge') > 0.2
+
+    assert vectors.cosine(c.dynamic_vec, a.row_vec) > 0.5
+
+    print('a -> c', a.edge_weight(c, 'edge'))
+    print('a -> d', a.edge_weight(d, 'edge'))
+    print('a -> e', a.edge_weight(e, 'edge'))
+    print('b -> d', b.edge_weight(d, 'edge'))
+    print('b -> e', b.edge_weight(e, 'edge'))
+    print('b -> f', b.edge_weight(f, 'edge'))
+    print('b -> c', b.edge_weight(c, 'edge'))
     
     assert vectors.cosine(d.dynamic_vec, a.row_vec) > 0.4
     # B is connected to C because A is connected to C

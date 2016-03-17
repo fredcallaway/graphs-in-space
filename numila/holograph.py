@@ -27,7 +27,7 @@ class HoloNode(HiNode):
         super().__init__(graph, id_string, children)
         params = self.graph.params
         
-        if params['GENERALIZE'] == 'dynamic':
+        if False and params['OLD_DYNAMIC']:  # TODO
             # Use a dynamic id_vec for generalization.
             id_vec = np.zeros(params['DIM'])
             static_len = (1 - params['DYNAMIC']) * params['DIM']
@@ -41,7 +41,7 @@ class HoloNode(HiNode):
         else:
             self.id_vec = id_vec if id_vec is not None else graph.vector_model.sparse()
 
-        if params['GENERALIZE'] == 'dynamic2':
+        if params['DYNAMIC']:
             self.dynamic_vec = self.graph.vector_model.sparse()
             #self.dynamic_vec = np.ones(params['DIM'])
 
@@ -55,16 +55,15 @@ class HoloNode(HiNode):
         self.row_vec += factor * edge_vec
         self.edge_weight.cache_clear()
         
-        if self.graph.params['GENERALIZE'] == 'dynamic':
+        if False and self.graph.params['OLD_DYNAMIC']:  # TODO
             # Add this node's row_vec to other node's id_vec
             compressed_row_vec = vectors.compress(self.row_vec, len(node.dynamic_vec))
             node.dynamic_vec += compressed_row_vec
 
-        if self.graph.params['GENERALIZE'] == 'dynamic2':
-            print('{node} dynamic += {self} row'.format_map(locals()))
-            print('{self} row += {node} dynamic'.format_map(locals()))
-            node.dynamic_vec += self.row_vec
-            self.row_vec += node.dynamic_vec * self.graph.params['DYNAMIC']
+        if self.graph.params['DYNAMIC']:
+            node.dynamic_vec += self.row_vec * factor
+            self.row_vec += (vectors.normalize(node.dynamic_vec) 
+                             * factor * self.graph.params['DYNAMIC'])
 
 
 
@@ -115,7 +114,18 @@ class HoloGraph(HiGraph):
                 c1, c2 = blob.children
                 blob_comp_vec = self.vector_model.bind(c1.row_vec, c2.row_vec)
                 similarity = vectors.cosine(comp_vec, blob_comp_vec)
-                row_vec += (similarity * blob.row_vec)
+                row_vec += (similarity * blob.row_vec) * self.params['COMPOSITION']
+        
+        elif self.params['COMP2']:
+            row_vec = self.vector_model.sparse()
+            for blob in (node for node in self.nodes if node.children):
+                c1, c2 = blob.children
+                sim1 = vectors.cosine(node1, c1)
+                sim2 = vectors.cosine(node2, c2)
+                full_sim = sim1 * sim2
+                row_vec += (full_sim * self.params['COMPOSISION'] * vectors.normalize(blob.row_vec))
+            id_vec = None
+
         else:
             row_vec = None
             id_vec = None

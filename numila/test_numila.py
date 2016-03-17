@@ -2,12 +2,97 @@ import numila
 import numpy as np
 import utils
 import pytest
-
 Numila = numila.Numila
 
 
+@pytest.fixture()
+def holomila():
+    #thresh = 1 if request.param == 'chunk'
+    return Numila(GRAPH='holograph', LEARNING_RATE=0.1, EXEMPLAR_THRESHOLD=1)
 
-def test_parse():
+@pytest.fixture()
+def probmila():
+    #thresh = 1 if request.param == 'chunk'
+    return Numila(GRAPH='probgraph', LEARNING_RATE=1, EXEMPLAR_THRESHOLD=1)
+
+@pytest.fixture(params=['holo', 'prob'])
+def model(request):
+    if request.param == 'holo':
+        return holomila()
+    else:
+        return probmila()
+
+
+def test_easy(model):
+    # One simple utterance 50 times.
+    utterance = 'a b a c a b d'
+    corpus = [utterance] * 50
+    model.parse(corpus[0])
+    a, b, c, d = (model.graph[x] for x in 'abcd')  # node objects
+    def weight(edge, n1, n2):
+        return n1.edge_weight(n2, edge)
+
+    # Check that all connections are positive after one utterance
+    for x, y in utils.neighbors(utterance.split(' ')):
+        assert weight('ftp', model.graph[x], model.graph[y])
+        assert weight('btp', model.graph[y], model.graph[x])
+
+    # Equal conditional probability, but more evidence
+    #assert weight('btp', b, a) < weight('btp', c, a)
+
+    model.fit(corpus)
+
+    # Check that weights don't change when they shouldn't change.
+    w1 = weight('ftp', a, b)
+    model.parse('b c')
+    w2 = weight('ftp', a, b)
+    assert w1 - w2 < .001
+
+    w1 = weight('btp', b, a)
+    model.parse('d a d a d a d a d a d a')
+    w2 = weight('btp', b, a)
+    assert w1 - w2 < .001
+
+    
+    # Check that more common edges are more highly weighted.
+    # We vary the conditional (ab | a) and raw (ab) probabilities.
+    # Reference: a b a c a b d
+
+    # Higher conditional, higher raw.
+    assert weight('ftp', a, b) > weight('ftp', a, c)
+    
+    # Higher conditional, equal raw.
+    assert weight('ftp', c, a) > weight('ftp', b, d)
+
+    return  # TODO
+
+    # Equal conditional, higher raw. But lots of evidence for both.
+    print()
+    print(weight('btp', c, a, verbose=True))
+    assert 0
+
+    assert weight('btp', b, a) - weight('btp', c, a) < 0.001
+
+    
+    # This always fails for holo. The edge weights do not really
+    # represent probabilities. They are more sensitive to the raw
+    # occurrence counts.
+    # p(ab | a) = 0.66
+    # p(ca | c) = 1
+    # p(ab) = 0.4
+    # p(ca) = 0.2
+    #assert weight('ftp', c, a) > weight('ftp', a, b)
+
+    assert weight('ftp', a, a) < 0.05
+    assert weight('ftp', b, b) < 0.05
+    assert weight('ftp', c, c) < 0.05
+    assert weight('ftp', b, c) < 0.05
+
+    #assert ''.join(model.speak('caab')) == 'abac'
+    #assert ''.join(model.speak('cab')) in ('bac', 'cab')
+
+
+def test_parse(probmila):
     model = Numila(GRAPH='probgraph', LEARNING_RATE=1, EXEMPLAR_THRESHOLD=1,
                    DECAY=0)
 
@@ -34,100 +119,19 @@ def test_parse():
     assert log.count('strengthen d -> e') is 3
 
 
+def test_chunking():
+    model = Numila()
 
-def test_holo():
-    return
-    model = Numila(GRAPH='holograph', LEARNING_RATE=0.1, EXEMPLAR_THRESHOLD=1)
-    _test_toy(model)
-
-def test_prob():
-    return
-    model = Numila(GRAPH='probgraph', LEARNING_RATE=1, EXEMPLAR_THRESHOLD=1,
-                   DECAY=0)
-    _test_toy(model)
-
-
-def _test_toy(model):
-    # One simple utterance 50 times.
-    corpus = ['a b a c b d'] * 50
+    utterance = 'a b a c a b d'
+    corpus = [utterance] * 50
     model.parse(corpus[0])
     a, b, c, d = (model.graph[x] for x in 'abcd')  # node objects
-    weight = model.graph.edge_weight  # shorten function name
+    
     def weight(edge, n1, n2):
         return n1.edge_weight(n2, edge)
 
-    # Check that all connections are positive after one utterance
-    assert weight('ftp', a, b)
-    assert weight('ftp', b, a)
-    assert weight('ftp', a, c)
-    assert weight('ftp', c, a)
+    assert sum(1 for n in model.graph.nodes if n.children) == 5
 
-    assert weight('btp', b, a)
-    assert weight('btp', a, b)
-    assert weight('btp', c, a)
-    assert weight('btp', a, c)
-
-    # Equal conditional probability, but more evidence
-    assert weight('btp', b, a) > weight('btp', c, a)
-
-    model.fit(corpus)
-
-    # Check the connections have stayed positive after 50 more.
-    assert weight('ftp', a, b)
-    assert weight('ftp', b, a)
-    assert weight('ftp', a, c)
-    assert weight('ftp', c, a)
-
-    assert weight('btp', b, a)
-    assert weight('btp', a, b)
-    assert weight('btp', c, a)
-    assert weight('btp', a, c)
-
-    w1 = weight('ftp', a, b)
-    model.parse('b c')
-    w2 = weight('ftp', a, b)
-    assert w1 - w2 < .001
-
-    w1 = weight('btp', b, a)
-    model.parse('d a d a d a d a d a d a')
-    w2 = weight('btp', b, a)
-    assert w1 - w2 < .001
-
-    
-    # Check that more common edges are more highly weighted.
-    # We vary the conditional (ab | a) and raw (ab) probabilities.
-    # Reference: a b a c a b d
-
-    # Higher conditional, higher raw.
-    assert weight('ftp', a, b) > weight('ftp', a, c)
-    
-    # Higher conditional, equal raw.
-    assert weight('ftp', c, a) > weight('ftp', b, d)
-
-    # Equal conditional, higher raw. But lots of evidence for both.
-    print()
-    print(weight('btp', c, a, verbose=True))
-    assert 0
-
-    assert weight('btp', b, a) - weight('btp', c, a) < 0.001
-
-    
-    # This always fails for holo. The edge weights do not really
-    # represent probabilities. They are more sensitive to the raw
-    # occurrence counts.
-    # p(ab | a) = 0.66
-    # p(ca | c) = 1
-    # p(ab) = 0.4
-    # p(ca) = 0.2
-    #assert weight('ftp', c, a) > weight('ftp', a, b)
-
-    assert weight('ftp', a, a) < 0.05
-    assert weight('ftp', b, b) < 0.05
-    assert weight('ftp', c, c) < 0.05
-    assert weight('ftp', b, c) < 0.05
-
-    #assert ''.join(model.speak('caab')) == 'abac'
-    #assert ''.join(model.speak('cab')) in ('bac', 'cab')
 
 if __name__ == '__main__':
     pytest.main(__file__)

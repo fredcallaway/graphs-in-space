@@ -83,14 +83,65 @@ def normalize(a):
     """Normalize a vector to length 1."""
     return a / np.sum(a**2.0)**0.5
 
-if __name__ == '__main__':
+def _speed_test(n=100):
     nonzero = 0.01
     dim = 1000
+    for op in 'addition', 'convolution':
+        vector_model = VectorModel(dim, nonzero, op)
+        sparse1 = vector_model.sparse()
+        sparse2 = vector_model.sparse()
+        dense1 = np.random.rand(dim)
+        dense2 = np.random.rand(dim)
+        with utils.Timer(op + ' sparse'):
+            for _ in range(n):
+                vector_model.bind(sparse1, sparse2)
+        with utils.Timer(op + ' dense'):
+            for _ in range(n):
+                vector_model.bind(dense1, dense2)
 
-    vector_model = VectorModel(dim, nonzero)
+
+def _test():
+    nonzero = 0.01
+    dim = 1000
+    for op in 'addition', 'convolution':
+        print('\n' + op)
+
+        vector_model = VectorModel(dim, nonzero, op)
+
+        a = vector_model.sparse()
+        b = vector_model.sparse()
+        c = vector_model.sparse()
+
+
+        ab = vector_model.bind(a, b)
+        ac = vector_model.bind(a, c)
+        ba = vector_model.bind(b, a)
+        print('(ab, ac)', cosine(ab, ac))
+        print('(ab, ba)', cosine(ab, ba))
+
+        a1 = a + 0.5 * vector_model.sparse()
+        b1 = b + 0.5 * vector_model.sparse()
+
+        a1b = vector_model.bind(a1, b)
+        ab1 = vector_model.bind(a, b1)
+        a1b1 = vector_model.bind(a1, b1)
+        print('(ab, a1b)', cosine(ab, a1b))
+        print('(ab, ab1)', cosine(ab, ab1))
+        print('(ab, a1b1)', cosine(ab, a1b1))
+    
+    exit()
+
+
+
+
     vectors = [vector_model.sparse() for _ in range(5000)]
     assert(all(vec.shape == (dim,) for vec in vectors))
 
     num_nonzero = dim * nonzero
     num_nonzeros = [len(np.nonzero(vec)[0]) for vec in vectors]
     assert(all(n == num_nonzero for n in num_nonzeros))
+
+
+if __name__ == '__main__':
+    _speed_test(10000)
+    _test()

@@ -9,6 +9,13 @@
 # Jones meeting
 - why the $\phi$   the `foo`
 
+# Edelman
+- tensor similarity
+- thesis
+    - mention fodor
+    - mentions tensors
+    - write up 
+
 ## Dynamic generalization
 - WHEN bump edge from A to X
     - add A's row_vec to X's dynamic_vec

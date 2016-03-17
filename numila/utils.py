@@ -17,7 +17,7 @@ def contract(assertion):
             if assertion(result):
                 return result
             else:
-                raise ValueError(literal('bad return value: {result}'))
+                raise ValueError(literal('{func.__name__}() cannot return {result}'))
         
         return wrapped
     return decorator

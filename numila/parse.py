@@ -165,7 +165,6 @@ class Parse(list):
         #best_chunkiness = chunkinesses[best_idx]
 
         if best_chunkiness > self.params['CHUNK_THRESHOLD']:  # TODO chunk threshold
-            assert 0
             best_chunk = self.model.get_chunk(*pairs[best_idx], stored_only=False)
             # Replace the two nodes in memory with one chunk.
             self.memory[best_idx] = best_chunk
