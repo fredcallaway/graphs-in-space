@@ -49,6 +49,11 @@ class HiNode(metaclass=ABCMeta):
     def __str__(self):
         return self.id_string
 
+    def __len__(self):
+        if self.children:
+            return len(self.children)
+        else:
+            return 1
 
 class HiGraph(metaclass=ABCMeta):
     """A graph with multiple types of edges and 0..1 bounded edge weights."""
@@ -59,8 +64,11 @@ class HiGraph(metaclass=ABCMeta):
     def nodes(self):
         return self._nodes.values()
 
-    def add_node(self, node):
+    def add(self, node):
         """Adds a node to the graph."""
+        if isinstance(node, str):
+            id_string = node
+            node = self.create_node(id_string)
         self._nodes[node.id_string] = node
     
     @abstractmethod
@@ -71,8 +79,8 @@ class HiGraph(metaclass=ABCMeta):
         pass
     
     @abstractmethod
-    def bind(self, node1, node2):
-        """Returns a node representing the combination of two nodes."""
+    def bind(self, *nodes):
+        """Returns a blob, a new node representing a list of nodes."""
         pass
 
     @abstractmethod
@@ -86,6 +94,11 @@ class HiGraph(metaclass=ABCMeta):
             return self._nodes[node_string]
         except KeyError:
             return default
+
+    @staticmethod
+    def _id_string(nodes):
+        # e.g. [ A B C ]
+        return ' '.join(('[', *(node.id_string for node in nodes), ']'))
 
     def __len__(self):
         return len(self._nodes)

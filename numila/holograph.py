@@ -2,6 +2,7 @@ from collections import OrderedDict
 from functools import lru_cache
 from typing import Dict, List
 import numpy as np
+from scipy import stats
 
 import utils
 import vectors
@@ -23,29 +24,17 @@ class HoloNode(HiNode):
         idx: an int identifier
         id_vec: a random sparse vector that never changes
     """
-    def __init__(self, graph, id_string, children=(), id_vec=None, row_vec=None):
+    def __init__(self, graph, id_string, children=(), row_vec=None):
         super().__init__(graph, id_string, children)
         params = self.graph.params
-        
-        if False and params['OLD_DYNAMIC']:  # TODO
-            # Use a dynamic id_vec for generalization.
-            id_vec = np.zeros(params['DIM'])
-            static_len = (1 - params['DYNAMIC']) * params['DIM']
-            static_vec = graph.vector_model.sparse(static_len)
-            id_vec[:static_len] = static_vec
-
-            # These vectors are all pointers to the same array.
-            self.id_vec = id_vec
-            self.static_vec = id_vec[:static_len]
-            self.dynamic_vec = id_vec[static_len:]
-        else:
-            self.id_vec = id_vec if id_vec is not None else graph.vector_model.sparse()
+        self.id_vec = graph.vector_model.sparse()
 
         if params['DYNAMIC']:
             self.dynamic_vec = self.graph.vector_model.sparse()
             #self.dynamic_vec = np.ones(params['DIM'])
 
         self.row_vec = row_vec if row_vec is not None else graph.vector_model.sparse()
+        assert not np.isnan(np.sum(self.row_vec))
         self._original_row = np.copy(self.row_vec)
 
     def bump_edge(self, node, edge, factor=1):
@@ -64,7 +53,6 @@ class HoloNode(HiNode):
             node.dynamic_vec += self.row_vec * factor
             self.row_vec += (vectors.normalize(node.dynamic_vec) 
                              * factor * self.graph.params['DYNAMIC'])
-
 
 
     @lru_cache(maxsize=None)
@@ -100,44 +88,33 @@ class HoloGraph(HiGraph):
     def create_node(self, id_string):
         return HoloNode(self, id_string)
 
-    def bind(self, node1, node2, edges=None, composition=False):
-        id_string = '[{node1.id_string} {node2.id_string}]'.format_map(locals())
-
-        if self.params['COMPOSITION']:
-            # Create id_vec by binding the children id vectors.
-            id_vec = self.vector_model.bind(node1.id_vec, node2.id_vec)
-            comp_vec = self.vector_model.bind(node1.row_vec, node2.row_vec)
-            
-            # Create a row vector based on other chunks.
-            row_vec = self.vector_model.sparse()
-            for blob in (node for node in self.nodes if node.children):
-                c1, c2 = blob.children
-                blob_comp_vec = self.vector_model.bind(c1.row_vec, c2.row_vec)
-                similarity = vectors.cosine(comp_vec, blob_comp_vec)
-                row_vec += (similarity * blob.row_vec) * self.params['COMPOSITION']
+    def bind(self, *nodes, edges=None, composition=False):
+        id_string = self._id_string(nodes)
         
-        elif self.params['COMP2']:
-            row_vec = self.vector_model.sparse()
-            for blob in (node for node in self.nodes if node.children):
-                c1, c2 = blob.children
-                sim1 = vectors.cosine(node1, c1)
-                sim2 = vectors.cosine(node2, c2)
-                full_sim = sim1 * sim2
-                row_vec += (full_sim * self.params['COMPOSISION'] * vectors.normalize(blob.row_vec))
-            id_vec = None
+        if self.params['COMPOSITION']:
+            # gen_vec is the weighted average of all other same-length blobs
+            gen_vec = self.vector_model.zeros()
+            comparable = (n for n in self.nodes if len(n.children) == len(nodes))
+            for blob in comparable:
+                similarity = stats.gmean([vectors.cosine(n.row_vec, c.row_vec)
+                                         for n, c in zip(nodes, blob.children)])
+                gen_vec += similarity * vectors.normalize(blob.row_vec)
+
+            gen_vec = self.params['COMPOSITION'] * vectors.normalize(gen_vec)
+            row_vec = self.vector_model.sparse() + gen_vec
+            if np.isnan(np.sum(row_vec)):
+                import IPython; IPython.embed()
 
         else:
             row_vec = None
-            id_vec = None
 
-        return HoloNode(self, id_string, children=(node1, node2),
-                        id_vec=id_vec, row_vec=row_vec)
+        return HoloNode(self, id_string, children=nodes, row_vec=row_vec)
 
     def sum(self, nodes, weights=None):
         weights = list(weights)
         if weights:
-            ids = [n.id_vec * w for n, w in zip(self.nodes, weights)]
-            rows = [n.row_vec * w for n, w in zip(self.nodes, weights)]
+            ids = [n.id_vec * w for n, w in zip(nodes, weights)]
+            rows = [n.row_vec * w for n, w in zip(nodes, weights)]
         else:
             ids = [n.id_vec for n in nodes]
             rows = [n.row_vec for n in nodes]
