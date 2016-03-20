@@ -77,6 +77,11 @@ def cosine(a,b):
     sum_sq_a = np.sum(a**2.0)
     sum_sq_b = np.sum(b**2.0)
     result = np.dot(a,b) * (sum_sq_a * sum_sq_b) ** -0.5
+    if not -1.1 <= result <= 1.1:
+        msg = 'sum(a) = {}, sum(b) = {}'.format(np.sum(a), np.sum(b))
+        raise ValueError('cosine returned {}'.format(result) + '\n' + msg)
+
+
     return result
 
 def normalize(a):
