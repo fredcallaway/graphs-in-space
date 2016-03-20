@@ -3,27 +3,9 @@ import numpy as np
 from scipy import stats
 
 import yaml
-# ADDIU $12, $0, PC
-# ADDU $13, $0, $20
-# LUI $14, 0x123
-# SLL $13, $13, 2 
-# SLLV $15, $14, $3
-# J 0x24 
-# JR $5 
-# JALR $31, $5 
-# JALR $5
-# BEQ $5, $6, -12 
-# BEQ $5, $6, my_loop_top 
-# BLEZ $9, 16 
-# BLEZ $9, my_loop_done
-# LW $12, -4($30) 
-
 import utils
-fmt = utils.literal
-from parse import Parse
 
-#LOG = utils.get_logger(__name__, stream='WARNING', file='INFO')
-TEST = {'on': False}
+fmt = utils.literal
 
 
 class Numila(object):
@@ -58,18 +40,27 @@ class Numila(object):
             from probgraph import ProbGraph as Graph
         else:
             raise ValueError('Invalid GRAPH parameter: {}'.format(self.params['GRAPH']))
-        
         self.graph = Graph(edges=['ftp', 'btp'], params=self.params)
+        
+        # Same deal for Parse.
+        parser = self.params['PARSE'].lower()
+        if parser == 'incremental':
+            from parse import Parse
+        elif parser == 'batch':
+            from batch_parse import Parse
+        else:
+            raise ValueError('Invalid PARSE parameter: {}'.format(self.params['PARSE']))
+        self.Parse = Parse
 
 
-    def parse(self, utterance, learn=True, verbose=False):
+    def parse(self, utterance, learn=True):
         """Returns a Parse of the given utterance."""
         self.graph.decay()
         if isinstance(utterance, str):
             utterance = utterance.split(' ')
         if self.params['ADD_BOUNDARIES']:
             utterance = ['#'] + utterance + ['#']
-        return Parse(self, utterance, learn=learn, verbose=verbose)
+        return self.Parse(self, utterance, learn=learn)
 
     def fit(self, training_corpus, lap=None):
         with utils.Timer(print_func=self.log.warning) as timer:
@@ -84,23 +75,9 @@ class Numila(object):
                         count, timer.elapsed)
             return self
 
-    def score(self, utt, ratio=0, freebie=-1):
+    def score(self, utt, **kwargs):
         """Returns a grammaticality score for an utterance."""
-        parse = self.parse(utt, learn=False)
-
-        def chunk_ratio():
-            possible_chunks = len(parse.utterance) - 1
-            return parse.num_chunks / possible_chunks
-
-        def chunkiness():
-            between = [self.chunkiness(n1, n2)
-                       for n1, n2 in utils.neighbors(parse)]
-            within = [max(chunkiness, freebie) for chunkiness in parse.chunkinesses]    
-            total = np.array(between + within)
-            total += .001  # smoothing
-            return stats.gmean(total)
-
-        return chunk_ratio() * ratio + chunkiness() * (1-ratio)
+        return self.parse(utt, learn=False).score(**kwargs)
 
     def map_score(self, utts, **kwargs):
         return [self.score(u, **kwargs) for u in utts]
@@ -112,7 +89,7 @@ class Numila(object):
         node.predecessors = set()
         return node
 
-    def create_chunk(self, node1, node2):
+    def create_chunk(self, node1, node2):  # TODO  *nodes or scrap
         edges = self.params['BIND'] and {'btp': node1, 'ftp': node2}
         node = self.graph.bind(node1, node2, edges=edges)
         
@@ -122,7 +99,7 @@ class Numila(object):
 
         return node
 
-    def get_chunk(self, node1, node2, stored_only=True):
+    def get_chunk(self, node1, node2, stored_only=True):  # TODO *nodes
         """Returns a chunk of node1 and node2 if the chunk is in the graph.
 
         If stored_only is True, we only return the desired chunk if it
@@ -146,7 +123,7 @@ class Numila(object):
             chunk = self.create_chunk(node1, node2)
             return chunk
 
-    def add_chunk(self, chunk):
+    def add_chunk(self, chunk):  # TODO scrap
         if (chunk.child1.id_string not in self.graph or
             chunk.child2.id_string not in self.graph):
                 # This is a strange edge case that can happen when there is
@@ -154,7 +131,7 @@ class Numila(object):
                 # the chunk.
                 self.log.info('Tried to add a chunk with a non-chunk child: %s', chunk)
                 return
-        self.graph.add_node(chunk)
+        self.graph.add(chunk)
         assert chunk.child1 is self.graph[chunk.child1.id_string]
         assert chunk.child2 is self.graph[chunk.child2.id_string]
         chunk.child1.followers.add(chunk.child2)
@@ -231,7 +208,6 @@ class Numila(object):
                           for predecessor in node2.predecessors
                           for follower in node1.followers)
         similar_chunks = [c for c in similar_chunks if c is not None]
-        TEST['similar_chunks'] = similar_chunks
 
         # TODO make this 0 - 1
         gen_chunkiness = sum(self.chunkiness(*chunk, generalize=False)

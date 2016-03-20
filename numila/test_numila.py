@@ -8,26 +8,35 @@ Numila = numila.Numila
 @pytest.fixture()
 def holomila():
     #thresh = 1 if request.param == 'chunk'
-    return Numila(GRAPH='holograph', LEARNING_RATE=0.1, EXEMPLAR_THRESHOLD=1)
+    return Numila(GRAPH='holograph', LEARNING_RATE=0.1)
 
 @pytest.fixture()
 def probmila():
     #thresh = 1 if request.param == 'chunk'
-    return Numila(GRAPH='probgraph', LEARNING_RATE=1, EXEMPLAR_THRESHOLD=1)
+    return Numila(GRAPH='probgraph', LEARNING_RATE=1)
 
-@pytest.fixture(params=['holo', 'prob'])
+@pytest.fixture()
+def batchmila():
+    return Numila(PARSE='batch')
+
+@pytest.fixture(params=['holo', 'prob', 'batch'])
 def model(request):
-    if request.param == 'holo':
-        return holomila()
-    else:
-        return probmila()
+    models = {
+        'holo': holomila,
+        'prob': probmila,
+        'batch': batchmila
+    }
+    return models[request.param]()
+
 
 
 def test_easy(model):
+    model.params['CHUNK_THRESHOLD'] = 2
     # One simple utterance 50 times.
     utterance = 'a b a c a b d'
     corpus = [utterance] * 50
     model.parse(corpus[0])
+    print(utils.log_parse(model, corpus[0]))
     a, b, c, d = (model.graph[x] for x in 'abcd')  # node objects
     def weight(edge, n1, n2):
         return n1.edge_weight(n2, edge)
@@ -92,35 +101,7 @@ def test_easy(model):
     #assert ''.join(model.speak('cab')) in ('bac', 'cab')
 
 
-def test_parse(probmila):
-    model = Numila(GRAPH='probgraph', LEARNING_RATE=1, EXEMPLAR_THRESHOLD=1,
-                   DECAY=0)
-
-    def log_parse(utt):
-        with utils.capture_logging('parse') as log:
-            model.parse(utt)
-        log = log()
-        print(log)
-        return log
-
-    log = log_parse('a b c')
-    assert log.count('strengthen a -> b') is 2
-    assert log.count('strengthen b -> c') is 2
-
-    log = log_parse('a b c d')
-    assert log.count('strengthen a -> b') is 3
-    assert log.count('strengthen b -> c') is 3
-    assert log.count('strengthen c -> d') is 3
-
-    log = log_parse('a b c d e')
-    assert log.count('strengthen a -> b') is 3
-    assert log.count('strengthen b -> c') is 3
-    assert log.count('strengthen c -> d') is 3
-    assert log.count('strengthen d -> e') is 3
-
-
-def test_chunking():
-    model = Numila()
+def test_chunking(model):
 
     utterance = 'a b a c a b d'
     corpus = [utterance] * 50
@@ -130,12 +111,13 @@ def test_chunking():
     def weight(edge, n1, n2):
         return n1.edge_weight(n2, edge)
 
-    assert sum(1 for n in model.graph.nodes if n.children) == 5
+    blobs = [n for n in model.graph.nodes if n.children]
+    
+    assert len(blobs) > 0
 
 
 if __name__ == '__main__':
     pytest.main(__file__)
-    #test_prob()
 
 """
 

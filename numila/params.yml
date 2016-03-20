@@ -11,7 +11,7 @@ BIND_OPERATION: addition
 GENERALIZE: false
 DYNAMIC: null
 COMPOSITION: false
-COMP2: false
+PARSE: incremental
 
 FTP_PREFERENCE: 1
 CHUNK_LEARNING: 0.0

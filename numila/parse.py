@@ -1,8 +1,7 @@
 import utils
 from collections import deque
 import numpy as np
-
-LOG = utils.get_logger(__name__, stream='WARNING', file='INFO')
+from scipy import stats
 
 class Parse(list):
     """A parse of an utterance represented as a list of Nodes.
@@ -11,7 +10,7 @@ class Parse(list):
     effects for the parent Numila instance (i.e. learning). The loop
     in __init__ is thus both the comprehension and learning algorithm.
     """
-    def __init__(self, model, utterance, learn=True, verbose=False) -> None:
+    def __init__(self, model, utterance, learn=True) -> None:
         super().__init__()
         self.model = model
         self.utterance = utterance
@@ -21,8 +20,9 @@ class Parse(list):
         self.chunkinesses = []
         self.memory = deque(maxlen=self.params['MEMORY_SIZE'])
 
-        LOG.debug('')
-        LOG.debug('PARSING: %s', utterance)
+        self.log = model.log
+        self.log.debug('')
+        self.log.debug('PARSING: %s', utterance)
 
         utterance = iter(utterance)
 
@@ -30,16 +30,16 @@ class Parse(list):
         while len(self.memory) < self.params['MEMORY_SIZE']:
             token = next(utterance, None)
             if token is None:
-                LOG.debug('Break early.')
+                self.log.debug('Break early.')
                 break  # less than MEMORY_SIZE tokens in utterance
             self.shift(token)
-            LOG.debug('memory = %s', self.memory)
+            self.log.debug('memory = %s', self.memory)
             self.update_weights(-1)
 
 
         # Chunk, learn, and shift until we run out of tokens, at which point we
         # keep chunking until we reduce the utterance to one chunk or drop everything.
-        LOG.debug('Begin chunking.')
+        self.log.debug('Begin chunking.')
         while self.memory:
             chunk_idx = self.try_to_chunk()
             if chunk_idx is None:
@@ -47,26 +47,31 @@ class Parse(list):
                 # to make room for a new one.
                 oldest = self.memory.popleft()
                 self.append(oldest)
-                LOG.debug('dropped %s', oldest)
+                self.log.debug('dropped %s', oldest)
             else:
                 self.update_weights(chunk_idx, 'new')
             token = next(utterance, None)
             if token is not None:
                 self.shift(token)
                 self.update_weights(-1, 'new')
-            LOG.debug('memory = %s', self.memory)
+            self.log.debug('memory = %s', self.memory)
             self.update_weights(-1, 'old')
 
-    @property
-    def num_chunks(self):
-        """The number of chunks made during this Parse."""
-        return len(self.chunkinesses)
+    def score(self, ratio=0, freebie=-1):
 
-    @property
-    def chunkedness(self):
-        """Geometric mean of chunkinesses."""
-        return np.e ** ((1 / len(self.chunkinesses)) * 
-                        sum(np.log(x) for x in self.chunkinesses))
+        def chunk_ratio():
+            possible_chunks = len(self.utterance) - 1
+            return len(self.chunkinesses) / possible_chunks
+
+        def gmean_chunkiness():
+            between = [self.model.chunkiness(n1, n2)
+                       for n1, n2 in utils.neighbors(self)]
+            within = [max(chunkiness, freebie) for chunkiness in self.chunkinesses]    
+            total = np.array(between + within)
+            total += .001  # smoothing
+            return stats.gmean(total)
+
+        return chunk_ratio() * ratio + gmean_chunkiness() * (1-ratio)
 
     def shift(self, token) -> None:
         """Adds a token to memory.
@@ -76,14 +81,14 @@ class Parse(list):
         node in the graph for it.
         """
         assert len(self.memory) < self.memory.maxlen
-        LOG.debug('shift: %s', token)
+        self.log.debug('shift: %s', token)
 
         try:
             node = self.graph[token]
         except KeyError:  # a new token
             node = self.model.create_node(token)
             if self.learn:
-                self.graph.add_node(node)
+                self.graph.add(node)
 
         self.memory.append(node)
 
@@ -98,11 +103,13 @@ class Parse(list):
         if not self.learn:
             return
         if learn_mode and learn_mode != self.params['LEARN_MODE']:
+            # This update should't occur given the current LEARN_MODE parameter.
             return
 
         # These factors determine how much we should increase the weight
         # of each type of edge.
-        ftp_factor = self.params['LEARNING_RATE'] * self.params['FTP_PREFERENCE'] 
+        # FIXME: only use FTP_PREFERENCE in one place.
+        ftp_factor = self.params['LEARNING_RATE']  #  * self.params['FTP_PREFERENCE'] 
         btp_factor = self.params['LEARNING_RATE']
 
         if self.params['LEARN_MODE'] == 'new':
@@ -111,7 +118,7 @@ class Parse(list):
             to_bump = utils.neighbors(self.memory)
 
         for node1, node2 in to_bump:
-            LOG.debug('  strengthen %s -> %s', node1, node2)
+            self.log.debug('  bump %s -> %s', node1, node2)
             if node1.id_string in self.graph and node2.id_string in self.graph:
                 node1.bump_edge(node2, 'ftp', ftp_factor)
                 node2.bump_edge(node1, 'btp', btp_factor)
@@ -145,7 +152,7 @@ class Parse(list):
             # We can't create a chunk when there's only one node left.
             # This can only happen while processing the tail, so we
             # must be done processing
-            LOG.debug('done parsing')
+            self.log.debug('done parsing')
             return None
 
 
@@ -175,11 +182,11 @@ class Parse(list):
             if (self.learn and
                 best_chunk.id_string not in self.graph and
                 best_chunkiness > self.params['EXEMPLAR_THRESHOLD']):
-                    self.model.add_chunk(best_chunk)      
-            LOG.debug('create chunk: %s', best_chunk)
+                    self.model.add_chunk(best_chunk)
+            self.log.debug('create chunk: %s', best_chunk)
             return best_idx
         else:  # can't make a chunk
-            LOG.debug('no chunk created')
+            self.log.debug('no chunk created')
             return None
 
     def adjacent(self, idx):
@@ -215,8 +222,8 @@ class Parse(list):
 def test_parse():
     import numila
     model = numila.Numila()
-    #LOG.handlers[0].setLevel('DEBUG')
-    #LOG.setLevel('DEBUG')
+    #self.log.handlers[0].setLevel('DEBUG')
+    #self.log.setLevel('DEBUG')
     model.parse('the dog ate')
     model.parse('the dog ate a steak')
     model.parse('I know the dog ate a steak')

@@ -64,6 +64,11 @@ def capture_logging(logger, level='DEBUG'):
     logger.removeHandler(handler)
     logger.setLevel(old_level)
 
+def log_parse(model, utt):
+    with capture_logging(model.log) as log:
+        model.parse(utt)
+    log = log()
+    return log
 
 def neighbors(iterable):
     "s -> (s0,s1), (s1,s2), (s2, s3), ..."
