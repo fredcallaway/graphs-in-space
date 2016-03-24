@@ -6,14 +6,14 @@ import vectors
 
 @pytest.fixture
 def holograph():
-    graph = HoloGraph(['edge'], {'DIM': 1000, 'PERCENT_NON_ZERO': .01, 'DYNAMIC': 0,
-                                'BIND_OPERATION': 'addition', 'GENERALIZE': False})
+    graph = HoloGraph(['edge'], **{'DIM': 1000, 'PERCENT_NON_ZERO': .01, 'DYNAMIC': 0,
+                                'BIND_OPERATION': 'addition', 'GENERALIZE': False},)
     _add_nodes(graph)
     return graph
 
 @pytest.fixture
 def probgraph():
-    graph = ProbGraph(['edge'], {'DECAY': 0.01})
+    graph = ProbGraph(['edge'], **{'DECAY': 0.01, 'HIERARCHICAL': True})
     _add_nodes(graph)
     return graph
 
@@ -28,7 +28,7 @@ def _add_nodes(graph):
     for c in string.ascii_uppercase:
         node = graph.create_node(c)
         assert c not in graph
-        graph.add_node(node)
+        graph.add(node)
         assert c in graph
 
     return graph
@@ -63,7 +63,7 @@ def test_weights(graph):
 def test_bind(holograph):
     return
     graph = holograph
-    graph.params['COMPOSITION'] = True
+    graph.COMPOSITION = True
     a, b, c, d, e, f = (graph[x] for x in 'ABCDEF')
     
     # (A and B) and (C and D) are given similar edge profiles.
@@ -82,7 +82,7 @@ def test_bind(holograph):
 
     # Create AC and give it an edge profile.
     ac = graph.bind(a, c)
-    graph.add_node(ac)
+    graph.add(ac)
     ac.bump_edge(e, 'edge', 5)
     ac.bump_edge(f, 'edge', 3)
 
@@ -102,9 +102,22 @@ def test_bind(holograph):
     af = graph.bind(a, f)
     #assert e.edge_weight(af, 'edge') > 0.5    # or should it?
 
+def test_flat_bind(probgraph):
+    #graph = ProbGraph(['edge'], {'DECAY': 0.01, 'HIERARCHICAL': False})
+    graph = probgraph
+    graph.HIERARCHICAL = False
+    a, b, c, d, e, f = (graph[x] for x in 'ABCDEF')
+    ab = graph.bind(a, b)
+    cde = graph.bind(c, d, e)
+    abcde = graph.bind(ab, cde)
+    print(ab)
+    print(cde)
+    print(abcde)
+    assert 0
+
 def test_dynamic_gen(holograph):
     return
-    graph = HoloGraph(['edge'], {'DIM': 1000, 'PERCENT_NON_ZERO': .01, 
+    graph = HoloGraph(['edge'], **{'DIM': 1000, 'PERCENT_NON_ZERO': .01, 
                                 'BIND_OPERATION': 'addition', 'GENERALIZE': 'dynamic2',
                                 'DYNAMIC':2})
     _add_nodes(graph)
@@ -143,9 +156,6 @@ def test_dynamic_gen(holograph):
     # B is connected to C because A is connected to C
     # and B is connected to similar nodes as A.
     assert b.edge_weight(c, 'edge') > 0.2
-
-
-
 
 
 

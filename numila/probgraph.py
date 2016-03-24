@@ -1,5 +1,6 @@
 from collections import Counter, defaultdict
 import utils
+import itertools
 
 from abstract_graph import HiGraph, HiNode
 
@@ -20,12 +21,12 @@ class ProbNode(HiNode):
     def bump_edge(self, node, edge, factor=1) -> None:
         self.edge_counts[edge][node.id_string] +=  factor
 
-    @utils.contract(lambda x: 0 <= x <= 1)
+    #@utils.contract(lambda x: 0 <= x <= 1)
     def edge_weight(self, node, edge) -> float:
         edge_count = self.edge_counts[edge][node.id_string]
         self_count = sum(self.edge_counts[edge].values())
-        if self_count == 0:
-            return 0
+        if edge_count == 0:
+            return 0.0
         else:
             return edge_count / self_count
 
@@ -45,27 +46,35 @@ class ProbGraph(HiGraph):
     temporal precedence, then A.edge_weight(R, B) would be the probability
     that B has previously occurred given that A just occurred.
     """
-    def __init__(self, edges, params) -> None:
+    def __init__(self, edges, DECAY=False, HIERARCHICAL=True, **kwargs) -> None:
+        # TODO: kwargs is just so that we can pass more parameters than are
+        # actually used.
+        super().__init__()
         self.edges = edges
-        self.params = params
-        self._nodes = {}
+        self.DECAY = DECAY
+        self.HIERARCHICAL = HIERARCHICAL
 
     def create_node(self, id_string) -> ProbNode:
         return ProbNode(self, id_string, self.edges)
 
-    def bind(self, node1, node2, edges=None) -> ProbNode:
-        id_string = '[{node1.id_string} {node2.id_string}]'.format_map(locals())
-        #edge_counts = {edge: node.edge_counts[edge] for edge, node in edges.items()}
-        return ProbNode(self, id_string, self.edges, children=(node1, node2))
+    def bind(self, *nodes, edges=None) -> ProbNode:
+        if self.HIERARCHICAL:
+            children = nodes
+        else:
+            children = self._concatenate_children(nodes)
+
+        id_string = self._id_string(children)
+        return ProbNode(self, id_string, self.edges, children=children)
+
 
     def decay(self) -> None:
         """Decays all learned connections between nodes."""
-        decay = self.params['DECAY']
+        decay = self.DECAY
         if not decay:
             return
         for node1 in self.nodes:
             for edge_type, counter in node1.edge_counts.items():
-                # Decay every edge of this type out of node1.
+                # Decay every edge of this type out of node1.rs
                 for node2 in counter:
                     counter[node2] -= decay
                 # Delete non-positive edges.
@@ -73,14 +82,3 @@ class ProbGraph(HiGraph):
                            if weight <= 0]
                 for node in non_pos:
                     del counter[node]
-
-        #for edge_type in self.edge_counts:
-        #    for node1, edges in self.edge_counts[edge_type].items():
-        #        for node2 in edges:
-        #            edges[node2] -= self.params['DECAY']
-                
-        #        non_pos_edges = [node2
-        #                         for node2, weight in edges.items()
-        #                         if weight <= 0]
-        #        for node2 in non_pos_edges:
-        #            del edges[node2]

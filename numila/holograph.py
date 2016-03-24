@@ -26,12 +26,10 @@ class HoloNode(HiNode):
     """
     def __init__(self, graph, id_string, children=(), row_vec=None):
         super().__init__(graph, id_string, children)
-        params = self.graph.params
         self.id_vec = graph.vector_model.sparse()
 
-        if params['DYNAMIC']:
+        if self.graph.DYNAMIC:
             self.dynamic_vec = self.graph.vector_model.sparse()
-            #self.dynamic_vec = np.ones(params['DIM'])
 
         self.row_vec = row_vec if row_vec is not None else graph.vector_model.sparse()
         assert not np.isnan(np.sum(self.row_vec))
@@ -43,16 +41,11 @@ class HoloNode(HiNode):
         edge_vec = node.id_vec[self.graph.edge_permutations[edge]]
         self.row_vec += factor * edge_vec
         self.edge_weight.cache_clear()
-        
-        if False and self.graph.params['OLD_DYNAMIC']:  # TODO
-            # Add this node's row_vec to other node's id_vec
-            compressed_row_vec = vectors.compress(self.row_vec, len(node.dynamic_vec))
-            node.dynamic_vec += compressed_row_vec
 
-        if self.graph.params['DYNAMIC']:
+        if self.graph.DYNAMIC:
             node.dynamic_vec += self.row_vec * factor
             self.row_vec += (vectors.normalize(node.dynamic_vec) 
-                             * factor * self.graph.params['DYNAMIC'])
+                             * factor * self.graph.DYNAMIC)
 
 
     @lru_cache(maxsize=None)
@@ -63,7 +56,7 @@ class HoloNode(HiNode):
         """
         edge_vec = node.id_vec[self.graph.edge_permutations[edge]]
         weight = vectors.cosine(self.row_vec, edge_vec)
-        if weight < 0:
+        if weight <= 0:
             return 0.0
         else:
             return weight
@@ -74,33 +67,46 @@ class HoloNode(HiNode):
 
 class HoloGraph(HiGraph):
     """A graph represented with high dimensional sparse vectors."""
-    def __init__(self, edges, params):
-        # read parameters from file, overwriting with keyword arguments
-        self.params = params
-        self.vector_model = vectors.VectorModel(self.params['DIM'],
-                                                self.params['PERCENT_NON_ZERO'],
-                                                self.params['BIND_OPERATION'])
+    def __init__(self, edges, DIM=10000, PERCENT_NON_ZERO=0.005, 
+                 BIND_OPERATION='addition', HIERARCHICAL=True, 
+                 COMPOSITION=False, DECAY=0, DYNAMIC=0, **kwargs):
+        # TODO: kwargs is just so that we can pass more parameters than are
+        # actually used.
+        super().__init__()
+        self.DYNAMIC = DYNAMIC
+        self.DIM = DIM
+        self.PERCENT_NON_ZERO = PERCENT_NON_ZERO
+        self.BIND_OPERATION = BIND_OPERATION
+        self.HIERARCHICAL = HIERARCHICAL
+        self.COMPOSITION = COMPOSITION
+        self.DECAY = DECAY
+
+
+        self.vector_model = vectors.VectorModel(self.DIM,
+                                                self.PERCENT_NON_ZERO,
+                                                self.BIND_OPERATION)
         
         self.edge_permutations = {edge: self.vector_model.permutation()
                                   for edge in edges}
-        self._nodes = {}
-
     def create_node(self, id_string):
         return HoloNode(self, id_string)
 
-    def bind(self, *nodes, edges=None, composition=False):
-        id_string = self._id_string(nodes)
-        
-        if self.params['COMPOSITION']:
+    def bind(self, *nodes, composition=False):
+        if self.HIERARCHICAL:
+            children = nodes
+        else:
+            children = self._concatenate_children(nodes)
+
+        if self.COMPOSITION:
             # gen_vec is the weighted average of all other same-length blobs
             gen_vec = self.vector_model.zeros()
-            comparable = (n for n in self.nodes if len(n.children) == len(nodes))
+            comparable = (n for n in self.nodes if len(n.children) == len(children))
             for blob in comparable:
                 similarity = stats.gmean([vectors.cosine(n.row_vec, c.row_vec)
-                                         for n, c in zip(nodes, blob.children)])
+                                         for n, c in zip(children, blob.children)])
                 gen_vec += similarity * vectors.normalize(blob.row_vec)
 
-            gen_vec = self.params['COMPOSITION'] * vectors.normalize(gen_vec)
+            gen_vec = self.COMPOSITION * vectors.normalize(gen_vec)
             row_vec = self.vector_model.sparse() + gen_vec
             if np.isnan(np.sum(row_vec)):
                 import IPython; IPython.embed()
@@ -108,6 +114,7 @@ class HoloGraph(HiGraph):
         else:
             row_vec = None
 
+        id_string = self._id_string(children)
         return HoloNode(self, id_string, children=nodes, row_vec=row_vec)
 
     def sum(self, nodes, weights=None):
@@ -130,11 +137,12 @@ class HoloGraph(HiGraph):
         This is done by adding a small factor of each nodes id_vec to
         its row vector, effectively making each node more similar
         to its initial state"""
-        decay = self.params['DECAY']
+        decay = self.DECAY
         if not decay:
             return
         for node in self.nodes:
             node.row_vec += node._original_row * decay
+
 
 if __name__ == '__main__':
     import pytest

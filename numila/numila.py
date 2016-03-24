@@ -12,6 +12,7 @@ class Numila(object):
     """The premier language acquisition model."""
     def __init__(self, param_file='params.yml', name='numila', log_stream='WARNING',
                  log_file='WARNING', **params):
+        self.name = name
         self.log = utils.get_logger(name, stream=log_stream, file=log_file)
 
         # Read default params from file, overwriting with keyword arguments.
@@ -34,13 +35,13 @@ class Numila(object):
         # is parameterized by another class, similarly to how a functor
         # in OCaml is a module parameterized by another module.
         graph = self.params['GRAPH'].lower()
-        if graph == 'holograph':
+        if graph.startswith('holo'):
             from holograph import HoloGraph as Graph
-        elif graph == 'probgraph':
+        elif graph.startswith('prob'):
             from probgraph import ProbGraph as Graph
         else:
             raise ValueError('Invalid GRAPH parameter: {}'.format(self.params['GRAPH']))
-        self.graph = Graph(edges=['ftp', 'btp'], params=self.params)
+        self.graph = Graph(edges=['ftp', 'btp'], **self.params)
         
         # Same deal for Parse.
         parser = self.params['PARSE'].lower()
@@ -48,6 +49,7 @@ class Numila(object):
             from parse import Parse
         elif parser == 'batch':
             from batch_parse import Parse
+            self.graph.HIERARCHICAL = False
         else:
             raise ValueError('Invalid PARSE parameter: {}'.format(self.params['PARSE']))
         self.Parse = Parse
@@ -63,7 +65,7 @@ class Numila(object):
         return self.Parse(self, utterance, learn=learn)
 
     def fit(self, training_corpus, lap=None):
-        with utils.Timer(print_func=self.log.warning) as timer:
+        with utils.Timer(print_func=None) as timer:
             try:
                 for count, utt in enumerate(training_corpus, 1):
                     self.parse(utt)
@@ -80,7 +82,11 @@ class Numila(object):
         return self.parse(utt, learn=False).score(**kwargs)
 
     def map_score(self, utts, **kwargs):
-        return [self.score(u, **kwargs) for u in utts]
+        with utils.Timer(print_func=None) as timer:
+            result = [self.score(u, **kwargs) for u in utts]
+        self.log.warning('Scored %s utterances in %s seconds', 
+                         len(utts), timer.elapsed)
+        return result
 
     def create_node(self, string):
         node = self.graph.create_node(string)
@@ -90,8 +96,8 @@ class Numila(object):
         return node
 
     def create_chunk(self, node1, node2):  # TODO  *nodes or scrap
-        edges = self.params['BIND'] and {'btp': node1, 'ftp': node2}
-        node = self.graph.bind(node1, node2, edges=edges)
+        #edges = self.params['BIND'] and {'btp': node1, 'ftp': node2}
+        node = self.graph.bind(node1, node2)
         
         # Add extra links for neighbor generalize algorithm.
         node.followers = set()

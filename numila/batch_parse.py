@@ -1,9 +1,9 @@
-import utils
 from collections import deque
 import numpy as np
 from functools import lru_cache
 from scipy import stats
 
+import utils
 
 
 def make_list(generator_func):
@@ -43,14 +43,27 @@ class Parse(object):
                 for n2 in nodes_starting:
                     self.bump(n1, n2)
 
-    def score(self):
+    def score(self, accumulate=stats.gmean):
         """The sum of the score of every path through the utterance.
 
         A score of one path is the geometric mean of the transitional
         probabilities in that path."""
-        return sum(np.product([self.model.chunkiness(*pair)
-                                for pair in utils.neighbors(route)])
-                    for route in self.routes(0, len(self.utterance)))
+        accumulate = lambda x: np.product(x) ** (1/len(self.utterance))
+
+        @utils.contract(lambda r: 0 <= r <= 1)
+        def route_cost(route):
+            transitions = np.array([a.edge_weight(b, 'ftp')
+                                   for a, b in utils.neighbors(route)])
+            if not len(transitions):
+                # Utterance is a single chunk.
+                return 1
+
+            transitions += .001  # smoothing
+            np.clip(transitions, 0, 1, out=transitions)
+
+            return accumulate(transitions)
+
+        return sum(map(route_cost, self.routes(0, len(self.utterance))))
 
         
     @lru_cache(None)

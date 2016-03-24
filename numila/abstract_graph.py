@@ -100,6 +100,16 @@ class HiGraph(metaclass=ABCMeta):
         # e.g. [ A B C ]
         return ' '.join(('[', *(node.id_string for node in nodes), ']'))
 
+    @staticmethod
+    def _concatenate_children(nodes):
+        children = []
+        for node in nodes:
+            if node.children:
+                children.extend(node.children)
+            else:
+                children.append(node)
+        return children
+
     def __len__(self):
         return len(self._nodes)
 

@@ -1,15 +1,17 @@
+from collections import OrderedDict
 import sys
-from joblib import Parallel, delayed
+
 import numpy as np
+import pandas as pd
 from pandas import DataFrame
 from sklearn import metrics
-import joblib
+from joblib import Parallel, delayed
 
 import production
 import introspection
 import comprehension
 import utils
-from ngram import NGramModel, get_ngrams
+from ngram import NGramModel
 from numila import Numila
 
 LOG = utils.get_logger(__name__, stream='INFO', file='WARNING')
@@ -39,8 +41,15 @@ def get_models(model_names, train_corpus, parallel=False):
     numila_params = {
         'holo': {},
         'prob': {'GRAPH': 'probgraph', 'EXEMPLAR_THRESHOLD': 0.05},
-        'batch': {'PARSE': 'batch'},
-        'prob_chunkless': {'GRAPH': 'probgraph', 'EXEMPLAR_THRESHOLD': 1}
+        'holo_flat': {'HIERARCHICAL': False},
+        'prob_flat': {'GRAPH': 'probgraph', 'EXEMPLAR_THRESHOLD': 0.05,
+                      'HIERARCHICAL': False},
+        'holo_batch': {'PARSE': 'batch'},
+        'prob_batch': {'GRAPH': 'probgraph', 'EXEMPLAR_THRESHOLD': 0.05, 
+                       'PARSE': 'batch'},
+        'prob_markov': {'GRAPH': 'probgraph', 'EXEMPLAR_THRESHOLD': 2},
+        'prob_batch_markov': {'GRAPH': 'probgraph', 'EXEMPLAR_THRESHOLD': 2,
+                            'PARSE': 'batch'},
     }
 
     other_models = {
@@ -58,11 +67,14 @@ def get_models(model_names, train_corpus, parallel=False):
         #'dynamic.1': Numila(DYNAMIC=0.1),
         #'dynamic.05': Numila(DYNAMIC=0.05),
 
-    models = {}
+    models = OrderedDict()
     for name in model_names:
-        try:
+        if not isinstance(name, str):
+            model = name
+            models[model.name] = model
+        elif name in numila_params:
             models[name] = Numila(name=name, **numila_params[name])
-        except KeyError:
+        else:
             models[name] = other_models[name]()
 
     if parallel:
@@ -77,7 +89,7 @@ def get_models(model_names, train_corpus, parallel=False):
     return models
 
 
-def get_corpora(lang, train_len):
+def get_corpora(lang, train_len, roc_len=100, bleu_len=100):
     if lang == 'toy2':
         import pcfg
         corpus = (s.split(' ') for s in pcfg.toy2())
@@ -86,12 +98,12 @@ def get_corpora(lang, train_len):
     train_corpus = [next(corpus) for _ in range(train_len)]
 
     testable = (utt for utt in corpus if 2 < len(utt))
-    #roc_test_corpus = utils.take_unique(testable, 100)
-    roc_test_corpus = [next(testable) for _ in range(100)]
+    #roc_test_corpus = utils.take_unique(testable, roc_len)
+    roc_test_corpus = [next(testable) for _ in range(roc_len)]
 
     producable = (utt for utt in corpus if 2 < len(utt) < 7)
-    #bleu_test_corpus = utils.take_unique(producable, 100)
-    bleu_test_corpus = [next(producable) for _ in range(100)]
+    #bleu_test_corpus = utils.take_unique(producable, bleu_len)
+    bleu_test_corpus = [next(producable) for _ in range(bleu_len)]
     
     return {'train': train_corpus,
             'roc_test': roc_test_corpus,
@@ -110,18 +122,66 @@ def roc_sim(test_corpus, models):
                'tpr': tpr,
                'auc': auc}
 
-def run(lang, train_len, models):
+
+
+def run(models, lang, train_len, roc_len=100, bleu_len=100):
+    corpora = get_corpora(lang, train_len, roc_len, bleu_len)
+    models = get_models(models, corpora['train'])
+
+    #roc_test = [u for u in corpora['roc_test'] if len(u) == 5]  # FIXME
+    roc_test = corpora['roc_test']
+
+    roc_df = DataFrame(list(roc_sim(roc_test, models)))
+
+    bleu_df = DataFrame(list(production.bleu_sim(models, corpora['bleu_test'])))
+
+    chunk_df = DataFrame([{'model': name, **introspection.analyze_chunks(model)}
+                         for name, model in models.items()])
+
+    return roc_df, bleu_df, chunk_df
+
+
+def test(models, lang, train_len, roc_len=100, bleu_len=100):
     corpora = get_corpora(lang, train_len)
     models = get_models(models, corpora['train'])
-    roc_results = roc_sim(corpora['roc_test'], models)
-    roc_df = DataFrame(list(roc_results), columns=['model', 'auc'])
-    return roc_df
+    for utt in corpora['roc_test'][:5]:
+        print('\n----------')
+        print(*utt)
+        for name, model in models.items():
+            print(name)
+            model.score(utt)
 
 
 def main():
-    models = ['prob_chunkless', 'batch']
-    df = run('English', 1000, models)
-    print(df)
+    models = [
+        'holo',
+        'prob',
+        'holo_flat',
+        'prob_flat',
+        'holo_batch',
+        'prob_batch',
+        'prob_markov',
+        'prob_batch_markov',
+    ]
+    
+    langs = [
+        'English',
+        'Spanish'
+    ]
+    
+    all_dfs = []
+    for lang in langs:
+        #roc_df, bleu_df, chunk_df = run(models, lang, 4000, 500, 0)
+        dfs = run(models, lang, 4000, 500, 0)
+        for df in dfs:
+            df['lang'] = lang
+        all_dfs.append(dfs)
+
+    for name, df in zip(['roc', 'bleu', 'chunk'], 
+                        map(pd.concat, zip(*all_dfs))):
+        df.to_pickle('pickles/' + name)
+    
+
 
 if __name__ == '__main__':
     main()

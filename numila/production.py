@@ -82,7 +82,7 @@ def simple_test(model, test_corpus):
     results = DataFrame(eval_production(model, test_corpus, common_neighbor_metric))
     return results['BLEU'].mean()
 
-def compare_models(models, test_corpus):
+def bleu_sim(models, test_corpus):
     for name, model in models.items():
         results = eval_production(model, test_corpus, common_neighbor_metric)
         for trial in results:
@@ -90,11 +90,10 @@ def compare_models(models, test_corpus):
             yield trial
 
 
-def bleu_sim(lang):
+def old_bleu_sim(lang):
     models = lang['models']
     bleu = pd.DataFrame(compare_models(models, lang['bleu_test_corpus']))
     bleu['language'] = lang['language']
     return bleu
-
 
 

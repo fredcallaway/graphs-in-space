@@ -57,7 +57,7 @@ class Parse(list):
             self.log.debug('memory = %s', self.memory)
             self.update_weights(-1, 'old')
 
-    def score(self, ratio=0, freebie=-1):
+    def score(self, ratio=0, freebie=-1, cost='chunkiness', accumulate=stats.gmean):  # TODO
 
         def chunk_ratio():
             possible_chunks = len(self.utterance) - 1
@@ -66,12 +66,13 @@ class Parse(list):
         def gmean_chunkiness():
             between = [self.model.chunkiness(n1, n2)
                        for n1, n2 in utils.neighbors(self)]
-            within = [max(chunkiness, freebie) for chunkiness in self.chunkinesses]    
+            within = [max(chunkiness, freebie) for chunkiness in self.chunkinesses]
+            #print('-> between = {}'.format(np.round(between, 3)))
             total = np.array(between + within)
             total += .001  # smoothing
             return stats.gmean(total)
 
-        return chunk_ratio() * ratio + gmean_chunkiness() * (1-ratio)
+        return ratio * chunk_ratio() + (1 - ratio) * gmean_chunkiness()
 
     def shift(self, token) -> None:
         """Adds a token to memory.
