@@ -61,7 +61,7 @@ def test_weights(graph):
     
 
 def test_bind(holograph):
-    return
+    return  # TEST NOT BEING RUN
     graph = holograph
     graph.COMPOSITION = True
     a, b, c, d, e, f = (graph[x] for x in 'ABCDEF')
@@ -116,10 +116,9 @@ def test_flat_bind(probgraph):
     assert 0
 
 def test_dynamic_gen(holograph):
-    return
     graph = HoloGraph(['edge'], **{'DIM': 1000, 'PERCENT_NON_ZERO': .01, 
                                 'BIND_OPERATION': 'addition', 'GENERALIZE': 'dynamic2',
-                                'DYNAMIC':2})
+                                'DYNAMIC':.3})
     _add_nodes(graph)
     a, b, c, d, e, f = (graph[x] for x in 'ABCDEF')
 
@@ -134,16 +133,7 @@ def test_dynamic_gen(holograph):
 
     for (n1, n2), count in edge_counts:
         n1.bump_edge(n2, 'edge', count)
-
-    assert a.edge_weight(c, 'edge') > 0.3
-    assert a.edge_weight(d, 'edge') > 0.3
-    assert a.edge_weight(e, 'edge') > 0.3
-    assert b.edge_weight(d, 'edge') > 0.3
-    assert b.edge_weight(e, 'edge') > 0.3
-    assert b.edge_weight(f, 'edge') > 0.2
-
-    assert vectors.cosine(c.dynamic_vec, a.row_vec) > 0.5
-
+    print('--- NORMAL WEIGHTS ---')
     print('a -> c', a.edge_weight(c, 'edge'))
     print('a -> d', a.edge_weight(d, 'edge'))
     print('a -> e', a.edge_weight(e, 'edge'))
@@ -151,12 +141,30 @@ def test_dynamic_gen(holograph):
     print('b -> e', b.edge_weight(e, 'edge'))
     print('b -> f', b.edge_weight(f, 'edge'))
     print('b -> c', b.edge_weight(c, 'edge'))
-    
-    assert vectors.cosine(d.dynamic_vec, a.row_vec) > 0.4
+
+    print('--- GENERALIZED WEIGHTS ---')
+    print('a -> c', a.edge_weight(c, 'edge', generalize=True))
+    print('a -> d', a.edge_weight(d, 'edge', generalize=True))
+    print('a -> e', a.edge_weight(e, 'edge', generalize=True))
+    print('b -> d', b.edge_weight(d, 'edge', generalize=True))
+    print('b -> e', b.edge_weight(e, 'edge', generalize=True))
+    print('b -> f', b.edge_weight(f, 'edge', generalize=True))
+    print('b -> c', b.edge_weight(c, 'edge', generalize=True))
+
+    assert a.edge_weight(c, 'edge') > 0.3
+    assert a.edge_weight(d, 'edge') > 0.3
+    assert a.edge_weight(e, 'edge') > 0.3
+    assert b.edge_weight(d, 'edge') > 0.3
+    assert b.edge_weight(e, 'edge') > 0.3
+    assert b.edge_weight(f, 'edge') > 0.3
+
+    # A links to C, so C's dynamic vec should link to A.
+    assert vectors.cosine(c.dynamic_vecs['edge'], a.row_vecs['edge']) > 0.4
+
     # B is connected to C because A is connected to C
     # and B is connected to similar nodes as A.
-    assert b.edge_weight(c, 'edge') > 0.2
-
+    assert b.edge_weight(c, 'edge', generalize=True) > 0.2
+    assert 0
 
 
 if __name__ == '__main__':

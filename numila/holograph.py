@@ -24,45 +24,66 @@ class HoloNode(HiNode):
         idx: an int identifier
         id_vec: a random sparse vector that never changes
     """
-    def __init__(self, graph, id_string, children=(), row_vec=None):
+    def __init__(self, graph, id_string, children=(), row_vecs={}):
         super().__init__(graph, id_string, children)
         self.id_vec = graph.vector_model.sparse()
 
-        if self.graph.DYNAMIC:
-            self.dynamic_vec = self.graph.vector_model.sparse()
+        #self.row_vec = row_vec if row_vec is not None else graph.vector_model.sparse()
+        self.row_vecs = {edge: graph.vector_model.sparse()
+                         for edge in graph.edges}
+        self.row_vecs.update(row_vecs)
 
-        self.row_vec = row_vec if row_vec is not None else graph.vector_model.sparse()
-        assert not np.isnan(np.sum(self.row_vec))
-        self._original_row = np.copy(self.row_vec)
+        #self._original_rows = np.copy(self.row_vec)
+
+        if self.graph.DYNAMIC:
+            self.dynamic_vecs = {edge: graph.vector_model.sparse()
+                                 for edge in graph.edges}
+            self.gen_vecs = {edge: np.copy(vec)
+                             for edge, vec in self.row_vecs.items()}
+
 
     def bump_edge(self, node, edge, factor=1):
         """Increases the weight of an edge to another node."""
+        
         # Add other node's id_vec to this node's row_vec
-        edge_vec = node.id_vec[self.graph.edge_permutations[edge]]
-        self.row_vec += factor * edge_vec
-        self.edge_weight.cache_clear()
+        #edge_vec = node.id_vec[self.graph.edge_permutations[edge]]
+        #self.row_vec += factor * edge_vec
+        
+        self.row_vecs[edge] += node.id_vec * factor        
 
         if self.graph.DYNAMIC:
-            node.dynamic_vec += self.row_vec * factor
-            self.row_vec += (vectors.normalize(node.dynamic_vec) 
-                             * factor * self.graph.DYNAMIC)
+            # The target node learns that this node points to it.
+            node.dynamic_vecs[edge] += self.row_vecs[edge] * factor
+            # This node's generalized vectors point to nodes that 
+            # other nodes that point to target node point to.
+            self.gen_vecs[edge] += (vectors.normalize(node.dynamic_vecs[edge]) 
+                                    * (self.graph.vector_model.magnitude
+                                       * factor * self.graph.DYNAMIC))
+        self.edge_weight.cache_clear()
 
 
     @lru_cache(maxsize=None)
-    def edge_weight(self, node, edge):
+    @utils.contract(lambda x: 0 <= x <= 1)
+    def edge_weight(self, node, edge, generalize=False):
         """Returns the weight of an edge to another node.
 
         Between 0 and 1 inclusive.
         """
-        edge_vec = node.id_vec[self.graph.edge_permutations[edge]]
-        weight = vectors.cosine(self.row_vec, edge_vec)
-        if weight <= 0:
-            return 0.0
-        else:
-            return weight
+        #edge_vec = node.id_vec[self.graph.edge_permutations[edge]]
+        #weight = vectors.cosine(self.row_vec, edge_vec)
+        self_vec = (self.gen_vecs if generalize else self.row_vecs)[edge]
+        cos = vectors.cosine(self_vec, node.id_vec)
+        return max(cos, 0.0)
 
-    def similarity(self, node):
-        return vectors.cosine(self.row_vec, node.row_vec)
+    def similarity(self, node, weights=None):
+        """Weighted geometric mean of cosine similarities for each edge."""
+        weights = weights or np.ones(len(self.graph.edges))
+        assert len(weights) == len(self.graph.edges)
+
+        edge_sims = [vectors.cosine(self.row_vecs[edge], node.row_vecs[edge])
+                     ** weight
+                     for edge, weight in zip(self.graph.edges, weights)]
+        return stats.gmean(edge_sims)
 
 
 class HoloGraph(HiGraph):
@@ -73,6 +94,7 @@ class HoloGraph(HiGraph):
         # TODO: kwargs is just so that we can pass more parameters than are
         # actually used.
         super().__init__()
+        self.edges = edges
         self.DYNAMIC = DYNAMIC
         self.DIM = DIM
         self.PERCENT_NON_ZERO = PERCENT_NON_ZERO
@@ -80,14 +102,13 @@ class HoloGraph(HiGraph):
         self.HIERARCHICAL = HIERARCHICAL
         self.COMPOSITION = COMPOSITION
         self.DECAY = DECAY
-
-
         self.vector_model = vectors.VectorModel(self.DIM,
                                                 self.PERCENT_NON_ZERO,
                                                 self.BIND_OPERATION)
         
-        self.edge_permutations = {edge: self.vector_model.permutation()
-                                  for edge in edges}
+        #self.edge_permutations = {edge: self.vector_model.permutation()
+        #                          for edge in edges}
+
     def create_node(self, id_string):
         return HoloNode(self, id_string)
 
@@ -115,10 +136,11 @@ class HoloGraph(HiGraph):
             row_vec = None
 
         id_string = self._id_string(children)
+        # TODO should be children=children ?
         return HoloNode(self, id_string, children=nodes, row_vec=row_vec)
 
     def sum(self, nodes, weights=None):
-        weights = list(weights)
+        weights = weights and list(weights)
         if weights:
             ids = [n.id_vec * w for n, w in zip(nodes, weights)]
             rows = [n.row_vec * w for n, w in zip(nodes, weights)]
@@ -132,11 +154,8 @@ class HoloGraph(HiGraph):
         return node
 
     def decay(self):
-        """Decays all learned connections between nodes.
-
-        This is done by adding a small factor of each nodes id_vec to
-        its row vector, effectively making each node more similar
-        to its initial state"""
+        """Decays all learned connections between nodes."""
+        assert False, 'unimplimented'
         decay = self.DECAY
         if not decay:
             return
