@@ -22,3 +22,4 @@ lme.R
 numila/_srilm/
 numila/scratch.py
 .cache/
+numila/scratch.ipynb
