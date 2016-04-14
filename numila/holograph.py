@@ -28,12 +28,9 @@ class HoloNode(HiNode):
         super().__init__(graph, id_string, children)
         self.id_vec = graph.vector_model.sparse()
 
-        #self.row_vec = row_vec if row_vec is not None else graph.vector_model.sparse()
         self.row_vecs = {edge: graph.vector_model.sparse()
                          for edge in graph.edges}
         self.row_vecs.update(row_vecs)
-
-        #self._original_rows = np.copy(self.row_vec)
 
         if self.graph.DYNAMIC:
             self.dynamic_vecs = {edge: graph.vector_model.sparse()
@@ -46,8 +43,6 @@ class HoloNode(HiNode):
         """Increases the weight of an edge to another node."""
         
         # Add other node's id_vec to this node's row_vec
-        #edge_vec = node.id_vec[self.graph.edge_permutations[edge]]
-        #self.row_vec += factor * edge_vec
         
         self.row_vecs[edge] += node.id_vec * factor        
 
@@ -57,10 +52,8 @@ class HoloNode(HiNode):
             # This node's generalized vectors point to nodes that 
             # other nodes that point to target node point to.
             self.gen_vecs[edge] += (vectors.normalize(node.dynamic_vecs[edge]) 
-                                    * (self.graph.vector_model.magnitude
-                                       * factor * self.graph.DYNAMIC))
+                                    * factor * self.graph.DYNAMIC)
         self.edge_weight.cache_clear()
-
 
     @lru_cache(maxsize=None)
     @utils.contract(lambda x: 0 <= x <= 1)
@@ -69,21 +62,27 @@ class HoloNode(HiNode):
 
         Between 0 and 1 inclusive.
         """
-        #edge_vec = node.id_vec[self.graph.edge_permutations[edge]]
-        #weight = vectors.cosine(self.row_vec, edge_vec)
         self_vec = (self.gen_vecs if generalize else self.row_vecs)[edge]
         cos = vectors.cosine(self_vec, node.id_vec)
         return max(cos, 0.0)
 
+    @utils.contract(lambda x: 0 <= x <= 1)
     def similarity(self, node, weights=None):
         """Weighted geometric mean of cosine similarities for each edge."""
         weights = weights or np.ones(len(self.graph.edges))
         assert len(weights) == len(self.graph.edges)
 
-        edge_sims = [vectors.cosine(self.row_vecs[edge], node.row_vecs[edge])
+        edge_sims = [max(vectors.cosine(self.row_vecs[edge], node.row_vecs[edge]), 0)
                      ** weight
                      for edge, weight in zip(self.graph.edges, weights)]
-        return stats.gmean(edge_sims)
+        return min(stats.gmean(edge_sims), 1.0)  # clip precision error
+
+    def generalized(self):
+        """A generalized form of this node, taking edge weights from similar nodes."""
+        sims = [self.similarity(other_node)
+                for other_node in self.graph.nodes]
+        return self.graph.sum(self.graph.nodes, weights=sims,
+                              id_string=self.id_string, id_vec=self.id_vec)
 
 
 class HoloGraph(HiGraph):
@@ -106,9 +105,6 @@ class HoloGraph(HiGraph):
                                                 self.PERCENT_NON_ZERO,
                                                 self.BIND_OPERATION)
         
-        #self.edge_permutations = {edge: self.vector_model.permutation()
-        #                          for edge in edges}
-
     def create_node(self, id_string):
         return HoloNode(self, id_string)
 
@@ -119,39 +115,41 @@ class HoloGraph(HiGraph):
             children = self._concatenate_children(nodes)
 
         if self.COMPOSITION:
-            # gen_vec is the weighted average of all other same-length blobs
-            gen_vec = self.vector_model.zeros()
-            comparable = (n for n in self.nodes if len(n.children) == len(children))
-            for blob in comparable:
-                similarity = stats.gmean([vectors.cosine(n.row_vec, c.row_vec)
-                                         for n, c in zip(children, blob.children)])
-                gen_vec += similarity * vectors.normalize(blob.row_vec)
+            row_vecs = {}
+            for edge in self.edges:
+                # Gen_vec is the weighted average of all other blobs with
+                # the same number of children.
+                gen_vec = self.vector_model.zeros()
+                comparable = (n for n in self.nodes if len(n.children) == len(children))
+                for node in comparable:
+                    child_sims = [my_child.similarity(other_child)
+                                  for my_child, other_child in zip(children, node.children)]
 
-            gen_vec = self.COMPOSITION * vectors.normalize(gen_vec)
-            row_vec = self.vector_model.sparse() + gen_vec
-            if np.isnan(np.sum(row_vec)):
-                import IPython; IPython.embed()
+                    gen_vec += vectors.normalize(node.row_vec) * stats.gmean(child_sims)
 
+                gen_vec = self.COMPOSITION * vectors.normalize(gen_vec)
+                row_vec = self.vector_model.sparse() + gen_vec
+                assert not np.isnan(np.sum(row_vec))
+                row_vecs[edge] = row_vec
         else:
-            row_vec = None
+            row_vecs = {}
 
         id_string = self._id_string(children)
         # TODO should be children=children ?
-        return HoloNode(self, id_string, children=nodes, row_vec=row_vec)
+        return HoloNode(self, id_string, children=nodes, row_vecs=row_vecs)
 
-    def sum(self, nodes, weights=None):
-        weights = weights and list(weights)
-        if weights:
-            ids = [n.id_vec * w for n, w in zip(nodes, weights)]
-            rows = [n.row_vec * w for n, w in zip(nodes, weights)]
-        else:
-            ids = [n.id_vec for n in nodes]
-            rows = [n.row_vec for n in nodes]
-        
-        id_vec = np.sum(ids, axis=0)
-        row_vec = np.sum(rows, axis=0)
-        node =  HoloNode(self, '__SUM__', id_vec, row_vec)
-        return node
+    def sum(self, nodes, weights=None, id_string='__SUM__', id_vec=None):
+        weights = weights or np.ones(len(nodes))
+        assert len(weights) == len(nodes)
+
+        row_vecs = {edge: sum(n.row_vecs[edge] * w 
+                              for n, w in zip(nodes, weights))
+                    for edge in self.edges}
+
+        if id_vec is None:
+            id_vec = sum(n.id_vec * w for n, w in zip(nodes, weights))
+
+        return HoloNode(self, id_string, id_vec, row_vecs)
 
     def decay(self):
         """Decays all learned connections between nodes."""

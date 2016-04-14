@@ -1,5 +1,6 @@
 from collections import OrderedDict
 import sys
+import itertools
 
 import numpy as np
 import pandas as pd
@@ -18,6 +19,7 @@ LOG = utils.get_logger(__name__, stream='INFO', file='WARNING')
 
 class Dummy(object):
     """docstring for Dummy"""
+    name = 'dummy'
     def fit(self, corpus):
         return self
 
@@ -44,7 +46,7 @@ def get_models(model_names, train_corpus, parallel=False):
         'holo_flat': {'HIERARCHICAL': False},
         'prob_flat': {'GRAPH': 'probgraph', 'EXEMPLAR_THRESHOLD': 0.05,
                       'HIERARCHICAL': False},
-        'holo_batch': {'PARSE': 'batch'},
+        'holo_flat_batch': {'PARSE': 'batch', 'HIERARCHICAL': False},
         'prob_batch': {'GRAPH': 'probgraph', 'EXEMPLAR_THRESHOLD': 0.05, 
                        'PARSE': 'batch'},
         'prob_markov': {'GRAPH': 'probgraph', 'EXEMPLAR_THRESHOLD': 2},
@@ -89,12 +91,13 @@ def get_models(model_names, train_corpus, parallel=False):
     return models
 
 
-def get_corpora(lang, train_len, roc_len=100, bleu_len=100):
+def get_corpora(lang, kind, train_len, roc_len=100, bleu_len=100):
     if lang == 'toy2':
         import pcfg
         corpus = (s.split(' ') for s in pcfg.toy2())
     else:
-        corpus = utils.corpus(lang, 'syl')
+        corpus = utils.corpus(lang, kind)
+
     train_corpus = [next(corpus) for _ in range(train_len)]
 
     testable = (utt for utt in corpus if 2 < len(utt))
@@ -124,14 +127,11 @@ def roc_sim(test_corpus, models):
 
 
 
-def run(models, lang, train_len, roc_len=100, bleu_len=100):
-    corpora = get_corpora(lang, train_len, roc_len, bleu_len)
+def run(models, lang, kind, train_len, roc_len=100, bleu_len=100):
+    corpora = get_corpora(lang, kind, train_len, roc_len, bleu_len)
     models = get_models(models, corpora['train'])
-
-    #roc_test = [u for u in corpora['roc_test'] if len(u) == 5]  # FIXME
-    roc_test = corpora['roc_test']
-
-    roc_df = DataFrame(list(roc_sim(roc_test, models)))
+    
+    roc_df = DataFrame(list(roc_sim(corpora['roc_test'], models)))
 
     bleu_df = DataFrame(list(production.bleu_sim(models, corpora['bleu_test'])))
 
@@ -154,32 +154,45 @@ def test(models, lang, train_len, roc_len=100, bleu_len=100):
 
 def main():
     models = [
-        'holo',
+        Dummy(),
         'prob',
-        'holo_flat',
-        'prob_flat',
-        'holo_batch',
-        'prob_batch',
-        'prob_markov',
-        'prob_batch_markov',
+        #'holo',
+        #'holo_flat',
+        #'prob_flat',
+        #'holo_flat_batch',
+        #'prob_batch',
+        #'prob_markov',
     ]
     
     langs = [
+        #'toy2',
         'English',
-        'Spanish'
+        #'Farsi',
+        #'Spanish',
+        #'German',
+        #'Italian',
+        #'Japanese',
+        #'Spanish',
     ]
     
     all_dfs = []
-    for lang in langs:
+    for lang, kind in itertools.product(langs, ['syl', 'word', 'phone']):
+        print('\n\n-----------------\n ->', lang)
         #roc_df, bleu_df, chunk_df = run(models, lang, 4000, 500, 0)
-        dfs = run(models, lang, 4000, 500, 0)
+        dfs = run(models, lang, kind, 4000, 500, 500)
+        #dfs = run(models, lang, 100, 5, 50)
         for df in dfs:
             df['lang'] = lang
+            df['kind'] = kind
         all_dfs.append(dfs)
 
     for name, df in zip(['roc', 'bleu', 'chunk'], 
                         map(pd.concat, zip(*all_dfs))):
         df.to_pickle('pickles/' + name)
+        print('wrote pickles/' + name)
+
+    #roc = all_dfs[0][0]
+    #bleu = all_dfs[0][1]
     
 
 

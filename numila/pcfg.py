@@ -40,11 +40,14 @@ def generate(grammar, start=None, depth=5):
             pass  # try again
 
 
-def random_sentences(grammar_string, depth=5):
+def random_sentences(grammar_string, n=None, depth=5):
     grammar = PCFG.fromstring(grammar_string)
+    i = 0
     while True:
+        if i == n: return
         tree = generate(grammar, depth=depth)
         yield ' '.join(utils.flatten(tree))
+        i += 1
 
 def toy2():
     with open('corpora/toy_pcfg2.txt') as f:

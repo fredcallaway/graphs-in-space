@@ -1,6 +1,5 @@
 import numpy as np
 import itertools
-
 import utils
 
 class VectorModel(object):
@@ -9,6 +8,8 @@ class VectorModel(object):
         super(VectorModel, self).__init__()
         self.dim = dim
         self.nonzero = nonzero
+        self.num_nonzero = int(np.ceil(dim * self.nonzero))
+
         
         if bind_op == 'addition':
             from operator import add
@@ -23,28 +24,30 @@ class VectorModel(object):
         self.perm2 = np.random.permutation(self.dim)
         self.inverse_perm2 = np.argsort(self.perm2)
 
-        self.alternating_ints = itertools.cycle((1, -1))  # 1, -1 , 1, -1 ...
+        # Vectors are normalized, with have alternating
+        # positive and negative values.
+        norm = self.num_nonzero ** 0.5
+        self._vector_values = itertools.cycle((1/norm, -1/norm))
     
     #@profile
     def sparse(self, dim=None):
         """Returns a new sparse vector."""
         dim = dim or self.dim
-        num_nonzero = int(np.ceil(dim * self.nonzero))
-        if not num_nonzero:
+        if not self.num_nonzero:
             raise ValueError('Too sparse!')
         
         indices = set()  # a set of num_nonzero unique indices between 0 and dim
-        for _ in range(num_nonzero):
+        for _ in range(self.num_nonzero):
             idx = np.random.randint(dim)
             while idx in indices:
                 # resample until we get a new index
                 idx = np.random.randint(dim)
             indices.add(idx)
 
-        assert len(indices) == num_nonzero
+        assert len(indices) == self.num_nonzero
         vector = np.zeros(dim)
         for i in indices:
-            vector[i] = next(self.alternating_ints)
+            vector[i] = next(self._vector_values)
         return vector
 
     def zeros(self):
@@ -69,7 +72,7 @@ def ccorr(a, b):
     """Computes the circular correlation (inverse convolution) of vectors a and b."""
     return cconv(np.roll(a[::-1], 1), b)
 
-@utils.contract(lambda result: -1.1 <= result <= 1.1)
+@utils.contract(lambda x: not np.isnan(x))
 def cosine(a,b):
     """Computes the cosine of the angle between the vectors a and b."""
     assert len(np.nonzero(a)[0])
@@ -77,10 +80,10 @@ def cosine(a,b):
     sum_sq_a = np.sum(a**2.0)
     sum_sq_b = np.sum(b**2.0)
     result = np.dot(a,b) * (sum_sq_a * sum_sq_b) ** -0.5
-    if not -1.1 <= result <= 1.1:
-        msg = 'sum(a) = {}, sum(b) = {}'.format(np.sum(a), np.sum(b))
-        raise ValueError('cosine returned {}'.format(result) + '\n' + msg)
-
+    
+    #if not -1.1 <= result <= 1.1:
+    #    msg = 'sum(a) = {}, sum(b) = {}'.format(np.sum(a), np.sum(b))
+    #    raise ValueError('cosine returned {}'.format(result) + '\n' + msg)
 
     return result
 
@@ -91,7 +94,8 @@ def normalize(a):
 def _speed_test(n=100):
     nonzero = 0.01
     dim = 1000
-    for op in 'addition', 'convolution':
+    #for op in ('addition', 'convolution'):
+    for op in ('addition',):
         vector_model = VectorModel(dim, nonzero, op)
         sparse1 = vector_model.sparse()
         sparse2 = vector_model.sparse()
@@ -114,6 +118,7 @@ def _test():
         vector_model = VectorModel(dim, nonzero, op)
 
         a = vector_model.sparse()
+        assert abs(np.sqrt(np.sum((a ** 2))) - 1) < .001
         b = vector_model.sparse()
         c = vector_model.sparse()
 
@@ -148,5 +153,5 @@ def _test():
 
 
 if __name__ == '__main__':
-    _speed_test(10000)
+    #_speed_test(10000)
     _test()

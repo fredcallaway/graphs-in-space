@@ -28,34 +28,37 @@ class Parse(list):
 
         # Fill up memory before trying to chunk.
         while len(self.memory) < self.params['MEMORY_SIZE']:
+            self.log.debug('memory = %s', self.memory)
             token = next(utterance, None)
             if token is None:
                 self.log.debug('Break early.')
                 break  # less than MEMORY_SIZE tokens in utterance
             self.shift(token)
-            self.log.debug('memory = %s', self.memory)
-            self.update_weights(-1)
+            self.update_weights(position=-1)
 
 
-        # Chunk, learn, and shift until we run out of tokens, at which point we
-        # keep chunking until we reduce the utterance to one chunk or drop everything.
+        # Chunk and shift until we run out of tokens, at which point we
+        # keep chunking until we reduce the utterance to one chunk or memory is empty.
         self.log.debug('Begin chunking.')
         while self.memory:
+            self.log.debug('memory = %s', self.memory)
+            # Chunk.
             chunk_idx = self.try_to_chunk()
             if chunk_idx is None:
-                # Couldn't make a chunk. We remove the oldest node 
+                # Couldn't make a chunk; remove the oldest node 
                 # to make room for a new one.
                 oldest = self.memory.popleft()
                 self.append(oldest)
                 self.log.debug('dropped %s', oldest)
             else:
-                self.update_weights(chunk_idx, 'new')
+                # Made a chunk; update weights to adjacent nodes.
+                self.update_weights(position=chunk_idx)
+
+            # Shift.
             token = next(utterance, None)
             if token is not None:
                 self.shift(token)
-                self.update_weights(-1, 'new')
-            self.log.debug('memory = %s', self.memory)
-            self.update_weights(-1, 'old')
+                self.update_weights(position=-1)
 
     def score(self, ratio=0, freebie=-1, cost='chunkiness', accumulate=stats.gmean):  # TODO
 
@@ -93,7 +96,7 @@ class Parse(list):
 
         self.memory.append(node)
 
-    def update_weights(self, new_idx=None, learn_mode=None) -> None:
+    def update_weights(self, position=None, learn_mode=None) -> None:
         """Strengthens the connection between every adjacent pair of nodes in memory.
 
         Additionally, we increase the connection between nodes that are in a 
@@ -103,9 +106,6 @@ class Parse(list):
         """
         if not self.learn:
             return
-        if learn_mode and learn_mode != self.params['LEARN_MODE']:
-            # This update should't occur given the current LEARN_MODE parameter.
-            return
 
         # These factors determine how much we should increase the weight
         # of each type of edge.
@@ -113,10 +113,7 @@ class Parse(list):
         ftp_factor = self.params['LEARNING_RATE']  #  * self.params['FTP_PREFERENCE'] 
         btp_factor = self.params['LEARNING_RATE']
 
-        if self.params['LEARN_MODE'] == 'new':
-            to_bump = self.adjacent(new_idx)
-        else:
-            to_bump = utils.neighbors(self.memory)
+        to_bump = self.adjacent(position)
 
         for node1, node2 in to_bump:
             self.log.debug('  bump %s -> %s', node1, node2)
@@ -191,7 +188,7 @@ class Parse(list):
             return None
 
     def adjacent(self, idx):
-        """Returns nodes adjacent to the given index in memory."""
+        """Yields nodes adjacent to the given index in memory."""
         depth = self.params['DEPTH']
         idx = idx % len(self.memory)
         node = self.memory[idx]

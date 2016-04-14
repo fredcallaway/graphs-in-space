@@ -1,4 +1,3 @@
-from collections import deque
 import numpy as np
 from functools import lru_cache
 from scipy import stats
@@ -35,13 +34,14 @@ class Parse(object):
         self.log.debug('PARSING: %s', utterance)
 
         # Bump every pair of adjacent nodes in the utterance.
-        for divide in range(1,len(utterance)):
+        for divide in range(1, len(utterance)):
             self.log.debug('divide: %s', divide)
             nodes_ending = list(self.get_nodes(divide, end=True))
             nodes_starting = list(self.get_nodes(divide, end=False))
             for n1 in nodes_ending:
                 for n2 in nodes_starting:
                     self.bump(n1, n2)
+                    self.try_to_chunk(n1, n2)
 
     def score(self, accumulate=stats.gmean):
         """The sum of the score of every path through the utterance.
@@ -52,18 +52,19 @@ class Parse(object):
 
         @utils.contract(lambda r: 0 <= r <= 1)
         def route_cost(route):
-            transitions = np.array([a.edge_weight(b, 'ftp')
-                                   for a, b in utils.neighbors(route)])
+            transitions = [a.edge_weight(b, 'ftp') 
+                           for a, b in utils.neighbors(route)]
             if not len(transitions):
                 # Utterance is a single chunk.
                 return 1
 
-            transitions += .001  # smoothing
-            np.clip(transitions, 0, 1, out=transitions)
+            transitions = np.array(transitions) + .001  # smoothing
+            transitions = np.clip(transitions, 0, 1)
 
             return accumulate(transitions)
 
         return sum(map(route_cost, self.routes(0, len(self.utterance))))
+
 
         
     @lru_cache(None)
@@ -108,6 +109,10 @@ class Parse(object):
         self.log.debug('  bump %s -> %s', n1, n2)
         n1.bump_edge(n2, 'ftp', self.params['LEARNING_RATE'])
         n2.bump_edge(n1, 'btp', self.params['LEARNING_RATE'])
+
+    def try_to_chunk(self, n1, n2):
+        if not self.learn:
+            return
         if self.graph._id_string((n1, n2)) not in self.graph:
             if self.model.chunkiness(n1, n2) > self.params['CHUNK_THRESHOLD']:
                 chunk = self.graph.bind(n1, n2)

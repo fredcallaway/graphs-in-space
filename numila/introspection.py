@@ -1,19 +1,40 @@
 import pandas as pd
 import numpy as np
+from numila import Numila
 
 import vectors
 import utils
-
-from collections import Counter
+import pcfg
+import main
 
 def analyze_chunks(model):
-    chunks = [n for n in model.graph.nodes if n.child1]
+    if model.name == 'dummy':
+        return {'num_chunks': None,
+                'average_size': None,
+                'max_size': None}
 
-    def size(chunk):
-        return str(chunk).count('[') + 1
+    chunks = [n for n in model.graph.nodes if n.children]
+    sizes = list(map(size, chunks))
+    return {'num_chunks': len(chunks),
+            'average_size': len(sizes) and np.mean(sizes),
+            'max_size': max(sizes, default=0)}
 
-    return pd.DataFrame({'chunks': chunks,
-                           'size': list(map(size, chunks))})
+def size(node):
+    if not node.children:
+        return 1
+    else:
+        return sum(map(size, node.children))
+
+
+def main_():
+    corpus = (s.split(' ') for s in pcfg.toy2())
+    train = [next(corpus) for _ in range(1000)]
+    models = main.get_models(['holo', 'batch'], train)
+    for name, model in models.items():
+        print(name)
+        print(analyze_chunks(model))
+
+
 
 
 def similarity_matrix(model, round_to=None, num=None) -> pd.DataFrame:
@@ -88,8 +109,7 @@ def track_training(model, corpus, utterances=None, track=None, sample_rate=100):
     return model, history
 
 
-def main():
-    from numila import Numila
+def old_main():
     from production import eval_production, common_neighbor_metric
 
     for graph in ('probgraph', 'holograph'):
@@ -108,3 +128,5 @@ def main():
         #import IPython; IPython.embed()
 
 
+if __name__ == '__main__':
+    main_()

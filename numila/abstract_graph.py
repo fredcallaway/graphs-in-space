@@ -95,10 +95,14 @@ class HiGraph(metaclass=ABCMeta):
         except KeyError:
             return default
 
+    def get_chunk(self, *nodes):
+        id_string = self._id_string(nodes)
+        return self.get(id_string)
+
     @staticmethod
     def _id_string(nodes):
-        # e.g. [ A B C ]
-        return ' '.join(('[', *(node.id_string for node in nodes), ']'))
+        # e.g. [A B C]
+        return '[' + ' '.join(node.id_string for node in nodes) + ']'
 
     @staticmethod
     def _concatenate_children(nodes):

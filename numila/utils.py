@@ -113,14 +113,14 @@ def take_unique(seq, n):
     return result
 
 
-def read_corpus(file, token_delim=' ', utt_delim='\n', num_utterances=None):
+def read_corpus(file, token_delim=' +', utt_delim='\n', num_utterances=None):
     """A list of lists of tokens in a corpus"""
-    with open(file, encoding=None) as f:
+    with open(file) as f:
         for idx, utterance in enumerate(re.split(utt_delim, f.read())):
             if idx == num_utterances:
                 break
             if token_delim:
-                tokens = re.split(token_delim, utterance)
+                tokens = re.split(token_delim, utterance.strip())
             else:
                 tokens = list(utterance)  # split by character
             yield tokens
@@ -135,9 +135,36 @@ def syl_corpus(n=None):
     return corpus
 
 def corpus(lang, kind):
-    file = ('../PhillipsPearl_Corpora/{lang}/{lang}-{kind}.txt'
-            .format(lang=lang, kind=kind))
-    return read_corpus(file, token_delim=r'/| ')
+    file = ('../PhillipsPearl_Corpora/{lang}/{lang}-syl.txt'
+            .format(lang=lang))
+    corpus = open(file).read()
+
+    if kind == 'syl':
+        token_delim = r'(/| )+'
+    elif kind == 'word':
+        corpus = corpus.replace('/', '')
+        token_delim = r' +'
+    elif kind == 'phone':
+        corpus = corpus.replace('/', '')
+        corpus = corpus.replace(' ', '')
+        token_delim = None
+
+    utt_delim = '\n'
+    for utterance in re.split(utt_delim, corpus):
+        utterance = utterance.strip()
+        if token_delim:
+            tokens = re.split(token_delim, utterance)
+        else:
+            tokens = list(utterance)  # split by character
+        yield tokens
+
+
+#def corpus(lang, kind):
+#    file = ('../PhillipsPearl_Corpora/{lang}/{lang}-{kind}.txt'
+#            .format(lang=lang, kind=kind))
+#    return read_corpus(file, token_delim=r'/| ')
+
+
 
 class Timer(object):
     """A context manager which times the block it surrounds.
@@ -198,8 +225,8 @@ def flatten(lst):
 
 def flatten_parse(parse):
     """A flat list of the words in a parse."""
-    no_brackets = re.sub(r'[()[\]]', '', str(parse))
-    return no_brackets.split(' ')
+    no_brackets = re.sub(r'\W+', ' ', str(parse))
+    return no_brackets.strip().split(' ')
 
 
 def generate_args(params):
@@ -264,7 +291,9 @@ if __name__ == '__main__':
              'Italian', 'Japanese', 'Spanish', ]
     for lang, kind in itertools.product(langs, ['syl']):
         try:
-            print(lang, len(list(corpus(lang, kind))))
+            corp = list(corpus(lang, kind))
+            print(*corp[:10], sep='\n')
+            print(lang, len(list(corp)))
         except:
             print(lang, 'ERROR')
 

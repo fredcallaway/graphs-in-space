@@ -61,7 +61,6 @@ def test_weights(graph):
     
 
 def test_bind(holograph):
-    return  # TEST NOT BEING RUN
     graph = holograph
     graph.COMPOSITION = True
     a, b, c, d, e, f = (graph[x] for x in 'ABCDEF')
@@ -100,7 +99,8 @@ def test_bind(holograph):
 
     # But it *should* result in a weak link to af.
     af = graph.bind(a, f)
-    #assert e.edge_weight(af, 'edge') > 0.5    # or should it?
+    assert e.edge_weight(af, 'edge') > 0.5    # or should it?
+
 
 def test_flat_bind(probgraph):
     #graph = ProbGraph(['edge'], {'DECAY': 0.01, 'HIERARCHICAL': False})
@@ -113,12 +113,10 @@ def test_flat_bind(probgraph):
     print(ab)
     print(cde)
     print(abcde)
-    assert 0
 
-def test_dynamic_gen(holograph):
-    graph = HoloGraph(['edge'], **{'DIM': 1000, 'PERCENT_NON_ZERO': .01, 
-                                'BIND_OPERATION': 'addition', 'GENERALIZE': 'dynamic2',
-                                'DYNAMIC':.3})
+
+def test_dynamic_generalize():
+    graph = HoloGraph(['edge'], DIM=1000, PERCENT_NON_ZERO=.01, DYNAMIC=1)
     _add_nodes(graph)
     a, b, c, d, e, f = (graph[x] for x in 'ABCDEF')
 
@@ -133,6 +131,7 @@ def test_dynamic_gen(holograph):
 
     for (n1, n2), count in edge_counts:
         n1.bump_edge(n2, 'edge', count)
+
     print('--- NORMAL WEIGHTS ---')
     print('a -> c', a.edge_weight(c, 'edge'))
     print('a -> d', a.edge_weight(d, 'edge'))
@@ -164,7 +163,54 @@ def test_dynamic_gen(holograph):
     # B is connected to C because A is connected to C
     # and B is connected to similar nodes as A.
     assert b.edge_weight(c, 'edge', generalize=True) > 0.2
-    assert 0
+
+
+def test_full_generalize(holograph):
+    a, b, c, d, e, f = (holograph[x] for x in 'ABCDEF')
+
+    edge_counts = [
+        ((a, c), 5),
+        ((a, d), 5),
+        ((a, e), 5),
+        ((b, d), 5),
+        ((b, e), 5),
+        ((b, f), 5),
+    ]
+
+    for (n1, n2), count in edge_counts:
+        n1.bump_edge(n2, 'edge', count)
+
+    print('--- NORMAL WEIGHTS ---')
+    print('a -> c', a.edge_weight(c, 'edge'))
+    print('a -> d', a.edge_weight(d, 'edge'))
+    print('a -> e', a.edge_weight(e, 'edge'))
+    print('b -> d', b.edge_weight(d, 'edge'))
+    print('b -> e', b.edge_weight(e, 'edge'))
+    print('b -> f', b.edge_weight(f, 'edge'))
+    print('b -> c', b.edge_weight(c, 'edge'))
+
+    gen_a = a.generalized()
+    gen_b = b.generalized()
+
+    print('--- GENERALIZED WEIGHTS ---')
+    print('a -> c', gen_a.edge_weight(c, 'edge'))
+    print('a -> d', gen_a.edge_weight(d, 'edge'))
+    print('a -> e', gen_a.edge_weight(e, 'edge'))
+    print('b -> d', gen_b.edge_weight(d, 'edge'))
+    print('b -> e', gen_b.edge_weight(e, 'edge'))
+    print('b -> f', gen_b.edge_weight(f, 'edge'))
+    print('b -> c', gen_b.edge_weight(c, 'edge'))
+
+    assert a.edge_weight(c, 'edge') > 0.3
+    assert a.edge_weight(d, 'edge') > 0.3
+    assert a.edge_weight(e, 'edge') > 0.3
+    assert b.edge_weight(d, 'edge') > 0.3
+    assert b.edge_weight(e, 'edge') > 0.3
+    assert b.edge_weight(f, 'edge') > 0.3
+
+    # B is connected to C because A is connected to C
+    # and B is connected to similar nodes as A.
+    assert gen_b.edge_weight(c, 'edge') > 0.2
 
 
 if __name__ == '__main__':
