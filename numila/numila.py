@@ -1,6 +1,5 @@
 import itertools
 import numpy as np
-from scipy import stats
 
 import yaml
 import utils
@@ -49,6 +48,8 @@ class Numila(object):
             from parse import Parse
         elif parser == 'batch':
             from batch_parse import Parse
+            if self.graph.HIERARCHICAL:
+                log.warning('Batch parse can only be used with non-hierarchical merge')
             self.graph.HIERARCHICAL = False
         else:
             raise ValueError('Invalid PARSE parameter: {}'.format(self.params['PARSE']))
@@ -57,7 +58,8 @@ class Numila(object):
 
     def parse(self, utterance, learn=True):
         """Returns a Parse of the given utterance."""
-        self.graph.decay()
+        if self.params['DECAY']:
+            self.graph.decay()
         if isinstance(utterance, str):
             utterance = utterance.split(' ')
         if self.params['ADD_BOUNDARIES']:
@@ -115,9 +117,12 @@ class Numila(object):
         If the chunk doesn't exist, we check if the pair is chunkable
         enough for a new chunk to be created. If so, the new chunk is returned.
         """
-        chunk_id_string = fmt('[{node1.id_string} {node2.id_string}]')
-        if chunk_id_string in self.graph:
-            return self.graph[chunk_id_string]
+        #chunk_id_string = fmt('[ {node1.id_string} {node2.id_string} ]')
+        #if chunk_id_string in self.graph:
+            #return self.graph[chunk_id_string]
+        existing_chunk = self.graph.get_chunk(node1, node2)
+        if existing_chunk:
+            return existing_chunk
             
         if not stored_only:
             if node1.id_string in self.graph and node1 is not self.graph[node1.id_string]:
@@ -145,7 +150,7 @@ class Numila(object):
 
         self.log.debug('new chunk: %s', chunk)
 
-    def speak(self, words, verbose=False, return_chunk=False, preshuffled=False):
+    def speak(self, words, verbose=False, return_flat=True, preshuffled=False):
         """Returns the list of words ordered properly."""
         def get_node(token):
             try:
@@ -161,30 +166,48 @@ class Numila(object):
             np.random.shuffle(nodes)
 
 
-        # Combine the two chunkiest nodes into a chunk until only one node left.
+        # Combine the two chunkiest nodes into a chunk until can't chunk again.
         while len(nodes) > 1:
             pairs = list(itertools.permutations(nodes, 2))
             best_pair = max(pairs, key=lambda pair: self.chunkiness(*pair))
             node1, node2 = best_pair
-            chunk = self.get_chunk(node1, node2, stored_only=False)
+            chunk = self.get_chunk(node1, node2)
+            #import IPython; IPython.embed()
+            if not chunk:
+                break
 
             nodes.remove(node1)
             nodes.remove(node2)
             self.log.debug('\tchunk: %s', chunk)
             nodes.append(chunk)
 
-        final = nodes[0]
-        if return_chunk:
-            return final
+        utterance = [nodes.pop(0)]  # use best node first TODO
+        while nodes:
+            # Add a node to the beginning or end of the utterance.
+            begin_chunkinesses = [self.chunkiness(n, utterance[0])
+                                  for n in nodes]
+            end_chunkinesses = [self.chunkiness(utterance[-1], n)
+                                for n in nodes]
+            
+            best_idx = np.argmax(begin_chunkinesses + end_chunkinesses)
+            if best_idx >= len(nodes):
+                #import ipdb; ipdb.set_trace()
+                utterance.append(nodes.pop(best_idx % len(nodes)))
+            else:
+                #import ipdb; ipdb.set_trace()
+                utterance.insert(0, nodes.pop(best_idx))
+
+        if return_flat:
+            return utils.flatten_parse(utterance)
         else:
-            return utils.flatten_parse(final)
+            return utterance
 
     @utils.contract(lambda x: 0 <= x <= 1)
     def chunkiness(self, node1, node2, generalize=None):
         """How well two nodes form a chunk.
 
         The geometric mean of forward transitional probability and
-        bakward transitional probability.
+        backward transitional probability.
         """
 
         if generalize is None:
@@ -196,9 +219,8 @@ class Numila(object):
             ftp = node1.edge_weight(node2, 'ftp') ** ftp_weight
             btp = node2.edge_weight(node1, 'btp')
             sum_weights = btp_weight + ftp_weight
-            result = (ftp * btp) ** (1 / sum_weights)  # geometric mean
-            assert not np.isnan(result)
-            return result
+            gmean = (ftp * btp) ** (1 / sum_weights)
+            return gmean
 
         else:
             form, degree = generalize
@@ -226,17 +248,16 @@ class Numila(object):
         return result
 
     def full_generalize(self, node1, node2, degree):
-        def make_gen_node(node):
-            sims = [node.similarity(other_node)
-                    for other_node in self.graph.nodes]
-            gen_node = self.graph.sum(self.graph.nodes, weights=sims)
-            return gen_node
-
-        gnode1, gnode2 = map(make_gen_node, (node1, node2))
-        gen_chunkiness = self.chunkiness(gnode1, gnode2, generalize=False)
-
+        """Returns a generalized chunkiness by broadening each nodes weights."""
+        gen_chunkiness = self.chunkiness(node1.generalized(), node2.generalized(),
+                                         generalize=False)
         result = (degree * gen_chunkiness + 
                   (1-degree) * self.chunkiness(node1, node2, generalize=False))
         assert not np.isnan(result)
         return result
 
+if __name__ == '__main__':
+    model = Numila()
+    corpus = ['a b c'] * 3
+    model.fit(corpus)
+    model.speak(list('abbcc'))
