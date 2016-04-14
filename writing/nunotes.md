@@ -1,4 +1,8 @@
 # TODO
+- similarity should be multiplciation of FTP and BTP not addition
+- make score function more similar for the two parses
+    - maybe using the `within` chunkinesses only helped because it increased the power of the geometric mean sqrt. we should just use utterance len.
+
 - keep all most recently closed chunks in memory, learn at every level
 
 - try to improve NGram models
@@ -15,6 +19,32 @@
     - mention fodor
     - mentions tensors
     - write up 
+robert hansen word grammar
+    frowned upon by linguists
+    words as nodes
+    multiple link types
+
+graph is once removed from implementation
+    allows link types
+    dynamic links?
+
+neural motivation
+    vectors are syntactic weights
+    granger essential circuits
+    smolensky
+    inner product between vectors is a fundamental operation of neural network
+    the computational brain churchlang sejnowski
+
+merge
+    encyclopedia
+
+modularity
+    specify upfront
+
+composition and generalization go with main model description
+
+hostel inside old city
+print conference paper, schedule for border
 
 ## Dynamic generalization
 - WHEN bump edge from A to X

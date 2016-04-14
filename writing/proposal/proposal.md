@@ -10,7 +10,7 @@ abstract: |
 ---
 
 # Introduction
-Comparing language to the communication systems of other animals, it is clear that language is quite unique. Only a human can communicate her frustration with an inconsiderate coworker by exhaling, vibrating her vocal cords, and moving her mouth and tongue in a particular way. However, despite this clear high-level distinction, there is little consensus on what _exactly_ makes language unique [e.g. @hockett68]. Similarly, it is clear that non-human primates are unable to learn human language, despite several attempts [e.g. @patterson78]. However, there is even less agreement on what uniquely human cognitive abilities underly this difference in performance.
+Comparing language to the communication systems of other animals, it is clear that language is quite unique. Only a human can communicate her frustration with an inconsiderate coworker by exhaling, vibrating her vocal cords, and moving her mouth and tongue in a particular way. However, despite this clear high-level distinction, there is little consensus on what _exactly_ makes language unique [e.g. @hockett68]. Similarly, it is clear that non-human primates are unable to learn human language, despite several attempts [e.g. @patterson78]. However, there is even less agreement on what uniquely human cognitive abilities underlie this difference in performance.
 
 Which cognitive abilities one identifies as critical for language depends largely on which external features of language are deemed most important. Authors who focus on the social aspects of language point to humans' unique social reasoning abilities [@worden98; @malle02]. Other authors who focus on the use of symbols in language, point to our referential abilities [@deacon98; @bates79]. Theoretical linguists, who focus mostly on the structure of language, claim it is the ability to _combine_ symbols that truly differentiates humans from other animals [@hauser02; @chomsky10].
 
@@ -86,5 +86,6 @@ The graphical structure of U-MILA makes production straightforward to model. To 
 5. `if (weeks_left > 8) then go to 2 else continue`
 6. Compile the outlines generated in steps 2, 3, and 4 into prose sections describing (1) the structure and development of the model, (2) the psychological and neural plausibility of the model, and (3) the linguistic plausibility and significance of the model.
 7. Write a final section which ties together the previous three sections, with special attention paid to the relevance of the model to psycholinguistics, theoretical linguistics, and cognitive science more generally.
+
 
 # References
