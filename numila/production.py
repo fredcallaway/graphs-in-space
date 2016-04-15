@@ -26,8 +26,12 @@ def eval_production(model, test_corpus, metric_func):
             continue  # can't evaluate a one word utterance
         words = list(adult_utt)[::-1]
         model_utt = model.speak(words)
-        yield ({'length': len(model_utt), 
+        try:
+            yield ({'length': len(model_utt), 
                 'BLEU': metric_func(model_utt, adult_utt)})
+        except:
+            print('eval_production')
+            import IPython; IPython.embed()
 
 def exactly_equal_metric(lst1, lst2):
     """1 if the lists are the same, otherwise 0"""

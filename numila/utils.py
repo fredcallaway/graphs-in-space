@@ -95,9 +95,10 @@ def get_logger(name, stream='WARNING', file='INFO'):
         writer.setFormatter(logging.Formatter(fmt=format_))
         log.addHandler(writer)
 
-    writer_level = writer.level if writer else 100
-    printer_level = printer.level if printer else 100
-    log.setLevel(min(writer_level, printer_level))
+    #writer_level = writer.level if writer else 100
+    #printer_level = printer.level if printer else 100
+    #log.setLevel(min(writer_level, printer_level, log.level))
+    
     return log
 
 
@@ -134,13 +135,13 @@ def syl_corpus(n=None):
                                token_delim=r'/| ', num_utterances=n)
     return corpus
 
-def corpus(lang, kind):
+def get_corpus(lang, kind):
     file = ('../PhillipsPearl_Corpora/{lang}/{lang}-syl.txt'
             .format(lang=lang))
     corpus = open(file).read()
 
     if kind == 'syl':
-        token_delim = r'(/| )+'
+        token_delim = r'(?:/| )+'
     elif kind == 'word':
         corpus = corpus.replace('/', '')
         token_delim = r' +'
@@ -148,6 +149,8 @@ def corpus(lang, kind):
         corpus = corpus.replace('/', '')
         corpus = corpus.replace(' ', '')
         token_delim = None
+    else:
+        raise ValueError('invalid kind argument: {}'.format(kind))
 
     utt_delim = '\n'
     for utterance in re.split(utt_delim, corpus):
@@ -225,7 +228,7 @@ def flatten(lst):
 
 def flatten_parse(parse):
     """A flat list of the words in a parse."""
-    no_brackets = re.sub(r'\W+', ' ', str(parse))
+    no_brackets = re.sub(r'[\[\], ]', ' ', str(parse))
     return no_brackets.strip().split(' ')
 
 
@@ -287,13 +290,8 @@ class debug(object):
         return self._locals
 
 if __name__ == '__main__':
-    langs = ['English', 'Farsi', 'German',
-             'Italian', 'Japanese', 'Spanish', ]
-    for lang, kind in itertools.product(langs, ['syl']):
-        try:
-            corp = list(corpus(lang, kind))
-            print(*corp[:10], sep='\n')
-            print(lang, len(list(corp)))
-        except:
-            print(lang, 'ERROR')
+    c = get_corpus('English', 'syl')
+    for i, u in enumerate(c):
+        if i == 10: break
+        print(u)
 

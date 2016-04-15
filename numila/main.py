@@ -42,16 +42,16 @@ def fit(name, model, train_corpus):
 def get_models(model_names, train_corpus, parallel=False):
     numila_params = {
         'holo': {},
-        'prob': {'GRAPH': 'probgraph', 'EXEMPLAR_THRESHOLD': 0.05},
+        'prob': {'GRAPH': 'prob', 'EXEMPLAR_THRESHOLD': 0.05},
         'holo_flat': {'HIERARCHICAL': False},
-        'prob_flat': {'GRAPH': 'probgraph', 'EXEMPLAR_THRESHOLD': 0.05,
-                      'HIERARCHICAL': False},
-        'holo_flat_batch': {'PARSE': 'batch', 'HIERARCHICAL': False},
-        'prob_batch': {'GRAPH': 'probgraph', 'EXEMPLAR_THRESHOLD': 0.05, 
-                       'PARSE': 'batch'},
-        'prob_markov': {'GRAPH': 'probgraph', 'EXEMPLAR_THRESHOLD': 2},
-        'prob_batch_markov': {'GRAPH': 'probgraph', 'EXEMPLAR_THRESHOLD': 2,
-                            'PARSE': 'batch'},
+        'prob_flat': {'GRAPH': 'prob', 'EXEMPLAR_THRESHOLD': 0.05, 'HIERARCHICAL': False},
+        'holo_flat_full': {'PARSE': 'full', 'HIERARCHICAL': False},
+        'prob_flat_full': {'GRAPH': 'prob', 'EXEMPLAR_THRESHOLD': 0.05, 'PARSE': 'full', 'HIERARCHICAL': False},
+        'holo_bigram': {'EXEMPLAR_THRESHOLD': 2, 'EXEMPLAR_THRESHOLD': 2},
+        'prob_bigram': {'GRAPH': 'prob', 'EXEMPLAR_THRESHOLD': 2},
+        'dynamic1': {'DYNAMIC': 0.1},
+        'dynamic3': {'DYNAMIC': 0.3},
+        'dynamic5': {'DYNAMIC': 0.5},
     }
 
     other_models = {
@@ -96,7 +96,7 @@ def get_corpora(lang, kind, train_len, roc_len=100, bleu_len=100):
         import pcfg
         corpus = (s.split(' ') for s in pcfg.toy2())
     else:
-        corpus = utils.corpus(lang, kind)
+        corpus = utils.get_corpus(lang, kind)
 
     train_corpus = [next(corpus) for _ in range(train_len)]
 
@@ -104,7 +104,7 @@ def get_corpora(lang, kind, train_len, roc_len=100, bleu_len=100):
     #roc_test_corpus = utils.take_unique(testable, roc_len)
     roc_test_corpus = [next(testable) for _ in range(roc_len)]
 
-    producable = (utt for utt in corpus if 2 < len(utt) < 7)
+    producable = (utt for utt in corpus if 2 < len(utt))
     #bleu_test_corpus = utils.take_unique(producable, bleu_len)
     bleu_test_corpus = [next(producable) for _ in range(bleu_len)]
     
@@ -138,7 +138,13 @@ def run(models, lang, kind, train_len, roc_len=100, bleu_len=100):
     chunk_df = DataFrame([{'model': name, **introspection.analyze_chunks(model)}
                          for name, model in models.items()])
 
-    return roc_df, bleu_df, chunk_df
+    dfs = roc_df, bleu_df, chunk_df
+    for df in dfs:
+        df['lang'] = lang
+        df['kind'] = kind
+
+    return dfs
+
 
 
 def test(models, lang, train_len, roc_len=100, bleu_len=100):
@@ -154,41 +160,61 @@ def test(models, lang, train_len, roc_len=100, bleu_len=100):
 
 def main():
     models = [
-        Dummy(),
+        'random',
         'prob',
-        #'holo',
-        #'holo_flat',
+        'holo',
+        'holo_flat',
         #'prob_flat',
-        #'holo_flat_batch',
-        #'prob_batch',
-        #'prob_markov',
+        'holo_flat_full',
+        #'prob_full',
+        'prob_markov',
+        'dynamic',
+    ]
+
+    models = [
+        'holo',
+        'prob',
+        'holo_flat',
+        'prob_flat',
+        'holo_flat_full',
+        'prob_flat_full',
+        'prob_bigram',
+        'holo_bigram',
     ]
     
     langs = [
         #'toy2',
         'English',
-        #'Farsi',
-        #'Spanish',
-        #'German',
-        #'Italian',
-        #'Japanese',
-        #'Spanish',
+        'Farsi',
+        'Spanish',
+        'German',
+        'Italian',
+        'Japanese',
+        'Spanish',
     ]
     
-    all_dfs = []
-    for lang, kind in itertools.product(langs, ['syl', 'word', 'phone']):
-        print('\n\n-----------------\n ->', lang)
-        #roc_df, bleu_df, chunk_df = run(models, lang, 4000, 500, 0)
-        dfs = run(models, lang, kind, 4000, 500, 500)
-        #dfs = run(models, lang, 100, 5, 50)
-        for df in dfs:
-            df['lang'] = lang
-            df['kind'] = kind
-        all_dfs.append(dfs)
+    train_len = 4000
+    roc_len = 500
+    bleu_len = 500
+
+    jobs = [delayed(run)(models, lang, kind, train_len, roc_len, bleu_len)
+            for lang in langs
+            for kind in ['word', 'syl', 'phone']]
+    all_dfs = Parallel(n_jobs=-1)(jobs)
+
+
+    #all_dfs = []
+    #for lang in langs:
+    #    print('\n\n==== {} ===='.format(lang))
+    #    for kind in ['word', 'syl', 'phone']:
+    #        print('\n--- {} ---'.format(kind))
+    #        dfs = run(models, lang, kind, 4000, 500, 5)
+    #        #dfs = run(models, lang, kind, 100, 5, 5)
+    #        all_dfs.append(dfs)
 
     for name, df in zip(['roc', 'bleu', 'chunk'], 
                         map(pd.concat, zip(*all_dfs))):
-        df.to_pickle('pickles/' + name)
+        df.to_pickle('pickles/' + name + '_holoprob')
         print('wrote pickles/' + name)
 
     #roc = all_dfs[0][0]

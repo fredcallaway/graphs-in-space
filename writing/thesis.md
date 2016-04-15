@@ -150,7 +150,13 @@ fi
 ```
 
 ### Generalization
-Thus far, we have described learning algorithms that are essentially bigram models with variable length elements. Thus, like any N-gram model, the these algorithms will suffer from the problem of data sparsity. Incorporating variable-length units increases this problem dramatically because the number of tracked elements is no longer limited to the vocabulary size. A generalization strategy is essential to counteract this sparsity problem. 
+The model is essentially a bigram models with variable length elements. Thus, like any N-gram model, it will suffer from the problem of data sparsity. Incorporating variable-length units increases this problem dramatically because the number of tracked elements is no longer limited to the vocabulary size. A generalization strategy is essential to counteract this sparsity problem. In a classical linguistic view, generalization is accomplished with categories such as VERB and NOUN. The reality of parts of speech is a basic assumption in linguistics, and acquisition models often use parts of speech as input [@bod09; TODO]. The problem of learning these categories, on the other hand, has received less attention in linguistics. Algorithms for part of speech induction based on distributional statistics have had some success [@schutze95; @clark00]. However these models come from natural language processing, employing computationally intensive employing batch processing algorithms.
+
+Some work has sought to connect POS induction models with syntax induction models, learning language structure in stages [@klein05]. However, as a cognitive model, this approach assumes that word categories are learned and finalized before any syntax is learned. While category learning may begin earlier, there are good reasons for the learning of categories and syntax to occur simultaneously. Seeing as a large motivation for categories is the role they play in syntactic pattern recognition, it would be desirable for the syntactic learning process to affect categoy learning. While linear context may provide a decent cue to syntactic category, the role a word plays in higher level synstactic patterns may hold more information. For this reason, we pursue a single stage approach in which word-categories and phrasal patterns are learned in tandem.
+
+Another common assumption that deserves examination is the one that syntactic categories are explicit and distinct. Having suffered through explicit instruction on the rules of grammar, most students are able to classify most words into the basic parts of speech. However, it is not clear to what extent these categories are the product of basic language acquisition as opposed to academic analysis. Furthermore, even for the student who can correctly label words, it is unclear to what extent this knowledge is called upon in every day language use.
+
+- exemplar/prototype?
 
 ### Compositionality
 Presumably, experience with pairs of similar words informs your expectations for how the syntactic role of this novel phrase. The standard linguistic explanation involves rules and categories: "honest" is an `Adj`; "politician" is a `N`; and thus by the rule `N' -> Adj N`, "honest politican" is an `N'`. The extensive regularity of language implies that such theories are at the very least a useful computational-level theory [as @marr82 suggests]. However, it is an open question whether adult speakers truly represent rules and discrete categories. It's possible that rule-like behavior emerges from a system that explicitly represents only relationships between individual items [citation].
@@ -187,9 +193,10 @@ To construct a test corpus, we first take # unseen utterances from the corpus, w
 The ROC curve plots true positive rate against false positive rate. As the acceptability threshold is lowered, both values will increase. With random scores, they will increase at the same rate, resulting in a line at $y=x$. A model that captures some regularities in the data, however, will initially have a faster increasing true positive rate than a false positive rate because the high-scored utterances will tend to be grammatical ones. This results in a higher total area under the curve, a scalar metric that is often used as broad metric of the power of a binary classifier. This measue is closely related to precision and recall, but has the benefit of allowing interpolation between data points, resulting in a smoother curve [@davis06].
 
 ### Results
-The current results are placeholders.
 
-![Grammaticality judgment.](figs/bleu.pdf)
+
+![ROC curve on the English word corpus.](figs/roc-curve.pdf)
+![Area under ROC curve for different input types, collapsed across laguages.](figs/roc-type.pdf)
 
 ## Experiment 2: Production
 As a second test, we use the task of ordering a bag of words--a proxy for production. A more direct test of production would be to generate utterances without any input, for example, by concatenating nodes in the graph based on transitional probabilities. However, this task has two disadvantages. First, it is difficult to evaluate the acceptability of generated utterances without querying human subjects. Second, utterance production in humans likely involves semantic as well as structural information, the first of which the present model does not attempt to capture. To avoid these problems, we follow previous work [@chang08; @mccauley14a] by using a word-ordering task to isolate structural knowledge. A bag of words is taken as an approximate representation of the thought a speaker wishes to convey; speaking then becomes simply the task of saying the words in the right order.
@@ -219,12 +226,13 @@ while there are nodes left:
 ### Preparation of stimuli and analysis of performance
 To test the model on this task, we take an unseen item from the corpus, convert it into a bag of words, and then compare the model's ordering to the original utterance. A simple comparison strategy is to assign a score of 1 if the model's output perfectly matches the original, and 0 otherwise [as in @mccauley14a]. However, this metric selectively lowers the average score of longer utterances, which have $n!$ possible orderings. If the average score varies across utterance lenghts, utterances of different lengths will have varying discrimination power (in the extreme, no discrimination power if all models fail all utterances of a given length). Given this, we use the BLEU metric [@papineni02], which is more agnostic to utterance length. Specifically, we use the percentage of bigrams that are shared between the two utterances.
 
-TODO equation for common_neighbor?
-
 ### Results
 The current results are placeholders.
 
 ![Production results.](figs/production.pdf)
+
+## Experiment 3: Generalization
+
 
 
 <!-- 

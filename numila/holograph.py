@@ -33,10 +33,10 @@ class HoloNode(HiNode):
         self.row_vecs.update(row_vecs)
 
         if self.graph.DYNAMIC:
-            self.dynamic_vecs = {edge: graph.vector_model.sparse()
-                                 for edge in graph.edges}
-            self.gen_vecs = {edge: np.copy(vec)
-                             for edge, vec in self.row_vecs.items()}
+            self.dynamic_id_vecs = {edge: graph.vector_model.sparse()
+                                    for edge in graph.edges}
+            self.dynamic_row_vecs = {edge: np.copy(vec)
+                                     for edge, vec in self.row_vecs.items()}
 
 
     def bump_edge(self, node, edge, factor=1):
@@ -47,22 +47,35 @@ class HoloNode(HiNode):
         self.row_vecs[edge] += node.id_vec * factor        
 
         if self.graph.DYNAMIC:
-            # The target node learns that this node points to it.
-            node.dynamic_vecs[edge] += self.row_vecs[edge] * factor
-            # This node's generalized vectors point to nodes that 
+            # This node's dynamic row vectors point to nodes that 
             # other nodes that point to target node point to.
-            self.gen_vecs[edge] += (vectors.normalize(node.dynamic_vecs[edge]) 
-                                    * factor * self.graph.DYNAMIC)
-        self.edge_weight.cache_clear()
+            self.dynamic_row_vecs[edge] += (vectors.normalize(node.dynamic_id_vecs[edge]) 
+                                            * factor)
+            # The target node learns that this node points to it.
+            node.dynamic_id_vecs[edge] += self.row_vecs[edge] * factor
 
-    @lru_cache(maxsize=None)
+        #self.edge_weight.cache_clear()
+
+    #@lru_cache(maxsize=None)
     @utils.contract(lambda x: 0 <= x <= 1)
-    def edge_weight(self, node, edge, generalize=False):
+    def edge_weight(self, node, edge, dynamic=False, generalize=False):
         """Returns the weight of an edge to another node.
 
         Between 0 and 1 inclusive.
         """
-        self_vec = (self.gen_vecs if generalize else self.row_vecs)[edge]
+        self_vec =self.row_vecs[edge]
+
+        if dynamic:
+            dyn_vec = self.dynamic_row_vecs[edge]
+            self_vec = self_vec * (1 - dynamic) + dyn_vec * dynamic
+
+        if generalize:
+            sims = np.array([self.similarity(n) for n in self.graph.nodes])
+            all_row_vecs = np.array([n.row_vecs[edge] for n in self.graph.nodes])
+            gen_vec = vectors.normalize(sims) @ all_row_vecs  # matrix multiplication
+            self_vec = self_vec * (1 - generalize) + gen_vec * generalize
+
+
         cos = vectors.cosine(self_vec, node.id_vec)
         return max(cos, 0.0)
 
@@ -76,13 +89,6 @@ class HoloNode(HiNode):
                      ** weight
                      for edge, weight in zip(self.graph.edges, weights)]
         return min(stats.gmean(edge_sims), 1.0)  # clip precision error
-
-    def generalized(self):
-        """A generalized form of this node, taking edge weights from similar nodes."""
-        sims = [self.similarity(other_node)
-                for other_node in self.graph.nodes]
-        return self.graph.sum(self.graph.nodes, weights=sims,
-                              id_string=self.id_string, id_vec=self.id_vec)
 
 
 class HoloGraph(HiGraph):

@@ -43,14 +43,14 @@ class Numila(object):
         self.graph = Graph(edges=['ftp', 'btp'], **self.params)
         
         # Same deal for Parse.
-        parser = self.params['PARSE'].lower()
-        if parser == 'incremental':
-            from parse import Parse
-        elif parser == 'batch':
-            from batch_parse import Parse
+        parse = self.params['PARSE'].lower()
+        if parse == 'greedy':
+            from greedy_parse import GreedyParse as Parse
+        elif parse == 'full':
+            from full_parse import FullParse as Parse
             if self.graph.HIERARCHICAL:
-                log.warning('Batch parse can only be used with non-hierarchical merge')
-            self.graph.HIERARCHICAL = False
+                self.log.warning('FullParse can only be used with non-hierarchical merge')
+                self.graph.HIERARCHICAL = False
         else:
             raise ValueError('Invalid PARSE parameter: {}'.format(self.params['PARSE']))
         self.Parse = Parse
@@ -203,7 +203,7 @@ class Numila(object):
             return utterance
 
     @utils.contract(lambda x: 0 <= x <= 1)
-    def chunkiness(self, node1, node2, generalize=None):
+    def chunkiness(self, node1, node2, generalize=None, dynamic=None):
         """How well two nodes form a chunk.
 
         The geometric mean of forward transitional probability and
@@ -212,49 +212,17 @@ class Numila(object):
 
         if generalize is None:
             generalize = self.params['GENERALIZE']
+        if dynamic is None:
+            dynamic = self.params['DYNAMIC']
 
-        if not generalize:
-            ftp_weight = self.params['FTP_PREFERENCE']
-            btp_weight = 1
-            ftp = node1.edge_weight(node2, 'ftp') ** ftp_weight
-            btp = node2.edge_weight(node1, 'btp')
-            sum_weights = btp_weight + ftp_weight
-            gmean = (ftp * btp) ** (1 / sum_weights)
-            return gmean
+        ftp_weight = self.params['FTP_PREFERENCE']
+        btp_weight = 1
+        ftp = node1.edge_weight(node2, 'ftp', generalize=generalize, dynamic=dynamic)
+        btp = node2.edge_weight(node1, 'btp', generalize=generalize, dynamic=dynamic)
+        sum_weights = btp_weight + ftp_weight
+        gmean = (ftp ** ftp_weight * btp) ** (1 / sum_weights)
+        return gmean
 
-        else:
-            form, degree = generalize
-            if form == 'neighbor':
-                return self.neighbor_generalize(node1, node2, degree)
-            elif form == 'full':
-                return self.full_generalize(node1, node2, degree)
-            else:
-                raise ValueError('Bad GENERALIZE parameter.')
-
-    def neighbor_generalize(self, node1, node2, degree):
-        similar_chunks = (self.get_chunk(predecessor, follower)
-                          for predecessor in node2.predecessors
-                          for follower in node1.followers)
-        similar_chunks = [c for c in similar_chunks if c is not None]
-
-        # TODO make this 0 - 1
-        gen_chunkiness = sum(self.chunkiness(*chunk, generalize=False)
-                             for chunk in similar_chunks)
-        
-        result =  (degree * gen_chunkiness + 
-                   (1-degree) * self.chunkiness(node1, node2, generalize=False))
-        
-        assert not np.isnan(result)
-        return result
-
-    def full_generalize(self, node1, node2, degree):
-        """Returns a generalized chunkiness by broadening each nodes weights."""
-        gen_chunkiness = self.chunkiness(node1.generalized(), node2.generalized(),
-                                         generalize=False)
-        result = (degree * gen_chunkiness + 
-                  (1-degree) * self.chunkiness(node1, node2, generalize=False))
-        assert not np.isnan(result)
-        return result
 
 if __name__ == '__main__':
     model = Numila()

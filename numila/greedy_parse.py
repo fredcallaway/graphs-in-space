@@ -3,7 +3,7 @@ from collections import deque
 import numpy as np
 from scipy import stats
 
-class Parse(list):
+class GreedyParse(list):
     """A parse of an utterance represented as a list of Nodes.
 
     The parse is computed upon intialization. This computation has side
@@ -96,7 +96,7 @@ class Parse(list):
 
         self.memory.append(node)
 
-    def update_weights(self, position=None, learn_mode=None) -> None:
+    def update_weights(self, position=None) -> None:
         """Strengthens the connection between every adjacent pair of nodes in memory.
 
         Additionally, we increase the connection between nodes that are in a 

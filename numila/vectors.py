@@ -27,7 +27,8 @@ class VectorModel(object):
         # Vectors are normalized, with have alternating
         # positive and negative values.
         norm = self.num_nonzero ** 0.5
-        self._vector_values = itertools.cycle((1/norm, -1/norm))
+        #self._vector_values = itertools.cycle((1/norm, -1/norm))
+        self._element_val = 1/norm
     
     #@profile
     def sparse(self, dim=None):
@@ -47,7 +48,8 @@ class VectorModel(object):
         assert len(indices) == self.num_nonzero
         vector = np.zeros(dim)
         for i in indices:
-            vector[i] = next(self._vector_values)
+            #vector[i] = next(self._vector_values)
+            vector[i] = self._element_val
         return vector
 
     def zeros(self):
@@ -75,8 +77,8 @@ def ccorr(a, b):
 @utils.contract(lambda x: not np.isnan(x))
 def cosine(a,b):
     """Computes the cosine of the angle between the vectors a and b."""
-    assert len(np.nonzero(a)[0])
-    assert len(np.nonzero(b)[0])
+    #assert len(np.nonzero(b)[0])
+    #assert len(np.nonzero(a)[0])
     sum_sq_a = np.sum(a**2.0)
     sum_sq_b = np.sum(b**2.0)
     result = np.dot(a,b) * (sum_sq_a * sum_sq_b) ** -0.5
@@ -89,7 +91,7 @@ def cosine(a,b):
 
 def normalize(a):
     """Normalize a vector to length 1."""
-    return a / np.sum(a**2.0)**0.5
+    return a / np.sum(a**2.0) ** 0.5
 
 def _speed_test(n=100):
     nonzero = 0.01

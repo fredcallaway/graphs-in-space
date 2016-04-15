@@ -14,7 +14,7 @@ def make_list(generator_func):
 
 
 
-class Parse(object):
+class FullParse(object):
     """A parse of an utterance represented as a list of Nodes.
 
     The parse is computed upon intialization. This computation has side

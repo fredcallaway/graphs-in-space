@@ -22,7 +22,7 @@ class ProbNode(HiNode):
         self.edge_counts[edge][node.id_string] +=  factor
 
     #@utils.contract(lambda x: 0 <= x <= 1)
-    def edge_weight(self, node, edge) -> float:
+    def edge_weight(self, node, edge, dynamic=None, generalize=None) -> float:
         edge_count = self.edge_counts[edge][node.id_string]
         self_count = sum(self.edge_counts[edge].values())
         if edge_count == 0:

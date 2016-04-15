@@ -142,13 +142,13 @@ def test_dynamic_generalize():
     print('b -> c', b.edge_weight(c, 'edge'))
 
     print('--- GENERALIZED WEIGHTS ---')
-    print('a -> c', a.edge_weight(c, 'edge', generalize=True))
-    print('a -> d', a.edge_weight(d, 'edge', generalize=True))
-    print('a -> e', a.edge_weight(e, 'edge', generalize=True))
-    print('b -> d', b.edge_weight(d, 'edge', generalize=True))
-    print('b -> e', b.edge_weight(e, 'edge', generalize=True))
-    print('b -> f', b.edge_weight(f, 'edge', generalize=True))
-    print('b -> c', b.edge_weight(c, 'edge', generalize=True))
+    print('a -> c', a.edge_weight(c, 'edge', dynamic=True))
+    print('a -> d', a.edge_weight(d, 'edge', dynamic=True))
+    print('a -> e', a.edge_weight(e, 'edge', dynamic=True))
+    print('b -> d', b.edge_weight(d, 'edge', dynamic=True))
+    print('b -> e', b.edge_weight(e, 'edge', dynamic=True))
+    print('b -> f', b.edge_weight(f, 'edge', dynamic=True))
+    print('b -> c', b.edge_weight(c, 'edge', dynamic=True))
 
     assert a.edge_weight(c, 'edge') > 0.3
     assert a.edge_weight(d, 'edge') > 0.3
@@ -158,11 +158,11 @@ def test_dynamic_generalize():
     assert b.edge_weight(f, 'edge') > 0.3
 
     # A links to C, so C's dynamic vec should link to A.
-    assert vectors.cosine(c.dynamic_vecs['edge'], a.row_vecs['edge']) > 0.4
+    assert vectors.cosine(c.dynamic_row_vecs['edge'], a.row_vecs['edge']) > 0.4
 
     # B is connected to C because A is connected to C
     # and B is connected to similar nodes as A.
-    assert b.edge_weight(c, 'edge', generalize=True) > 0.2
+    assert b.edge_weight(c, 'edge', dynamic=True) > 0.2
 
 
 def test_full_generalize(holograph):
@@ -184,22 +184,22 @@ def test_full_generalize(holograph):
     print('a -> c', a.edge_weight(c, 'edge'))
     print('a -> d', a.edge_weight(d, 'edge'))
     print('a -> e', a.edge_weight(e, 'edge'))
+    print('a -> f', a.edge_weight(f, 'edge'))
+    print('b -> c', b.edge_weight(c, 'edge'))
     print('b -> d', b.edge_weight(d, 'edge'))
     print('b -> e', b.edge_weight(e, 'edge'))
     print('b -> f', b.edge_weight(f, 'edge'))
-    print('b -> c', b.edge_weight(c, 'edge'))
-
-    gen_a = a.generalized()
-    gen_b = b.generalized()
 
     print('--- GENERALIZED WEIGHTS ---')
-    print('a -> c', gen_a.edge_weight(c, 'edge'))
-    print('a -> d', gen_a.edge_weight(d, 'edge'))
-    print('a -> e', gen_a.edge_weight(e, 'edge'))
-    print('b -> d', gen_b.edge_weight(d, 'edge'))
-    print('b -> e', gen_b.edge_weight(e, 'edge'))
-    print('b -> f', gen_b.edge_weight(f, 'edge'))
-    print('b -> c', gen_b.edge_weight(c, 'edge'))
+    gen = 1
+    print('a -> c', a.edge_weight(c, 'edge', generalize=gen))
+    print('a -> d', a.edge_weight(d, 'edge', generalize=gen))
+    print('a -> e', a.edge_weight(e, 'edge', generalize=gen))
+    print('a -> f', a.edge_weight(f, 'edge', generalize=gen))
+    print('b -> c', b.edge_weight(c, 'edge', generalize=gen))
+    print('b -> d', b.edge_weight(d, 'edge', generalize=gen))
+    print('b -> e', b.edge_weight(e, 'edge', generalize=gen))
+    print('b -> f', b.edge_weight(f, 'edge', generalize=gen))
 
     assert a.edge_weight(c, 'edge') > 0.3
     assert a.edge_weight(d, 'edge') > 0.3
@@ -208,10 +208,14 @@ def test_full_generalize(holograph):
     assert b.edge_weight(e, 'edge') > 0.3
     assert b.edge_weight(f, 'edge') > 0.3
 
-    # B is connected to C because A is connected to C
-    # and B is connected to similar nodes as A.
-    assert gen_b.edge_weight(c, 'edge') > 0.2
 
+    # B is connected to C only by generalization
+    assert b.edge_weight(c, 'edge') < 0.1
+    assert b.edge_weight(c, 'edge', generalize=gen) > 0.2
+    
+    assert a.edge_weight(f, 'edge') < 0.1
+    assert a.edge_weight(f, 'edge', generalize=gen) > 0.2
+    
 
 if __name__ == '__main__':
     pytest.main([__file__])
