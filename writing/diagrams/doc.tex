@@ -1,0 +1,17 @@
+\documentclass[]{article}
+\usepackage{tikz}
+\usepackage{tikz,fullpage}
+\usetikzlibrary{arrows,
+                topaths,
+                positioning}
+\usepackage{qtree}
+
+\tikzset{
+    position/.style args={#1:#2 from #3}{
+        at=(#3.#1), anchor=#1+180, shift=(#1:#2)
+    }
+
+}
+\begin{document}
+\input{graph.tex}
+\end{document}

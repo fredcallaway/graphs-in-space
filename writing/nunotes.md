@@ -1,3 +1,11 @@
+# Ideas
+- how to learn negative information (that nodes don't occur together, despite our expectation that they would)
+    - any time a node is seen, add its id_vector to total_id_vector
+    - any time a node is seen, subtract .001 * total_id_vector from its row_vector
+    - nodes that occur frequently will hold a significant role in total_id_vector, so weights to these nodes will decay faster
+
+
+
 # TODO
 - similarity should be multiplciation of FTP and BTP not addition
 - make score function more similar for the two parses

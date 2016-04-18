@@ -18,11 +18,11 @@ class ProbNode(HiNode):
         else:
             self.edge_counts = {edge: Counter() for edge in edges}
 
-    def bump_edge(self, node, edge, factor=1) -> None:
+    def bump_edge(self, node, edge='default', factor=1) -> None:
         self.edge_counts[edge][node.id_string] +=  factor
 
     #@utils.contract(lambda x: 0 <= x <= 1)
-    def edge_weight(self, node, edge, dynamic=None, generalize=None) -> float:
+    def edge_weight(self, node, edge='default', dynamic=None, generalize=None) -> float:
         edge_count = self.edge_counts[edge][node.id_string]
         self_count = sum(self.edge_counts[edge].values())
         if edge_count == 0:
@@ -46,11 +46,11 @@ class ProbGraph(HiGraph):
     temporal precedence, then A.edge_weight(R, B) would be the probability
     that B has previously occurred given that A just occurred.
     """
-    def __init__(self, edges, DECAY=False, HIERARCHICAL=True, **kwargs) -> None:
+    def __init__(self, edges=None, DECAY=False, HIERARCHICAL=True, **kwargs) -> None:
         # TODO: kwargs is just so that we can pass more parameters than are
         # actually used.
         super().__init__()
-        self.edges = edges
+        self.edges = edges or ['default']
         self.DECAY = DECAY
         self.HIERARCHICAL = HIERARCHICAL
 

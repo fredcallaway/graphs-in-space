@@ -6,6 +6,8 @@ import numpy as np
 import pandas as pd
 from pandas import DataFrame
 from sklearn import metrics
+import dill  # allows pickling lambdas
+import joblib
 from joblib import Parallel, delayed
 
 import production
@@ -47,8 +49,8 @@ def get_models(model_names, train_corpus, parallel=False):
         'prob_flat': {'GRAPH': 'prob', 'EXEMPLAR_THRESHOLD': 0.05, 'HIERARCHICAL': False},
         'holo_flat_full': {'PARSE': 'full', 'HIERARCHICAL': False},
         'prob_flat_full': {'GRAPH': 'prob', 'EXEMPLAR_THRESHOLD': 0.05, 'PARSE': 'full', 'HIERARCHICAL': False},
-        'holo_bigram': {'EXEMPLAR_THRESHOLD': 2, 'EXEMPLAR_THRESHOLD': 2},
-        'prob_bigram': {'GRAPH': 'prob', 'EXEMPLAR_THRESHOLD': 2},
+        'holo_bigram': {'EXEMPLAR_THRESHOLD': 2, 'BTP_PREFERENCE': 0},
+        'prob_bigram': {'GRAPH': 'prob', 'EXEMPLAR_THRESHOLD': 2, 'BTP_PREFERENCE': 0},
         'dynamic1': {'DYNAMIC': 0.1},
         'dynamic3': {'DYNAMIC': 0.3},
         'dynamic5': {'DYNAMIC': 0.5},
@@ -71,13 +73,22 @@ def get_models(model_names, train_corpus, parallel=False):
 
     models = OrderedDict()
     for name in model_names:
-        if not isinstance(name, str):
-            model = name
-            models[model.name] = model
+        # Get model.
+        if isinstance(name, tuple):
+            func, args = name
+            model = func(**args)
+            name = model.name
         elif name in numila_params:
-            models[name] = Numila(name=name, **numila_params[name])
+            model = Numila(name=name, **numila_params[name])
+        elif name in other_models:
+            model = other_models[name]()
         else:
-            models[name] = other_models[name]()
+            raise ValueError('Invalid model name {}'.format(name))
+
+        # Add model to dictionary.
+        if name in models:
+            raise ValueError('two models have the same name')
+        models[name] = model
 
     if parallel:
         jobs = (delayed(fit)(name, model, train_corpus) 
@@ -161,27 +172,35 @@ def test(models, lang, train_len, roc_len=100, bleu_len=100):
 def main():
     models = [
         'random',
-        'prob',
         'holo',
+        'prob',
         'holo_flat',
-        #'prob_flat',
         'holo_flat_full',
-        #'prob_full',
-        'prob_markov',
-        'dynamic',
+        'holo_bigram',
+        'dynamic3'
     ]
 
-    models = [
-        'holo',
-        'prob',
-        'holo_flat',
-        'prob_flat',
-        'holo_flat_full',
-        'prob_flat_full',
-        'prob_bigram',
-        'holo_bigram',
+    #models = [(Numila, dict(LEARNING_RATE=lr, EXEMPLAR_THRESHOLD=et, INITIAL_ROW=ir,
+    #                        name='{}_{}_{}'.format(lr, et, ir)))
+    #          for lr in [0.05, 0.1, 0.2]
+    #          for et in [0.15, 0.2]
+    #          for ir in [1, 2, 3]]
+
+
+    params = [
+        dict(LEARNING_RATE=0.05, EXEMPLAR_THRESHOLD=0.3, INITIAL_ROW=4),
+        dict(LEARNING_RATE=0.05, EXEMPLAR_THRESHOLD=0.3, INITIAL_ROW=1),
+        dict(LEARNING_RATE=0.2, EXEMPLAR_THRESHOLD=0.3, INITIAL_ROW=4),
+        dict(LEARNING_RATE=0.05, EXEMPLAR_THRESHOLD=0.15, INITIAL_ROW=4),
+        dict(LEARNING_RATE=0.1, EXEMPLAR_THRESHOLD=0.3, INITIAL_ROW=4),
+        dict(LEARNING_RATE=0.1, EXEMPLAR_THRESHOLD=0.3, INITIAL_ROW=3),
+        dict(LEARNING_RATE=0.1, EXEMPLAR_THRESHOLD=0.25, INITIAL_ROW=4),
     ]
-    
+    for m in params:
+        m['name'] = '{}_{}_{}'.format(m['LEARNING_RATE'], m['EXEMPLAR_THRESHOLD'], m['INITIAL_ROW'])
+
+    models = [(Numila, p) for p in params]
+
     langs = [
         #'toy2',
         'English',
@@ -214,8 +233,9 @@ def main():
 
     for name, df in zip(['roc', 'bleu', 'chunk'], 
                         map(pd.concat, zip(*all_dfs))):
-        df.to_pickle('pickles/' + name + '_holoprob')
-        print('wrote pickles/' + name)
+        file = 'pickles/lretir_' + name
+        df.to_pickle(file)
+        print('wrote', file)
 
     #roc = all_dfs[0][0]
     #bleu = all_dfs[0][1]

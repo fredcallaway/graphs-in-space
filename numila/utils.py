@@ -6,7 +6,24 @@ import time
 import itertools
 from contextlib import contextmanager
 from functools import wraps
+from collections import Counter
 
+import numpy as np
+
+
+class Bag(Counter):
+    """Set that can contain multiple copies of an item."""
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+    
+    def sample(self):
+        probs = np.array(list(self.values()), dtype=float)
+        probs /= probs.sum()
+        x = np.random.choice(list(self.keys()), p=probs)
+        self[x] -= 1
+        if self[x] == 0:
+            del self[x]
+        return x
 
 def contract(assertion):
     def decorator(func):
@@ -136,7 +153,7 @@ def syl_corpus(n=None):
     return corpus
 
 def get_corpus(lang, kind):
-    file = ('../PhillipsPearl_Corpora/{lang}/{lang}-syl.txt'
+    file = ('corpora/phillips-pearl/{lang}-syl.txt'
             .format(lang=lang))
     corpus = open(file).read()
 
@@ -228,7 +245,7 @@ def flatten(lst):
 
 def flatten_parse(parse):
     """A flat list of the words in a parse."""
-    no_brackets = re.sub(r'[\[\], ]', ' ', str(parse))
+    no_brackets = re.sub(r'[\[\], ]+', ' ', str(parse))
     return no_brackets.strip().split(' ')
 
 

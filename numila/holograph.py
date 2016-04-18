@@ -28,7 +28,7 @@ class HoloNode(HiNode):
         super().__init__(graph, id_string, children)
         self.id_vec = graph.vector_model.sparse()
 
-        self.row_vecs = {edge: graph.vector_model.sparse()
+        self.row_vecs = {edge: graph.vector_model.sparse() * graph.INITIAL_ROW
                          for edge in graph.edges}
         self.row_vecs.update(row_vecs)
 
@@ -39,7 +39,7 @@ class HoloNode(HiNode):
                                      for edge, vec in self.row_vecs.items()}
 
 
-    def bump_edge(self, node, edge, factor=1):
+    def bump_edge(self, node, edge='default', factor=1):
         """Increases the weight of an edge to another node."""
         
         # Add other node's id_vec to this node's row_vec
@@ -49,8 +49,8 @@ class HoloNode(HiNode):
         if self.graph.DYNAMIC:
             # This node's dynamic row vectors point to nodes that 
             # other nodes that point to target node point to.
-            self.dynamic_row_vecs[edge] += (vectors.normalize(node.dynamic_id_vecs[edge]) 
-                                            * factor)
+            self.dynamic_row_vecs[edge] += \
+                vectors.normalize(node.dynamic_id_vecs[edge]) * factor
             # The target node learns that this node points to it.
             node.dynamic_id_vecs[edge] += self.row_vecs[edge] * factor
 
@@ -58,22 +58,25 @@ class HoloNode(HiNode):
 
     #@lru_cache(maxsize=None)
     @utils.contract(lambda x: 0 <= x <= 1)
-    def edge_weight(self, node, edge, dynamic=False, generalize=False):
+    def edge_weight(self, node, edge='default', dynamic=False, generalize=False):
         """Returns the weight of an edge to another node.
 
         Between 0 and 1 inclusive.
         """
         self_vec =self.row_vecs[edge]
-
+        normalize = vectors.normalize  # optimization
         if dynamic:
             dyn_vec = self.dynamic_row_vecs[edge]
-            self_vec = self_vec * (1 - dynamic) + dyn_vec * dynamic
+            self_vec = (normalize(self_vec) * (1 - dynamic)
+                        + normalize(dyn_vec) * dynamic)
 
         if generalize:
             sims = np.array([self.similarity(n) for n in self.graph.nodes])
-            all_row_vecs = np.array([n.row_vecs[edge] for n in self.graph.nodes])
-            gen_vec = vectors.normalize(sims) @ all_row_vecs  # matrix multiplication
-            self_vec = self_vec * (1 - generalize) + gen_vec * generalize
+            all_row_vecs = np.array([normalize(n.row_vecs[edge])
+                                     for n in self.graph.nodes])
+            gen_vec = sims @ all_row_vecs  # matrix multiplication
+            self_vec = (normalize(self_vec) * (1 - generalize)
+                        + normalize(gen_vec) * generalize)
 
 
         cos = vectors.cosine(self_vec, node.id_vec)
@@ -93,20 +96,21 @@ class HoloNode(HiNode):
 
 class HoloGraph(HiGraph):
     """A graph represented with high dimensional sparse vectors."""
-    def __init__(self, edges, DIM=10000, PERCENT_NON_ZERO=0.005, 
+    def __init__(self, edges=None, DIM=10000, PERCENT_NON_ZERO=0.005, 
                  BIND_OPERATION='addition', HIERARCHICAL=True, 
-                 COMPOSITION=False, DECAY=0, DYNAMIC=0, **kwargs):
+                 COMPOSITION=False, DECAY=0, DYNAMIC=0, INITIAL_ROW=0, **kwargs):
         # TODO: kwargs is just so that we can pass more parameters than are
         # actually used.
         super().__init__()
-        self.edges = edges
-        self.DYNAMIC = DYNAMIC
+        self.edges = edges or ['default']
         self.DIM = DIM
         self.PERCENT_NON_ZERO = PERCENT_NON_ZERO
         self.BIND_OPERATION = BIND_OPERATION
         self.HIERARCHICAL = HIERARCHICAL
         self.COMPOSITION = COMPOSITION
         self.DECAY = DECAY
+        self.DYNAMIC = DYNAMIC
+        self.INITIAL_ROW = INITIAL_ROW
         self.vector_model = vectors.VectorModel(self.DIM,
                                                 self.PERCENT_NON_ZERO,
                                                 self.BIND_OPERATION)
@@ -114,35 +118,30 @@ class HoloGraph(HiGraph):
     def create_node(self, id_string):
         return HoloNode(self, id_string)
 
-    def bind(self, *nodes, composition=False):
+    def bind(self, *nodes):
         if self.HIERARCHICAL:
             children = nodes
         else:
             children = self._concatenate_children(nodes)
 
+        row_vecs = {}
         if self.COMPOSITION:
-            row_vecs = {}
             for edge in self.edges:
-                # Gen_vec is the weighted average of all other blobs with
+                # row_vec is the weighted average of all other blobs with
                 # the same number of children.
-                gen_vec = self.vector_model.zeros()
+                row_vec = self.vector_model.zeros()
                 comparable = (n for n in self.nodes if len(n.children) == len(children))
                 for node in comparable:
                     child_sims = [my_child.similarity(other_child)
                                   for my_child, other_child in zip(children, node.children)]
 
-                    gen_vec += vectors.normalize(node.row_vec) * stats.gmean(child_sims)
+                    row_vec += vectors.normalize(node.row_vec) * stats.gmean(child_sims)
 
-                gen_vec = self.COMPOSITION * vectors.normalize(gen_vec)
-                row_vec = self.vector_model.sparse() + gen_vec
                 assert not np.isnan(np.sum(row_vec))
                 row_vecs[edge] = row_vec
-        else:
-            row_vecs = {}
 
         id_string = self._id_string(children)
-        # TODO should be children=children ?
-        return HoloNode(self, id_string, children=nodes, row_vecs=row_vecs)
+        return HoloNode(self, id_string, children=children, row_vecs=row_vecs)
 
     def sum(self, nodes, weights=None, id_string='__SUM__', id_vec=None):
         weights = weights or np.ones(len(nodes))

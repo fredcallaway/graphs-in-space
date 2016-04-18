@@ -165,20 +165,19 @@ class Numila(object):
             # to make this effect random.
             np.random.shuffle(nodes)
 
-
         # Combine the two chunkiest nodes into a chunk until can't chunk again.
         while len(nodes) > 1:
+            self.log.debug('nodes: %s', nodes)
             pairs = list(itertools.permutations(nodes, 2))
             best_pair = max(pairs, key=lambda pair: self.chunkiness(*pair))
             node1, node2 = best_pair
             chunk = self.get_chunk(node1, node2)
-            #import IPython; IPython.embed()
+            self.log.debug('chunk: %s', chunk)
             if not chunk:
                 break
 
             nodes.remove(node1)
             nodes.remove(node2)
-            self.log.debug('\tchunk: %s', chunk)
             nodes.append(chunk)
 
         utterance = [nodes.pop(0)]  # use best node first TODO
@@ -215,12 +214,12 @@ class Numila(object):
         if dynamic is None:
             dynamic = self.params['DYNAMIC']
 
-        ftp_weight = self.params['FTP_PREFERENCE']
-        btp_weight = 1
+        ftp_weight = 1
+        btp_weight = self.params['BTP_PREFERENCE']
         ftp = node1.edge_weight(node2, 'ftp', generalize=generalize, dynamic=dynamic)
         btp = node2.edge_weight(node1, 'btp', generalize=generalize, dynamic=dynamic)
         sum_weights = btp_weight + ftp_weight
-        gmean = (ftp ** ftp_weight * btp) ** (1 / sum_weights)
+        gmean = (ftp * btp ** btp_weight) ** (1 / sum_weights)
         return gmean
 
 

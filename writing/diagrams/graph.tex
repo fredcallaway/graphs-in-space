@@ -1,0 +1,59 @@
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[shorten >=1pt, -]
+  \tikzset{
+    every node/.style={%
+      draw,
+      circle,
+      % inner sep=0,
+      % outer sep=0,
+      minimum size=1.5cm,
+      node distance=1cm,
+    }
+  }
+  % \tikzstyle{vertex}=[circle,draw=black,minimum size=12pt,inner sep=2pt]
+  
+  \node[] (the) {the};
+  \node[right=of the] (big) {big};
+  \node[right=of big] (dog) {dog};
+  \node[right=of dog] (ate) {ate};
+  \node[right=of ate] (my) {my};
+  \node[right=of my] (steak) {steak};
+  \node[above=of the] (the_big) {
+    \Tree [ the big ]
+  };
+  \node[right=of the_big] (big_dog) {
+    \Tree [ big dog ]
+  };
+  \node[above=of the_big] (the_big_dog2) {
+    \Tree [ [ the big ] dog ]
+  };
+  \node[right=of the_big_dog2] (the_big_dog) {
+    \Tree [ the [ big dog ] ]
+  };
+  \node[above=of my] (my_steak) {
+    \Tree [ my steak ]
+  };
+  \node[above=of my_steak] (ate_my_steak) {
+    \Tree [ ate [ my steak ] ]
+  };
+
+  \draw (the) -- (big) -- (dog) -- (ate) -- (my) -- (steak);
+  \draw (the) -- (big_dog);
+  \draw (the_big) -- (dog);
+  \draw (big_dog) -- (ate);
+  \draw (the_big_dog) -- (ate);
+  \draw (ate) -- (my_steak);
+  \draw (dog) -- (ate_my_steak);
+  \draw (big_dog) -- (ate_my_steak);
+  \draw (the_big_dog) -- (ate_my_steak);
+  \draw [bend left] (the_big_dog2) to (ate_my_steak);
+
+  % \Edge[label=foo] (the_big_dog) (ate);
+  % \draw[bend left](the) to (dog);
+
+
+\end{tikzpicture}
+\caption{A simplified graph representing the utterance ``the big dog ate my steak''.
+         For display, FTP and BTP edges are represented as a single undirected edge.}
+\end{figure}
