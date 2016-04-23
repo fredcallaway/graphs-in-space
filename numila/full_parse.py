@@ -43,44 +43,35 @@ class FullParse(object):
                     self.bump(n1, n2)
                     self.try_to_chunk(n1, n2)
 
-    def score(self, accumulate=stats.gmean):
+    def score(self):
         """The sum of the score of every path through the utterance.
 
         A score of one path is the geometric mean of the transitional
         probabilities in that path."""
-        accumulate = lambda x: np.product(x) ** (1/len(self.utterance))
 
-        @utils.contract(lambda r: 0 <= r <= 1)
-        def route_cost(route):
-            transitions = [self.model.chunkiness(n1, n2)
-                           for n1, n2 in utils.neighbors(route)]
-            if not transitions:
-                # Utterance is a single chunk.
-                return 1
+        # We use a recursive algorithm with cacheing. See scored_paths
+        all_scores = (np.exp(scored_path[0]) ** (1/len(self.utterance))
+                      for scored_path in self.scored_paths(0, len(self.utterance)))
+        return sum(all_scores)
 
-            transitions = np.array(transitions) + .001  # smoothing
-            transitions = np.clip(transitions, 0, 1)
-
-            return accumulate(transitions)
-
-        return sum(map(route_cost, self.routes(0, len(self.utterance))))
-
-
-        
     @lru_cache(None)
     @make_list
-    def routes(self, start, end):
-        """Yields lists of nodes that span from start to end."""
-        #print('routes', start, end)
-        if start == end:
-            yield []
-            return
-        nodes = self.get_nodes(start)
-        for node in nodes:
+    def scored_paths(self, start, end):
+        """Yields (score, path) tuples that span from start to end."""
+        starting_here = self.get_nodes(start)
+        for node in starting_here:
             next_pos = start + len(node)
-            for route in self.routes(next_pos, end):
-                yield [node] + route
+            if next_pos == end:
+                # Base case: we're at the end.
+                yield (0, [node])
+                return
 
+            for score, path in self.scored_paths(next_pos, end):
+                transition = self.model.chunkiness(node, path[0]) + .001  # smoothing
+                full_score = score + np.log(transition)
+                full_path = [node] + path
+                yield (full_score, full_path)
+                    
 
     @lru_cache(None)
     @make_list
@@ -124,19 +115,24 @@ class FullParse(object):
 
 def test_parse():
     import numila
-    model = numila.Numila(PARSE='batch')
+    model = numila.Numila(PARSE='full', ADD_BOUNDARIES=False)
     #model.parse('the dog ate')
     #model.parse('the dog ate a steak')
     model.parse('I know the dog ate a steak')
-    model.parse('I know the dog ate a steak')
-    model.parse('I know the dog ate a steak')
+    #model.parse('I know the dog ate a steak')
+    #model.parse('I know the dog ate a steak')
     #print(*model.parse('I know the dog ate a steak').routes(0, 7), sep='\n')
     print(model.parse('I know the dog ate a steak', learn=False).score())
     print(model.parse('I know the dog ate', learn=False).score())
     print(model.parse('the dog ate a steak', learn=False).score())
     print(model.parse('the dog ate a', learn=False).score())
     print(model.parse('the dog ate', learn=False).score())
-    #print(model.parse('the dog', learn=False).score())
+    print('-' * 50)
+    print(model.parse('the ate dog', learn=False).score())
+    print(model.parse('the dog ate ', learn=False).score())
+    print(model.parse('the the', learn=False).score())
+    print(model.parse('the the the the', learn=False).score())
+
 
 
 if __name__ == '__main__':
