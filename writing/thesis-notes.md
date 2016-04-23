@@ -13,3 +13,7 @@
 - pos/neg effect on storage
 - Merge section should be with HoloGraph
 - remove the bullshitting
+
+# Lessons
+- Write as you go. For every aspect of the model, write a justification for it with citations
+- 
