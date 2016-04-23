@@ -60,22 +60,15 @@ class GreedyParse(list):
                 self.shift(token)
                 self.update_weights(position=-1)
 
-    def score(self, ratio=0, freebie=-1, cost='chunkiness', accumulate=stats.gmean):  # TODO
+    def score(self, cost='chunkiness', freebie=1):  # TODO
 
-        def chunk_ratio():
-            possible_chunks = len(self.utterance) - 1
-            return len(self.chunkinesses) / possible_chunks
-
-        def gmean_chunkiness():
-            between = [self.model.chunkiness(n1, n2)
+        transitions = [self.model.chunkiness(n1, n2)
                        for n1, n2 in utils.neighbors(self)]
-            within = [max(chunkiness, freebie) for chunkiness in self.chunkinesses]
-            #print('-> between = {}'.format(np.round(between, 3)))
-            total = np.array(between + within)
-            total += .001  # smoothing
-            return stats.gmean(total)
+        
+        #within = [max(chunkiness, freebie) for chunkiness in self.chunkinesses]
 
-        return ratio * chunk_ratio() + (1 - ratio) * gmean_chunkiness()
+        transitions = np.array(transitions) + .001  # smoothing
+        return np.prod(transitions) ** (1/len(self.utterance))
 
     def shift(self, token) -> None:
         """Adds a token to memory.
