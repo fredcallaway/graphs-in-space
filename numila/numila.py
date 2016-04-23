@@ -57,16 +57,17 @@ class Numila(object):
 
 
     def parse(self, utterance, learn=True):
-        """Returns a Parse of the given utterance."""
+        """Parses the utterance and returns the result."""
         if self.params['DECAY']:
             self.graph.decay()
         if isinstance(utterance, str):
             utterance = utterance.split(' ')
         if self.params['ADD_BOUNDARIES']:
-            utterance = ['#'] + utterance + ['#']
+            utterance = ['ø'] + utterance + ['ø']
         return self.Parse(self, utterance, learn=learn)
 
     def fit(self, training_corpus, lap=None):
+        """Trains the model on a training corpus."""
         with utils.Timer(print_func=None) as timer:
             try:
                 for count, utt in enumerate(training_corpus, 1):
@@ -81,6 +82,8 @@ class Numila(object):
 
     def score(self, utt, **kwargs):
         """Returns a grammaticality score for an utterance."""
+        if self.params['ADD_BOUNDARIES']:
+            utt = ['ø'] + utt + ['ø']
         return self.parse(utt, learn=False).score(**kwargs)
 
     def map_score(self, utts, **kwargs):
@@ -90,22 +93,22 @@ class Numila(object):
                          len(utts), timer.elapsed)
         return result
 
-    def create_node(self, string):
-        node = self.graph.create_node(string)
-        # Add extra links.
-        node.followers = set()
-        node.predecessors = set()
-        return node
+    @utils.contract(lambda x: 0 <= x <= 1)
+    def chunkiness(self, node1, node2):
+        """How well two nodes form a chunk.
 
-    def create_chunk(self, node1, node2):  # TODO  *nodes or scrap
-        #edges = self.params['BIND'] and {'btp': node1, 'ftp': node2}
-        node = self.graph.bind(node1, node2)
+        The geometric mean of forward transitional probability and
+        backward transitional probability.
+        """
+        ftp_weight = 1
+        btp_weight = self.params['BTP_PREFERENCE']
+        generalize = self.params['GENERALIZE']
         
-        # Add extra links for neighbor generalize algorithm.
-        node.followers = set()
-        node.predecessors = set()
-
-        return node
+        ftp = node1.edge_weight(node2, 'ftp', generalize=generalize)
+        btp = node2.edge_weight(node1, 'btp', generalize=generalize)
+        sum_weights = btp_weight + ftp_weight
+        gmean = (ftp * btp ** btp_weight) ** (1 / sum_weights)
+        return gmean
 
     def get_chunk(self, node1, node2, stored_only=True):  # TODO *nodes
         """Returns a chunk of node1 and node2 if the chunk is in the graph.
@@ -123,6 +126,8 @@ class Numila(object):
         existing_chunk = self.graph.get_chunk(node1, node2)
         if existing_chunk:
             return existing_chunk
+
+        assert not (node1.id_string == 'ø' or node2.id_string == 'ø')
             
         if not stored_only:
             if node1.id_string in self.graph and node1 is not self.graph[node1.id_string]:
@@ -131,7 +136,8 @@ class Numila(object):
             if node2.id_string in self.graph and node2 is not self.graph[node2.id_string]:
                 self.log.debug('Fixing a chunk node')
                 node2 = self.graph[node2.id_string]
-            chunk = self.create_chunk(node1, node2)
+            
+            chunk = self.graph.bind(node1, node2)
             return chunk
 
     def add_chunk(self, chunk):  # TODO scrap
@@ -145,19 +151,19 @@ class Numila(object):
         self.graph.add(chunk)
         assert chunk.child1 is self.graph[chunk.child1.id_string]
         assert chunk.child2 is self.graph[chunk.child2.id_string]
-        chunk.child1.followers.add(chunk.child2)
-        chunk.child2.predecessors.add(chunk.child1)
-
         self.log.debug('new chunk: %s', chunk)
 
-    def speak(self, words, verbose=False, return_flat=True, preshuffled=False):
+    def speak(self, words, verbose=False, return_flat=True, 
+              preshuffled=False, order_func=None):
         """Returns the list of words ordered properly."""
+
+        # Get all the base token nodes.
         def get_node(token):
             try:
                 return self.graph[token]
             except KeyError:
                 self.log.debug('Unknown token while speaking: %s', token)
-                return self.create_node(token)
+                return self.graph.create_node(token)
         nodes = [get_node(w) for w in words]
 
         if not preshuffled:
@@ -165,7 +171,8 @@ class Numila(object):
             # to make this effect random.
             np.random.shuffle(nodes)
 
-        # Combine the two chunkiest nodes into a chunk until can't chunk again.
+        # Convert as many nodes as possible into chunks by combining
+        # the two chunkiest nodes into a chunk until can't chunk again.
         while len(nodes) > 1:
             self.log.debug('nodes: %s', nodes)
             pairs = list(itertools.permutations(nodes, 2))
@@ -180,7 +187,28 @@ class Numila(object):
             nodes.remove(node2)
             nodes.append(chunk)
 
-        utterance = [nodes.pop(0)]  # use best node first TODO
+        if order_func is None:  # ordering function is a parameter
+            order_func = {'markov': self._order_markov,
+                     'outward': self._order_outward}[self.params['SPEAK']]
+        utterance = list(order_func(nodes))
+
+        if return_flat:
+            return utils.flatten_parse(utterance)
+        else:
+            return utterance
+
+    def _order_markov(self, nodes):
+        last_node = self.graph['ø']
+        while nodes:
+            #next_node = max(nodes, key=lambda n: self.chunkiness(last_node, n))
+            best_idx = np.argmax([self.chunkiness(last_node, n) for n in nodes])
+            next_node = nodes.pop(best_idx)
+            yield next_node
+            last_node = next_node
+
+    def _order_outward(self, nodes):
+        # most_common = max(nodes, key=node.weight)  # TODO
+        utterance = [nodes.pop(0)]  
         while nodes:
             # Add a node to the beginning or end of the utterance.
             begin_chunkinesses = [self.chunkiness(n, utterance[0])
@@ -190,37 +218,10 @@ class Numila(object):
             
             best_idx = np.argmax(begin_chunkinesses + end_chunkinesses)
             if best_idx >= len(nodes):
-                #import ipdb; ipdb.set_trace()
                 utterance.append(nodes.pop(best_idx % len(nodes)))
             else:
-                #import ipdb; ipdb.set_trace()
                 utterance.insert(0, nodes.pop(best_idx))
-
-        if return_flat:
-            return utils.flatten_parse(utterance)
-        else:
-            return utterance
-
-    @utils.contract(lambda x: 0 <= x <= 1)
-    def chunkiness(self, node1, node2, generalize=None, dynamic=None):
-        """How well two nodes form a chunk.
-
-        The geometric mean of forward transitional probability and
-        backward transitional probability.
-        """
-
-        if generalize is None:
-            generalize = self.params['GENERALIZE']
-        if dynamic is None:
-            dynamic = self.params['DYNAMIC']
-
-        ftp_weight = 1
-        btp_weight = self.params['BTP_PREFERENCE']
-        ftp = node1.edge_weight(node2, 'ftp', generalize=generalize, dynamic=dynamic)
-        btp = node2.edge_weight(node1, 'btp', generalize=generalize, dynamic=dynamic)
-        sum_weights = btp_weight + ftp_weight
-        gmean = (ftp * btp ** btp_weight) ** (1 / sum_weights)
-        return gmean
+        return utterance
 
 
 if __name__ == '__main__':

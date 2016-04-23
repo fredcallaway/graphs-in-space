@@ -88,12 +88,17 @@ class HiGraph(metaclass=ABCMeta):
         """Decays all learned connections between nodes."""
         pass
 
-    def get(self, node_string, default=None):
+    def get(self, id_string, default=None, add=False):
         """Returns the node if it's in the graph, else `default`."""
         try:
-            return self._nodes[node_string]
+            return self._nodes[id_string]
         except KeyError:
-            return default
+            if add:
+                new_node = self.create_node(id_string)
+                self.add(new_node)
+                return new_node
+            else:
+                return default
 
     def get_chunk(self, *nodes):
         id_string = self._id_string(nodes)

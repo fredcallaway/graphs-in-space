@@ -1,3 +1,4 @@
+from collections import Counter
 import numpy as np
 import pandas as pd
 import sklearn
@@ -66,7 +67,6 @@ def main():
     train_corpus = [next(corpus) for _ in range(train_len)]
     model.fit(train_corpus)
 
-    from collections import Counter
     top_words, _ = zip(*Counter(utils.flatten(train_corpus)).most_common(N))
 
     nodes = [model.graph[w] for w in top_words]

@@ -90,7 +90,7 @@ class GreedyParse(list):
         try:
             node = self.graph[token]
         except KeyError:  # a new token
-            node = self.model.create_node(token)
+            node = self.model.graph.create_node(token)
             if self.learn:
                 self.graph.add(node)
 
@@ -107,24 +107,18 @@ class GreedyParse(list):
         if not self.learn:
             return
 
-        # These factors determine how much we should increase the weight
-        # of each type of edge.
-        # FIXME: only use FTP_PREFERENCE in one place.
-        ftp_factor = self.params['LEARNING_RATE']  #  * self.params['FTP_PREFERENCE'] 
-        btp_factor = self.params['LEARNING_RATE']
-
+        bump_factor = self.params['LEARNING_RATE']
         to_bump = self.adjacent(position)
 
         for node1, node2 in to_bump:
             self.log.debug('  bump %s -> %s', node1, node2)
             if node1.id_string in self.graph and node2.id_string in self.graph:
-                node1.bump_edge(node2, 'ftp', ftp_factor)
-                node2.bump_edge(node1, 'btp', btp_factor)
+                node1.bump_edge(node2, 'ftp', bump_factor)
+                node2.bump_edge(node1, 'btp', bump_factor)
 
         if self.params['CHUNK_LEARNING']:
             # Incerase the weight between nodes that are in chunks in memory.
-            ftp_factor *= self.params['CHUNK_LEARNING']
-            btp_factor *= self.params['CHUNK_LEARNING']
+            bump_factor *= self.params['CHUNK_LEARNING']
 
             def update_chunk(chunk):
                 """Recursively updates weights between elements of the chunk"""
@@ -132,8 +126,8 @@ class GreedyParse(list):
                     return
                 # if chunk.child1.id_string in self.graph 
                 # and chunk.child2.id_string in self.graph:
-                chunk.child1.bump_edge(chunk.child2, 'ftp', ftp_factor)
-                chunk.child2.bump_edge(chunk.child1, 'btp', btp_factor)
+                chunk.child1.bump_edge(chunk.child2, 'ftp', bump_factor)
+                chunk.child2.bump_edge(chunk.child1, 'btp', bump_factor)
                 update_chunk(chunk.child1)
                 update_chunk(chunk.child2)
 
@@ -153,8 +147,13 @@ class GreedyParse(list):
             self.log.debug('done parsing')
             return None
 
+        # Consider chunking all adjacent nodes in memory, except
+        # boundary markers.
+        chunkable =(n for n in self.memory if n.id_string != 'ø')
+        pairs = list(utils.neighbors(chunkable))
+        if not pairs:
+            return
 
-        pairs = list(utils.neighbors(self.memory))
         chunkinesses = [self.model.chunkiness(node1, node2)
                         for node1, node2 in pairs]
         

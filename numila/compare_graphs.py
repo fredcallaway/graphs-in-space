@@ -40,7 +40,7 @@ def sim():
             prob_weights = [n1.edge_weight(n2)
                             for n1 in list(prob.nodes)[:25]
                             for n2 in prob.nodes]
-
+a
             #df = pd.DataFrame({'holo_weights': holo_weights,
                                #'prob_weights': prob_weights})
             for hw, pw in zip(holo_weights, prob_weights):

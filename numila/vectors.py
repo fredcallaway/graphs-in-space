@@ -74,7 +74,6 @@ def ccorr(a, b):
     """Computes the circular correlation (inverse convolution) of vectors a and b."""
     return cconv(np.roll(a[::-1], 1), b)
 
-@utils.contract(lambda x: -1 <= x <= 1)
 def cosine(a,b):
     """Computes the cosine of the angle between the vectors a and b."""
     #assert len(np.nonzero(b)[0])
@@ -82,17 +81,17 @@ def cosine(a,b):
     magnitude = (np.sum(a**2.0) * np.sum(b**2.0)) ** 0.5
     if magnitude == 0:
         return 0
-    cos = np.dot(a,b) / magnitude
-    
-    #if not -1.1 <= result <= 1.1:
-        #msg = 'sum(a) = {}, sum(b) = {}'.format(np.sum(a), np.sum(b))
-        #raise ValueError('cosine returned {}'.format(result) + '\n' + msg)
 
-    return min(cos, 1.0)  # floating point error can give 1.0000000001
+    cos = np.dot(a,b) / magnitude
+    assert -1.00001 <= cos <= 1.00001, (cos, magnitude)
+    return max(-1.0, min(1.0, cos))  # floating point error
 
 def normalize(a):
     """Normalize a vector to length 1."""
-    return a / np.sum(a**2.0) ** 0.5
+    length = np.sum(a**2.0) ** 0.5
+    if not length:
+        return a  # can't normalize the 0 vector
+    return a / length
 
 def _speed_test(n=100):
     nonzero = 0.01

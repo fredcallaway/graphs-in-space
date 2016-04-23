@@ -52,9 +52,9 @@ class FullParse(object):
 
         @utils.contract(lambda r: 0 <= r <= 1)
         def route_cost(route):
-            transitions = [a.edge_weight(b, 'ftp') 
-                           for a, b in utils.neighbors(route)]
-            if not len(transitions):
+            transitions = [self.model.chunkiness(n1, n2)
+                           for n1, n2 in utils.neighbors(route)]
+            if not transitions:
                 # Utterance is a single chunk.
                 return 1
 
@@ -112,6 +112,8 @@ class FullParse(object):
 
     def try_to_chunk(self, n1, n2):
         if not self.learn:
+            return
+        if n1.id_string == '#' or n2.id_string == '#':
             return
         if self.graph._id_string((n1, n2)) not in self.graph:
             if self.model.chunkiness(n1, n2) > self.params['CHUNK_THRESHOLD']:
