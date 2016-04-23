@@ -87,11 +87,16 @@ def log_parse(model, utt):
     log = log()
     return log
 
-def neighbors(iterable):
-    "s -> (s0,s1), (s1,s2), (s2, s3), ..."
-    a, b = itertools.tee(iterable)
-    next(b, None)
-    return zip(a, b)
+
+def neighbors(seq, n=2):
+    """Iterates through adjacent groups in the sequence.
+
+    neighbors([1,2,3,4], n=3) -> [1,2,3], [2,3,4]
+    """
+    lst = list(seq)
+    num_groups = len(lst) - n + 1
+    for i in range(num_groups):
+         yield tuple(lst[i:i+n])
 
 
 def get_logger(name, stream='WARNING', file='INFO'):

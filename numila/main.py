@@ -42,16 +42,18 @@ def fit(name, model, train_corpus):
 def get_models(model_names, train_corpus, parallel=False):
     numila_params = {
         'holo': {},
-        'prob': {'GRAPH': 'prob', 'EXEMPLAR_THRESHOLD': 0.05},
-        'prob_ftp': {'GRAPH': 'prob', 'EXEMPLAR_THRESHOLD': 0.05, 'BTP_PREFERENCE': 0},
-        'prob_btp': {'GRAPH': 'prob', 'EXEMPLAR_THRESHOLD': 0.05, 'BTP_PREFERENCE': 1000},
         'holo_flat': {'HIERARCHICAL': False},
-        'prob_flat': {'GRAPH': 'prob', 'EXEMPLAR_THRESHOLD': 0.05, 'HIERARCHICAL': False},
         'holo_flat_full': {'PARSE': 'full', 'HIERARCHICAL': False},
+        'prob': {'GRAPH': 'prob', 'EXEMPLAR_THRESHOLD': 0.05},
+        'prob_flat': {'GRAPH': 'prob', 'EXEMPLAR_THRESHOLD': 0.05, 'HIERARCHICAL': False},
         'prob_flat_full': {'GRAPH': 'prob', 'EXEMPLAR_THRESHOLD': 0.05, 'PARSE': 'full', 'HIERARCHICAL': False},
-        'holo_bigram': {'EXEMPLAR_THRESHOLD': 2, 'BTP_PREFERENCE': 0},
-        'prob_chunkless': {'GRAPH': 'prob', 'EXEMPLAR_THRESHOLD': 2},
-        'prob_bigram': {'GRAPH': 'prob', 'EXEMPLAR_THRESHOLD': 2, 'BTP_PREFERENCE': 0},
+
+        'prob_ftp': {'GRAPH': 'prob', 'EXEMPLAR_THRESHOLD': 0.05, 'BTP_PREFERENCE': 0},
+        'prob_btp': {'GRAPH': 'prob', 'EXEMPLAR_THRESHOLD': 0.05, 'BTP_PREFERENCE': 'only'},
+        'prob_markov_ftp': {'GRAPH': 'prob', 'EXEMPLAR_THRESHOLD': 2, 'PARSE': 'full', 'BTP_PREFERENCE': 0},
+        'prob_markov_btp': {'GRAPH': 'prob', 'EXEMPLAR_THRESHOLD': 2, 'PARSE': 'full', 'BTP_PREFERENCE': 'only'},
+        'prob_markov': {'GRAPH': 'prob', 'EXEMPLAR_THRESHOLD': 2, 'PARSE': 'full'},
+
         'dynamic1': {'DYNAMIC': 0.1},
         'dynamic3': {'DYNAMIC': 0.3},
         'dynamic5': {'DYNAMIC': 0.5},
@@ -112,10 +114,10 @@ def get_corpora(lang, kind, train_len, roc_len=100, bleu_len=100):
 
     train_corpus = [next(corpus) for _ in range(train_len)]
 
-    testable = (utt for utt in corpus if 2 < len(utt))
+    testable = (utt for utt in corpus if 2 < len(utt) < 50)
     roc_test_corpus = [next(testable) for _ in range(roc_len)]
 
-    producable = (utt for utt in corpus if 2 < len(utt))
+    producable = (utt for utt in corpus if 2 < len(utt) < 50)
     bleu_test_corpus = [next(producable) for _ in range(bleu_len)]
     
     return {'train': train_corpus,
@@ -160,52 +162,60 @@ def model(train_len=1000, lang='english', kind='word', **params):
     return model.fit(train_corpus)
 #########
 
-def main():
-    models = [
-        'random',
-        'holo',
-        'prob',
-        'holo_flat',
-        'holo_flat_full',
-        'prob_bigram',
-        'dynamic3'
-    ]
-    models = [
-        'prob',
-        'prob_flat',
-        'prob_flat_full',
-        'prob_chunkless',
-        'prob_bigram',
-        'prob_btp',
-        'prob_ftp'
-    ]
+def main(model_set='default', train_len=7000, parallel=True):
+    model_sets = {
+        'default': [
+            'random',
+            'holo',
+            'holo_flat',
+            'holo_flat_full',
+            'prob',
+            'prob_flat',
+            'prob_flat_full',
+        ],
+        'dynamic': [
+            'holo',
+            'dynamic1',
+            'dynamic3',
+            'dynamic5',
+        ],
+        'transition': [
+            'prob',
+            'prob_ftp',
+            'prob_btp',
+            'prob_markov',
+            'prob_markov_ftp',
+            'prob_markov_btp',
+        ],
+    }
+
+    models = model_sets[model_set]
+
     langs = [
-        #'toy2',
         'English',
         'Farsi',
         'German',
         'Hungarian',
-        'Italian',
-        'Japanese',
-        'Spanish',
+        #'Italian',
+        #'Japanese',
+        #'Spanish',
     ]
 
     kinds = ['word', 'syl', 'phone']
-    train_len = 4000
     roc_len = 500
     bleu_len = 500
     
     jobs = [delayed(run)(models, lang, kind, train_len, roc_len, bleu_len)
             for lang in langs
             for kind in kinds]
-    all_dfs = Parallel(n_jobs=-1)(jobs)
-
+    n_jobs = -1 if parallel else 1
+    all_dfs = Parallel(n_jobs=n_jobs)(jobs)
 
     for name, df in zip(['roc', 'bleu', 'chunk'], 
                         map(pd.concat, zip(*all_dfs))):
-        file = 'pickles/prob_' + name
+        file = 'pickles/{}_{}'.format(model_set, name)
         df.to_pickle(file)
-        print('wrote', file)    
+        print('wrote', file)
 
 
 if __name__ == '__main__':

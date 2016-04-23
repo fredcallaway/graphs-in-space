@@ -82,8 +82,6 @@ class Numila(object):
 
     def score(self, utt, **kwargs):
         """Returns a grammaticality score for an utterance."""
-        if self.params['ADD_BOUNDARIES']:
-            utt = ['ø'] + utt + ['ø']
         return self.parse(utt, learn=False).score(**kwargs)
 
     def map_score(self, utts, **kwargs):
@@ -102,12 +100,15 @@ class Numila(object):
         """
         ftp_weight = 1
         btp_weight = self.params['BTP_PREFERENCE']
+        if btp_weight == 'only':
+            ftp_weight, btp_weight = 0, 1
         generalize = self.params['GENERALIZE']
-        
+
         ftp = node1.edge_weight(node2, 'ftp', generalize=generalize)
         btp = node2.edge_weight(node1, 'btp', generalize=generalize)
         sum_weights = btp_weight + ftp_weight
-        gmean = (ftp * btp ** btp_weight) ** (1 / sum_weights)
+        gmean = (ftp ** ftp_weight * btp ** btp_weight) ** (1 / sum_weights)
+
         return gmean
 
     def get_chunk(self, node1, node2, stored_only=True):  # TODO *nodes

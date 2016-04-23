@@ -22,6 +22,7 @@ def syl_corpus(n=None):
     return corpus
 
 def get_corpus(lang, kind):
+    """Yields utterances as lists of tokens."""
     file = ('corpora/phillips-pearl/{lang}-syl.txt'
             .format(lang=lang))
     corpus = open(file).read()
@@ -47,6 +48,26 @@ def get_corpus(lang, kind):
             tokens = list(utterance)  # split by character
         yield tokens
 
+def print_corpus_lengths():
+    fmt = '{:10} {:5} {:>7} {:>9}'
+    print(fmt.format('lang', 'kind', '# utts', '# tokens'))
+    langs = [
+        'English',
+        'Farsi',
+        'German',
+        'Hungarian',
+        'Italian',
+        'Japanese',
+        'Spanish',
+    ]
+    kinds = 'word', 'syl', 'phone'
+    for lang in langs:
+        print()
+        for kind in kinds:
+            corp = list(get_corpus(lang, kind))
+            all_tokens = [t for utt in corp for t in utt]
+            print(fmt.format(lang, kind, len(corp), len(all_tokens)))
+
+
 if __name__ == '__main__':
-    corp = list(get_corpus('Hungarian', 'syl'))
-    print(corp[:10])
+    print_corpus_lengths()
