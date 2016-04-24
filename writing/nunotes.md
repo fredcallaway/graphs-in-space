@@ -12,6 +12,8 @@
     - necessary for BindGraph?
     - mapping from all possible sequences of nodes
     - node has to contain edges
+- sims
+    - should we use same # utterances for all language, or use larger corpora when we can?
 
 
 # Compositionality Simulation

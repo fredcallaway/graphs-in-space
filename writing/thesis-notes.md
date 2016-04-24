@@ -16,4 +16,8 @@
 
 # Lessons
 - Write as you go. For every aspect of the model, write a justification for it with citations
+- Read more.
+
+# Outline
+- intro
 - 
