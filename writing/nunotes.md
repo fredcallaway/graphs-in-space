@@ -1,3 +1,6 @@
+# TODO
+- no chunks in holo
+
 # Ideas
 - how to learn negative information (that nodes don't occur together, despite our expectation that they would)
     - any time a node is seen, add its id_vector to total_id_vector
