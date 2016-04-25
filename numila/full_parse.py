@@ -46,8 +46,10 @@ class FullParse(object):
     def score(self):
         """The sum of the score of every path through the utterance.
 
-        A score of one path is the geometric mean of the transitional
-        probabilities in that path."""
+        A score of one path is the product of chunkinesses for each
+        transition in the path, to the nth route where n is 
+        1 - len(utterance).
+        """
 
         # We use a recursive algorithm with cacheing. See scored_paths
         all_scores = (np.exp(scored_path[0]) ** (1/len(self.utterance))
@@ -76,7 +78,6 @@ class FullParse(object):
     @lru_cache(None)
     @make_list
     def get_nodes(self, pos, end=False):
-        #print('get_nodes ', pos, end)
         if end:
             candidates = [self.utterance[start:pos] for start in range(pos)]
         else:

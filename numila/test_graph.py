@@ -116,7 +116,7 @@ def test_flat_bind(probgraph):
 
 
 def test_dynamic_generalize():
-    graph = HoloGraph(['edge'], DIM=1000, PERCENT_NON_ZERO=.01, DYNAMIC=1)
+    graph = HoloGraph(['edge'], DIM=1000, PERCENT_NON_ZERO=.01, )
     _add_nodes(graph)
     a, b, c, d, e, f = (graph[x] for x in 'ABCDEF')
 

@@ -30,6 +30,8 @@ def bleu(lst1, lst2, order=2):
     [1,2,3] [3,1,2] -> 0.5
     [1,2,3,1,2], [1,2,2,3,1] -> 0.75
     """
+    if order > len(lst1):
+        return None
     ngrams1 = Counter(utils.neighbors(lst1, n=order))
     ngrams2 = Counter(utils.neighbors(lst2, n=order))
     num_shared = sum((ngrams1 & ngrams2).values())

@@ -28,31 +28,36 @@ class HoloNode(HiNode):
         super().__init__(graph, id_string, children)
         self.id_vec = graph.vector_model.sparse()
 
-        self.row_vecs = {edge: graph.vector_model.sparse() * graph.INITIAL_ROW
-                         for edge in graph.edges}
+        self.row_vecs = {row: graph.vector_model.sparse() * graph.INITIAL_ROW
+                         for row in graph.rows}
         self.row_vecs.update(row_vecs)
 
         if self.graph.DYNAMIC:
-            self.dynamic_id_vecs = {edge: graph.vector_model.sparse()
-                                    for edge in graph.edges}
-            self.dynamic_row_vecs = {edge: np.copy(vec)
-                                     for edge, vec in self.row_vecs.items()}
+            self.dynamic_id_vecs = {row: graph.vector_model.sparse()
+                                    for row in graph.rows}
+            self.dynamic_row_vecs = {row: np.copy(vec)
+                                     for row, vec in self.row_vecs.items()}
 
 
     def bump_edge(self, node, edge='default', factor=1):
         """Increases the weight of an edge to another node."""
+        assert edge in self.graph.edges
         
+        # If each edge has its own row vector, we use that vector,
+        # otherwise we use the single row vector.
+        row = edge if self.graph.EDGE_ROWS else '_row'
+
         # Add other node's id_vec to this node's row_vec
-        
-        self.row_vecs[edge] += node.id_vec * factor        
+        labeled_id = self.graph.vector_model.label(node.id_vec, edge)
+        self.row_vecs[row] += labeled_id * factor    
 
         if self.graph.DYNAMIC:
             # This node's dynamic row vectors point to nodes that 
             # other nodes that point to target node point to.
-            self.dynamic_row_vecs[edge] += \
-                vectors.normalize(node.dynamic_id_vecs[edge]) * factor
+            self.dynamic_row_vecs[row] += \
+                vectors.normalize(node.dynamic_id_vecs[row]) * factor
             # The target node learns that this node points to it.
-            node.dynamic_id_vecs[edge] += self.row_vecs[edge] * factor
+            node.dynamic_id_vecs[row] += self.row_vecs[row] * factor
 
         #self.edge_weight.cache_clear()
 
@@ -63,45 +68,50 @@ class HoloNode(HiNode):
 
         Between 0 and 1 inclusive.
         """
-        row_vec =self.row_vecs[edge]
+        assert edge in self.graph.edges
+
+        row = edge if self.graph.EDGE_ROWS else '_row'
+        row_vec = self.row_vecs[row]
 
         if generalize:
-            normalize = vectors.normalize  # optimization
             form, factor = generalize
+            normalize = vectors.normalize  # optimization
 
             # Get gen_vec, a generalized form of row_vec.
             if form == 'dynamic':
-                gen_vec = self.dynamic_row_vecs[edge]
+                gen_vec = self.dynamic_row_vecs[row]
             elif form == 'similarity':
                 sims = np.array([self.similarity(n) for n in self.graph.nodes])
-                all_row_vecs = np.array([normalize(n.row_vecs[edge])
+                all_row_vecs = np.array([normalize(n.row_vecs[row])
                                          for n in self.graph.nodes])
                 gen_vec = sims @ all_row_vecs  # matrix multiplication
             
-            # Add the generalized row_vec to the original row_vec .
+            # Add the generalized row_vec to the original row_vec.
             row_vec = (normalize(row_vec) * (1 - factor)
                        + normalize(gen_vec) * factor)
 
-        weight = vectors.cosine(row_vec, node.id_vec)
+        labeled_id = self.graph.vector_model.label(node.id_vec, edge)
+        weight = vectors.cosine(row_vec, labeled_id)
         return max(weight, 0.0)
 
     @utils.contract(lambda x: 0 <= x <= 1)
     def similarity(self, node, weights=None):
-        """Weighted geometric mean of cosine similarities for each edge."""
-        weights = weights or np.ones(len(self.graph.edges))
-        assert len(weights) == len(self.graph.edges)
+        """Weighted geometric mean of cosine similarities for each row."""
+        weights = weights or np.ones(len(self.rows_vecs))
+        assert len(weights) == len(self.row_vecs)
 
-        edge_sims = [max(vectors.cosine(self.row_vecs[edge], node.row_vecs[edge]), 0)
+        edge_sims = [max(0.0, vectors.cosine(self.row_vecs[row], node.row_vecs[row]))
                      ** weight
-                     for edge, weight in zip(self.graph.edges, weights)]
-        return min(stats.gmean(edge_sims), 1.0)  # clip precision error
+                     for row, weight in zip(self.row_vecs, weights)]
+        
+        return min(1.0, stats.gmean(edge_sims))  # clip precision error
 
 
 class HoloGraph(HiGraph):
     """A graph represented with high dimensional sparse vectors."""
     def __init__(self, edges=None, DIM=10000, PERCENT_NON_ZERO=0.005, 
-                 BIND_OPERATION='addition', HIERARCHICAL=True, 
-                 COMPOSITION=False, DECAY=0, DYNAMIC=0, INITIAL_ROW=1, **kwargs):
+                 BIND_OPERATION='addition', HIERARCHICAL=True, EDGE_ROWS=False,
+                 COMPOSITION=False, DECAY=0, DYNAMIC=False, INITIAL_ROW=1, **kwargs):
         # TODO: kwargs is just so that we can pass more parameters than are
         # actually used.
         super().__init__()
@@ -110,6 +120,7 @@ class HoloGraph(HiGraph):
         self.PERCENT_NON_ZERO = PERCENT_NON_ZERO
         self.BIND_OPERATION = BIND_OPERATION
         self.HIERARCHICAL = HIERARCHICAL
+        self.EDGE_ROWS = EDGE_ROWS
         self.COMPOSITION = COMPOSITION
         self.DECAY = DECAY
         self.DYNAMIC = DYNAMIC
@@ -117,7 +128,8 @@ class HoloGraph(HiGraph):
         self.vector_model = vectors.VectorModel(self.DIM,
                                                 self.PERCENT_NON_ZERO,
                                                 self.BIND_OPERATION)
-        
+        self.rows = edges if EDGE_ROWS else ['_row']
+
     def create_node(self, id_string):
         return HoloNode(self, id_string)
 
@@ -176,5 +188,16 @@ class HoloGraph(HiGraph):
 
 
 if __name__ == '__main__':
-    import pytest
-    pytest.main(['test_graph.py'])
+    #import pytest
+    #pytest.main(['test_graph.py'])
+    graph = HoloGraph(edges='12')
+    a = graph.create_node('a')
+    b = graph.create_node('b')
+    graph.add(a)
+    graph.add(b)
+
+    print(a.edge_weight(b, ))
+    a.bump_edge(b)
+    print(a.edge_weight(b))
+
+

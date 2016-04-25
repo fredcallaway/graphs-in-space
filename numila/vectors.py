@@ -1,6 +1,6 @@
 import numpy as np
-import itertools
 import utils
+from collections import defaultdict
 
 class VectorModel(object):
     """Represents points in a high dimensional space."""
@@ -9,8 +9,8 @@ class VectorModel(object):
         self.dim = dim
         self.nonzero = nonzero
         self.num_nonzero = int(np.ceil(dim * self.nonzero))
+        self.permutations = defaultdict(lambda: np.random.permutation(self.dim))
 
-        
         if bind_op == 'addition':
             from operator import add
             self.bind_op = add
@@ -19,18 +19,13 @@ class VectorModel(object):
         else:
             raise ValueError('Invalid bind_op: {bind_op}'.format_map(locals()))
 
-        self.perm1 = np.random.permutation(self.dim)
-        self.inverse_perm1 = np.argsort(self.perm1)
-        self.perm2 = np.random.permutation(self.dim)
-        self.inverse_perm2 = np.argsort(self.perm2)
-
-        # Vectors are normalized, with have alternating
-        # positive and negative values.
-        norm = self.num_nonzero ** 0.5
-        #self._vector_values = itertools.cycle((1/norm, -1/norm))
-        self._element_val = 1/norm
+        # Make sparse vectors be normalized.
+        self._element_val = self.num_nonzero ** -0.5
     
-    #@profile
+    def label(self, vec, label):
+        permutation = self.permutations[label]
+        return vec[permutation]
+
     def sparse(self, dim=None):
         """Returns a new sparse vector."""
         dim = dim or self.dim
@@ -57,12 +52,8 @@ class VectorModel(object):
         return np.zeros(self.dim)
 
     def bind(self, v1, v2):
-        permuted_v1 = v1[self.perm1]
-        permuted_v2 = v2[self.perm2]
-        return self.bind_op(permuted_v1, permuted_v2)
-
-    def permutation(self):
-        return np.random.permutation(self.dim)
+        return self.bind_op(self.label(v1, '_left'),
+                            self.label(v2, '_right'))
 
 
 # taken from https://github.com/mike-lawrence/wikiBEAGLE
@@ -76,19 +67,18 @@ def ccorr(a, b):
 
 def cosine(a,b):
     """Computes the cosine of the angle between the vectors a and b."""
-    #assert len(np.nonzero(b)[0])
-    #assert len(np.nonzero(a)[0])
-    magnitude = (np.sum(a**2.0) * np.sum(b**2.0)) ** 0.5
-    if magnitude == 0:
-        return 0
+    #magnitude = (np.sum(a**2.0) * np.sum(b**2.0)) ** 0.5
+    denom = np.linalg.norm(a) * np.linalg.norm(b)
+    if not denom:
+        return 0  # cosine isn't actually defined for 0 vector
 
-    cos = np.dot(a,b) / magnitude
-    assert -1.00001 <= cos <= 1.00001, (cos, magnitude)
+    cos = np.dot(a,b) / denom
+    assert -1.00001 <= cos <= 1.00001, (cos, denom)
     return max(-1.0, min(1.0, cos))  # floating point error
 
 def normalize(a):
     """Normalize a vector to length 1."""
-    length = np.sum(a**2.0) ** 0.5
+    norm = np.linalg.norm(a)
     if not length:
         return a  # can't normalize the 0 vector
     return a / length
@@ -120,7 +110,8 @@ def _test():
         vector_model = VectorModel(dim, nonzero, op)
 
         a = vector_model.sparse()
-        assert abs(np.sqrt(np.sum((a ** 2))) - 1) < .001
+        length = np.sqrt(np.sum((a ** 2)))
+        assert abs(1 - length) < .001, length
         b = vector_model.sparse()
         c = vector_model.sparse()
 
@@ -156,4 +147,5 @@ def _test():
 
 if __name__ == '__main__':
     #_speed_test(10000)
-    _test()
+    #_test()
+    _bench()

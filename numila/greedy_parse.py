@@ -60,14 +60,12 @@ class GreedyParse(list):
                 self.shift(token)
                 self.update_weights(position=-1)
 
-    def score(self, cost='chunkiness', freebie=1):  # TODO
+    def score(self, cost='chunkiness'):
 
         transitions = [self.model.chunkiness(n1, n2)
                        for n1, n2 in utils.neighbors(self)]
-        
-        #within = [max(chunkiness, freebie) for chunkiness in self.chunkinesses]
 
-        transitions = np.array(transitions) + .001  # smoothing
+        transitions = (np.array(transitions) + .001).clip(0, 1)  # smoothing
         return np.prod(transitions) ** (1/len(self.utterance))
 
     def shift(self, token) -> None:

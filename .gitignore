@@ -1,5 +1,4 @@
 original
-*.pdf
 *.pyc
 beagle/
 numila/__pycache__/
@@ -24,3 +23,9 @@ numila/scratch.py
 .cache/
 numila/scratch.ipynb
 writing/.tmp/
+Honors_Deadlines_2016.pdf
+Honors_Handbook_Faculty-2015.pdf
+numila/figs/
+writing/progress/progress.pdf
+writing/proposal/proposal.pdf
+writing/report/report.pdf

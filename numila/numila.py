@@ -190,7 +190,7 @@ class Numila(object):
 
         if order_func is None:  # ordering function is a parameter
             order_func = {'markov': self._order_markov,
-                     'outward': self._order_outward}[self.params['SPEAK']]
+                          'outward': self._order_outward}[self.params['SPEAK']]
         utterance = list(order_func(nodes))
 
         if return_flat:

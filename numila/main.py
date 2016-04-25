@@ -41,22 +41,24 @@ def fit(name, model, train_corpus):
 
 def get_models(model_names, train_corpus, parallel=False):
     numila_params = {
-        'holo': {},
-        'holo_flat': {'HIERARCHICAL': False},
-        'holo_flat_full': {'PARSE': 'full', 'HIERARCHICAL': False},
-        'prob': {'GRAPH': 'prob', 'EXEMPLAR_THRESHOLD': 0.05},
-        'prob_flat': {'GRAPH': 'prob', 'EXEMPLAR_THRESHOLD': 0.05, 'HIERARCHICAL': False},
-        'prob_flat_full': {'GRAPH': 'prob', 'EXEMPLAR_THRESHOLD': 0.05, 'PARSE': 'full', 'HIERARCHICAL': False},
+        'holo': dict(),
+        'holo_flat': dict(HIERARCHICAL=False),
+        'holo_flat_full': dict(PARSE='full', HIERARCHICAL=False),
+        'prob': dict(GRAPH='prob', EXEMPLAR_THRESHOLD=0.05),
+        'prob_flat': dict(GRAPH='prob', EXEMPLAR_THRESHOLD=0.05, HIERARCHICAL=False),
+        'prob_flat_full': dict(GRAPH='prob', EXEMPLAR_THRESHOLD=0.05, PARSE='full', HIERARCHICAL=False),
 
-        'prob_ftp': {'GRAPH': 'prob', 'EXEMPLAR_THRESHOLD': 0.05, 'BTP_PREFERENCE': 0},
-        'prob_btp': {'GRAPH': 'prob', 'EXEMPLAR_THRESHOLD': 0.05, 'BTP_PREFERENCE': 'only'},
-        'prob_markov_ftp': {'GRAPH': 'prob', 'EXEMPLAR_THRESHOLD': 2, 'PARSE': 'full', 'BTP_PREFERENCE': 0},
-        'prob_markov_btp': {'GRAPH': 'prob', 'EXEMPLAR_THRESHOLD': 2, 'PARSE': 'full', 'BTP_PREFERENCE': 'only'},
-        'prob_markov': {'GRAPH': 'prob', 'EXEMPLAR_THRESHOLD': 2, 'PARSE': 'full'},
+        'prob_ftp': dict(GRAPH='prob', EXEMPLAR_THRESHOLD=0.05, BTP_PREFERENCE=0),
+        'prob_btp': dict(GRAPH='prob', EXEMPLAR_THRESHOLD=0.05, BTP_PREFERENCE='only'),
+        'prob_markov_ftp': dict(GRAPH='prob', EXEMPLAR_THRESHOLD=2, PARSE='full', BTP_PREFERENCE=0),
+        'prob_markov_btp': dict(GRAPH='prob', EXEMPLAR_THRESHOLD=2, PARSE='full', BTP_PREFERENCE='only'),
+        'prob_markov': dict(GRAPH='prob', EXEMPLAR_THRESHOLD=2, PARSE='full'),
 
-        'dynamic1': {'DYNAMIC': 0.1},
-        'dynamic3': {'DYNAMIC': 0.3},
-        'dynamic5': {'DYNAMIC': 0.5},
+        'dynamic1': dict(DYNAMIC=0.1),
+        'dynamic3': dict(DYNAMIC=0.3),
+        'dynamic5': dict(DYNAMIC=0.5),
+
+        'prob_out': dict(GRAPH='prob', EXEMPLAR_THRESHOLD=0.05, SPEAK='outward')
     }
 
     other_models = {
@@ -144,15 +146,9 @@ def run(models, lang, kind, train_len, roc_len=100, bleu_len=100):
 
 
 #########
-def test(models, lang, train_len, roc_len=100, bleu_len=100):
-    corpora = get_corpora(lang, train_len)
-    models = get_models(models, corpora['train'])
-    for utt in corpora['roc_test'][:5]:
-        print('\n----------')
-        print(*utt)
-        for name, model in models.items():
-            print(name)
-            model.score(utt)
+def test():
+    models = ['prob', 'prob_out']
+    run(models, 'English', 'word', 100, 20, 20)
 
 def model(train_len=1000, lang='english', kind='word', **params):
     # for testing
@@ -196,9 +192,9 @@ def main(model_set='default', train_len=7000, parallel=True):
         'Farsi',
         'German',
         'Hungarian',
-        #'Italian',
-        #'Japanese',
-        #'Spanish',
+        'Italian',
+        'Japanese',
+        'Spanish',
     ]
 
     kinds = ['word', 'syl', 'phone']
@@ -219,4 +215,5 @@ def main(model_set='default', train_len=7000, parallel=True):
 
 
 if __name__ == '__main__':
-    main()
+    main('default')
+    main('transition')
