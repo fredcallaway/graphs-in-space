@@ -60,6 +60,8 @@ class HiGraph(metaclass=ABCMeta):
     def __init__(self):
         self._nodes = {}
 
+        self.MIN_COUNT = 2 # TODO
+
     @property
     def nodes(self):
         return self._nodes.values()
@@ -69,6 +71,13 @@ class HiGraph(metaclass=ABCMeta):
         if isinstance(node, str):
             id_string = node
             node = self.create_node(id_string)
+        
+        elif node.children:
+            for child in node.children:
+                assert child in self
+                if hasattr(child, 'count') and child.count < self.MIN_COUNT:
+                    return  # TODO
+
         self._nodes[node.id_string] = node
     
     @abstractmethod
@@ -131,7 +140,8 @@ class HiGraph(metaclass=ABCMeta):
     def __contains__(self, node):
         if isinstance(node, str):
             return node in self._nodes
+        elif isinstance(node, HiNode):
+            return self._nodes.get(node.id_string) is node
         else:
-            return (node.id_string in self._nodes and
-                    self._nodes[node.id_string] is node)
+            raise ValueError('Can only check if strings and HiNodes are in the graph.')
 

@@ -6,6 +6,7 @@ import utils
 
 
 def main():
+    assert 0, 'deprecated'
     toy_pcfg = '''
     S    -> NP VP    [1.0]
     VP   -> V NP     [1.0]
@@ -38,7 +39,6 @@ def main():
 
     nodes = list(filter(None, map(model.graph.get, phrases)))
 
-    print(nodes)
 
     data = [[1-n1.similarity(n2) for n2 in nodes]
             for n1 in nodes]

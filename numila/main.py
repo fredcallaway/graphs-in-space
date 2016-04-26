@@ -54,10 +54,14 @@ def get_models(model_names, train_corpus, parallel=False):
         'prob_markov_btp': dict(GRAPH='prob', EXEMPLAR_THRESHOLD=2, PARSE='full', BTP_PREFERENCE='only'),
         'prob_markov': dict(GRAPH='prob', EXEMPLAR_THRESHOLD=2, PARSE='full'),
 
-        'dynamic1': dict(DYNAMIC=0.1),
-        'dynamic3': dict(DYNAMIC=0.3),
-        'dynamic5': dict(DYNAMIC=0.5),
+        'holo_markov': dict(GRAPH='holo', EXEMPLAR_THRESHOLD=2, PARSE='full'),
+        'composition': dict(COMPOSITION=4),
 
+        #'dynamic1': dict(DYNAMIC=0.1),
+        #'dynamic3': dict(DYNAMIC=0.3),
+        'dynamic': dict(DYNAMIC=0.5),
+
+        'bigram': dict(GRAPH='prob', EXEMPLAR_THRESHOLD=2, PARSE='full', BTP_PREFERENCE=0),
         'prob_out': dict(GRAPH='prob', EXEMPLAR_THRESHOLD=0.05, SPEAK='outward')
     }
 
@@ -116,10 +120,10 @@ def get_corpora(lang, kind, train_len, roc_len=100, bleu_len=100):
 
     train_corpus = [next(corpus) for _ in range(train_len)]
 
-    testable = (utt for utt in corpus if 2 < len(utt) < 50)
+    testable = (utt for utt in corpus if 2 < len(utt) < 20)
     roc_test_corpus = [next(testable) for _ in range(roc_len)]
 
-    producable = (utt for utt in corpus if 2 < len(utt) < 50)
+    producable = (utt for utt in corpus if 2 < len(utt) < 20)
     bleu_test_corpus = [next(producable) for _ in range(bleu_len)]
     
     return {'train': train_corpus,
@@ -146,11 +150,28 @@ def run(models, lang, kind, train_len, roc_len=100, bleu_len=100):
 
 
 #########
+def foo():
+    model = Numila(GRAPH='holo')
+    model = Numila(GRAPH='graph', EXEMPLAR_THRESHOLD=0.05)
+    corp = get_corpora('English', 'syl', 5000)
+    model.fit(corp['train'])
+    test = iter(corp['bleu_test'])
+    print(model.parse(next(test)))
+    print(model.speak(next(test)))
+    print(model.speak(next(test)))
+    print(model.speak(next(test)))
+
+    print(model._debug['speak_chunks'])
+
+def talk(model, test):
+    utt = next(test)
+    print(utt, '||', model.speak(utt))
+
 def test():
-    models = ['prob', 'prob_out']
+    models = ['prob', 'holo']
     run(models, 'English', 'word', 100, 20, 20)
 
-def model(train_len=1000, lang='english', kind='word', **params):
+def get_model(train_len=1000, lang='english', kind='word', **params):
     # for testing
     model = Numila(**params)
     corpus = corpora.get_corpus(lang, kind)
@@ -158,16 +179,22 @@ def model(train_len=1000, lang='english', kind='word', **params):
     return model.fit(train_corpus)
 #########
 
-def main(model_set='default', train_len=7000, parallel=True):
+
+def main(model_set='default', train_len=7000, langs=None, kinds=None, parallel=True):
     model_sets = {
         'default': [
             'random',
             'holo',
             'holo_flat',
-            'holo_flat_full',
+            'holo_markov',
             'prob',
             'prob_flat',
-            'prob_flat_full',
+            'prob_markov',
+        ],
+        'holo': [
+            'holo',
+            'composition',
+            'dynamic',
         ],
         'dynamic': [
             'holo',
@@ -183,11 +210,18 @@ def main(model_set='default', train_len=7000, parallel=True):
             'prob_markov_ftp',
             'prob_markov_btp',
         ],
+        'composition': [
+            #'holo',
+            #'holo_comp5',
+            'holo_comp10',
+            #'holo_comp20',
+            #'holo_comp40',
+        ],
     }
 
     models = model_sets[model_set]
 
-    langs = [
+    langs = langs or [
         'English',
         'Farsi',
         'German',
@@ -197,7 +231,7 @@ def main(model_set='default', train_len=7000, parallel=True):
         'Spanish',
     ]
 
-    kinds = ['word', 'syl', 'phone']
+    kinds = kinds or ['word', 'syl', 'phone']
     roc_len = 500
     bleu_len = 500
     
@@ -215,5 +249,7 @@ def main(model_set='default', train_len=7000, parallel=True):
 
 
 if __name__ == '__main__':
+    main('transition', kinds=['word', 'syl'])
+    exit()
     main('default')
-    main('transition')
+    main('holo')

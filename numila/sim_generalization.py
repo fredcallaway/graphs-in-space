@@ -86,6 +86,7 @@ def composition(graph):
     sns.factorplot('noun phrase', 'edge weight', hue='verb', col='composition',
                    data=df, kind='bar').despine(left=True)
     sns.plt.savefig('figs/composition.pdf')
+    print('created figs/composition.pdf')
 
 
 def generalization(graph):
@@ -100,6 +101,7 @@ def generalization(graph):
     sns.factorplot('noun', 'edge weight', col='generalization', hue='det',
                    data=df, kind='bar', legend_out=True).despine(left=True)
     sns.plt.savefig('figs/generalization.pdf')
+    print('created figs/generalization.pdf')
 
 if __name__ == '__main__':
     main()

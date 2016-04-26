@@ -79,9 +79,9 @@ def cosine(a,b):
 def normalize(a):
     """Normalize a vector to length 1."""
     norm = np.linalg.norm(a)
-    if not length:
+    if not norm:
         return a  # can't normalize the 0 vector
-    return a / length
+    return a / norm
 
 def _speed_test(n=100):
     nonzero = 0.01

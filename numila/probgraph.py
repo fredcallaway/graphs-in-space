@@ -13,22 +13,22 @@ class ProbNode(HiNode):
     """
     def __init__(self, graph, id_string, edges, children=()) -> None:
         super().__init__(graph, id_string, children)
+        self.count = 0
         if isinstance(edges, dict):
             self.edge_counts = edges
         else:
             self.edge_counts = {edge: Counter() for edge in edges}
 
     def bump_edge(self, node, edge='default', factor=1) -> None:
+        self.count += 1
         self.edge_counts[edge][node.id_string] +=  factor
 
-    #@utils.contract(lambda x: 0 <= x <= 1)
     def edge_weight(self, node, edge='default', dynamic=None, generalize=None) -> float:
         edge_count = self.edge_counts[edge][node.id_string]
-        self_count = sum(self.edge_counts[edge].values())
         if edge_count == 0:
             return 0.0
         else:
-            return edge_count / self_count
+            return edge_count / self.count
 
     def similarity(self, node):
         return 0.0
@@ -39,20 +39,18 @@ class ProbGraph(HiGraph):
 
     Nodes represent entities and edge types represent relations. Weights
     on edges represent the probability of the target node being in the
-    given relationship with the source node.
-
-    A.edge_weight(R, B) is the probability that B is in relation R
-    with B given that A has occurred. For example, if R represents
-    temporal precedence, then A.edge_weight(R, B) would be the probability
-    that B has previously occurred given that A just occurred.
+    given relationship with the source node, given that the source node
+    has occurred.
     """
-    def __init__(self, edges=None, DECAY=False, HIERARCHICAL=True, **kwargs) -> None:
+    def __init__(self, edges=None, DECAY=False, HIERARCHICAL=True, 
+                 INITIAL_ROW=0, **kwargs) -> None:
         # TODO: kwargs is just so that we can pass more parameters than are
         # actually used.
         super().__init__()
         self.edges = edges or ['default']
         self.DECAY = DECAY
         self.HIERARCHICAL = HIERARCHICAL
+
 
     def create_node(self, id_string) -> ProbNode:
         return ProbNode(self, id_string, self.edges)

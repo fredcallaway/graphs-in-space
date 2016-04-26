@@ -95,14 +95,10 @@ class HoloNode(HiNode):
         return max(weight, 0.0)
 
     @utils.contract(lambda x: 0 <= x <= 1)
-    def similarity(self, node, weights=None):
+    def similarity(self, node):
         """Weighted geometric mean of cosine similarities for each row."""
-        weights = weights or np.ones(len(self.rows_vecs))
-        assert len(weights) == len(self.row_vecs)
-
         edge_sims = [max(0.0, vectors.cosine(self.row_vecs[row], node.row_vecs[row]))
-                     ** weight
-                     for row, weight in zip(self.row_vecs, weights)]
+                     for row in self.row_vecs]
         
         return min(1.0, stats.gmean(edge_sims))  # clip precision error
 
@@ -143,21 +139,18 @@ class HoloGraph(HiGraph):
 
         row_vecs = {}
         if composition:
-            # row_vec is the weighted average of all other blobs with
+            # gen_vec is the weighted average of all other blobs with
             # the same number of children.
-            gen_vecs = {edge: self.vector_model.zeros() for edge in self.edges}
+            gen_vecs = {row: self.vector_model.zeros() for row in self.rows}
             comparable = (n for n in self.nodes if len(n.children) == len(children))
             for node in comparable:
                 child_sims = [my_child.similarity(other_child)
                               for my_child, other_child in zip(children, node.children)]
                 total_sim = stats.gmean(child_sims)
+                for row, vec in gen_vecs.items():
+                    vec += vectors.normalize(node.row_vecs[row]) * total_sim
 
-                print(node, total_sim)
-                
-                for edge, vec in gen_vecs.items():
-                    vec += vectors.normalize(node.row_vecs[edge]) * total_sim
-
-            row_vecs = {edge: vec * composition for edge, vec in gen_vecs.items()}
+            row_vecs = {row: vec * composition for row, vec in gen_vecs.items()}
             
             assert not np.isnan(np.sum(list(row_vecs.values())))
 

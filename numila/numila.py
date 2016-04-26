@@ -55,6 +55,8 @@ class Numila(object):
             raise ValueError('Invalid PARSE parameter: {}'.format(self.params['PARSE']))
         self.Parse = Parse
 
+        self._debug = {'speak_chunks': 0}
+
 
     def parse(self, utterance, learn=True):
         """Parses the utterance and returns the result."""
@@ -111,26 +113,23 @@ class Numila(object):
 
         return gmean
 
-    def get_chunk(self, node1, node2, stored_only=True):  # TODO *nodes
+    def get_chunk(self, node1, node2, create=False):  # TODO *nodes
         """Returns a chunk of node1 and node2 if the chunk is in the graph.
 
-        If stored_only is True, we only return the desired chunk if it
+        If `create` is False, we only return the desired chunk if it
         has been stored as an exemplar in the graph. Otherwise, we
         always return a chunk, creating it if necessary.
 
         If the chunk doesn't exist, we check if the pair is chunkable
         enough for a new chunk to be created. If so, the new chunk is returned.
         """
-        #chunk_id_string = fmt('[ {node1.id_string} {node2.id_string} ]')
-        #if chunk_id_string in self.graph:
-            #return self.graph[chunk_id_string]
         existing_chunk = self.graph.get_chunk(node1, node2)
         if existing_chunk:
             return existing_chunk
 
         assert not (node1.id_string == 'ø' or node2.id_string == 'ø')
             
-        if not stored_only:
+        if create:
             if node1.id_string in self.graph and node1 is not self.graph[node1.id_string]:
                 self.log.debug('Fixing a chunk node')
                 node1 = self.graph[node1.id_string]
@@ -141,17 +140,8 @@ class Numila(object):
             chunk = self.graph.bind(node1, node2)
             return chunk
 
-    def add_chunk(self, chunk):  # TODO scrap
-        if (chunk.child1.id_string not in self.graph or
-            chunk.child2.id_string not in self.graph):
-                # This is a strange edge case that can happen when there is
-                # a low exemplar threshold. We just move on without adding
-                # the chunk.
-                self.log.info('Tried to add a chunk with a non-chunk child: %s', chunk)
-                return
+    def add_chunk(self, chunk):
         self.graph.add(chunk)
-        assert chunk.child1 is self.graph[chunk.child1.id_string]
-        assert chunk.child2 is self.graph[chunk.child2.id_string]
         self.log.debug('new chunk: %s', chunk)
 
     def speak(self, words, verbose=False, return_flat=True, 
@@ -187,6 +177,8 @@ class Numila(object):
             nodes.remove(node1)
             nodes.remove(node2)
             nodes.append(chunk)
+
+        self._debug['speak_chunks'] = sum(1 for n in nodes if n.children)
 
         if order_func is None:  # ordering function is a parameter
             order_func = {'markov': self._order_markov,

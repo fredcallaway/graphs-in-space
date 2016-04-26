@@ -107,24 +107,6 @@ class GreedyParse(list):
                 node1.bump_edge(node2, 'ftp', bump_factor)
                 node2.bump_edge(node1, 'btp', bump_factor)
 
-        if self.params['CHUNK_LEARNING']:
-            # Incerase the weight between nodes that are in chunks in memory.
-            bump_factor *= self.params['CHUNK_LEARNING']
-
-            def update_chunk(chunk):
-                """Recursively updates weights between elements of the chunk"""
-                if not hasattr(chunk, 'chunkiness'):
-                    return
-                # if chunk.child1.id_string in self.graph 
-                # and chunk.child2.id_string in self.graph:
-                chunk.child1.bump_edge(chunk.child2, 'ftp', bump_factor)
-                chunk.child2.bump_edge(chunk.child1, 'btp', bump_factor)
-                update_chunk(chunk.child1)
-                update_chunk(chunk.child2)
-
-            for node in self.memory:
-                update_chunk(node)
-
     def try_to_chunk(self) -> None:
         """Attempts to combine two Nodes in memory into one Node.
 
@@ -151,17 +133,16 @@ class GreedyParse(list):
         best_idx = np.argmax(chunkinesses)
         best_chunkiness = chunkinesses[best_idx]
 
-        #chunks = [self.model.get_chunk(node1, node2, stored_only=False)
-        #          for node1, node2 in utils.neighbors(self.memory)]
-        #chunkinesses = [chunk.chunkiness() for chunk in chunks]
+        # See if the best pair already forms a chunk in the graph.
+        chunk = self.model.graph.get_chunk(*pairs[best_idx])
+        # If the node doesn't exist, but chunkiness exceeds the 
+        # threshold, create the chunk.
+        if not chunk and best_chunkiness > self.params['CHUNK_THRESHOLD']:
+            chunk = self.model.get_chunk(*pairs[best_idx], create=True)
 
-        #best_idx = np.argmax(chunkinesses)
-        #best_chunk = chunks[best_idx]
-        #best_chunkiness = chunkinesses[best_idx]
-
-        if best_chunkiness > self.params['CHUNK_THRESHOLD']:  # TODO chunk threshold
-            best_chunk = self.model.get_chunk(*pairs[best_idx], stored_only=False)
-            # Replace the two nodes in memory with one chunk.
+        if chunk:
+            # Replace the two nodes in memory with the single chunk
+            best_chunk = self.model.get_chunk(*pairs[best_idx], create=True)
             self.memory[best_idx] = best_chunk
             del self.memory[best_idx+1]
             self.chunkinesses.append(best_chunkiness)
@@ -173,7 +154,8 @@ class GreedyParse(list):
                     self.model.add_chunk(best_chunk)
             self.log.debug('create chunk: %s', best_chunk)
             return best_idx
-        else:  # can't make a chunk
+
+        else:
             self.log.debug('no chunk created')
             return None
 

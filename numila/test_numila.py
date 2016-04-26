@@ -16,15 +16,15 @@ def probmila():
     return Numila(GRAPH='probgraph', LEARNING_RATE=1)
 
 @pytest.fixture()
-def batchmila():
-    return Numila(PARSE='batch')
+def fullmila():
+    return Numila(PARSE='full')
 
-@pytest.fixture(params=['holo', 'prob', 'batch'])
+@pytest.fixture(params=['holo', 'prob', 'full'])
 def model(request):
     models = {
         'holo': holomila,
         'prob': probmila,
-        'batch': batchmila
+        'full': fullmila
     }
     return models[request.param]()
 
@@ -105,14 +105,9 @@ def test_chunking(model):
 
     utterance = 'a b a c a b d'
     corpus = [utterance] * 50
-    model.parse(corpus[0])
-    a, b, c, d = (model.graph[x] for x in 'abcd')  # node objects
+    model.fit(corpus)
     
-    def weight(edge, n1, n2):
-        return n1.edge_weight(n2, edge)
-
     blobs = [n for n in model.graph.nodes if n.children]
-    
     assert len(blobs) > 0
 
 
