@@ -26,9 +26,6 @@ class Numila(object):
         self.log.info('parameters:\n\n%s\n', 
                  yaml.dump(self.params, default_flow_style=False))
 
-        if self.params['CHUNK_THRESHOLD'] is None:
-            self.params['CHUNK_THRESHOLD'] = self.params['EXEMPLAR_THRESHOLD']
-
         # The GRAPH parameter determines which implementation of a Graph
         # this Numila instance should use. Thus, Numila is a class that
         # is parameterized by another class, similarly to how a functor
@@ -56,6 +53,10 @@ class Numila(object):
         self.Parse = Parse
 
         self._debug = {'speak_chunks': 0}
+
+    @property
+    def chunk_threshold(self):
+        pass # one day...        
 
 
     def parse(self, utterance, learn=True):
@@ -113,7 +114,7 @@ class Numila(object):
 
         return gmean
 
-    def get_chunk(self, node1, node2, create=False):  # TODO *nodes
+    def get_chunk(self, node1, node2, *, create=False, add=False):
         """Returns a chunk of node1 and node2 if the chunk is in the graph.
 
         If `create` is False, we only return the desired chunk if it
@@ -138,6 +139,8 @@ class Numila(object):
                 node2 = self.graph[node2.id_string]
             
             chunk = self.graph.bind(node1, node2)
+            if add:
+                self.graph.add(chunk)
             return chunk
 
     def add_chunk(self, chunk):
@@ -169,7 +172,7 @@ class Numila(object):
             pairs = list(itertools.permutations(nodes, 2))
             best_pair = max(pairs, key=lambda pair: self.chunkiness(*pair))
             node1, node2 = best_pair
-            chunk = self.get_chunk(node1, node2)
+            chunk = self.get_chunk(node1, node2, create=False)
             self.log.debug('chunk: %s', chunk)
             if not chunk:
                 break

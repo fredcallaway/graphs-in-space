@@ -134,11 +134,11 @@ class GreedyParse(list):
         best_chunkiness = chunkinesses[best_idx]
 
         # See if the best pair already forms a chunk in the graph.
-        chunk = self.model.graph.get_chunk(*pairs[best_idx])
+        chunk = self.model.get_chunk(*pairs[best_idx], create=False)
         # If the node doesn't exist, but chunkiness exceeds the 
-        # threshold, create the chunk.
+        # threshold, create the chunk and add it to the graph
         if not chunk and best_chunkiness > self.params['CHUNK_THRESHOLD']:
-            chunk = self.model.get_chunk(*pairs[best_idx], create=True)
+            chunk = self.model.get_chunk(*pairs[best_idx], create=True, add=self.learn)
 
         if chunk:
             # Replace the two nodes in memory with the single chunk
@@ -146,12 +146,6 @@ class GreedyParse(list):
             self.memory[best_idx] = best_chunk
             del self.memory[best_idx+1]
             self.chunkinesses.append(best_chunkiness)
-
-            # Add the chunk to the graph if it exceeds a threshold chunkiness.
-            if (self.learn and
-                best_chunk.id_string not in self.graph and
-                best_chunkiness > self.params['EXEMPLAR_THRESHOLD']):
-                    self.model.add_chunk(best_chunk)
             self.log.debug('create chunk: %s', best_chunk)
             return best_idx
 

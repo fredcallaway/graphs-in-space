@@ -80,6 +80,7 @@ class HoloNode(HiNode):
             # Get gen_vec, a generalized form of row_vec.
             if form == 'dynamic':
                 gen_vec = self.dynamic_row_vecs[row]
+                
             elif form == 'similarity':
                 sims = np.array([self.similarity(n) for n in self.graph.nodes])
                 all_row_vecs = np.array([normalize(n.row_vecs[row])

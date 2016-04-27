@@ -11,6 +11,7 @@ abstract: |
 
 \newcommand{\id}{\bm{i}}
 \newcommand{\row}{\bm{r}}
+\newcommand{\edge}[3][]{$#2 \xrightarrow{#1} #3$}
 
 \newcommand{\cosine}{\text{cosine}}
 \newcommand{\sim}{\text{sim}}
@@ -22,9 +23,9 @@ The representation of structure is a fundamental prerequisite for sophisticated 
 
 Given that the goal of science is to create models of the world, cognitive scientists are presented with a unique challenge: modeling internal models, or representing representations. As in other scientific fields, a model of internal models should be systematic and unified. It should explain how the details of specific internal models (e.g. of language) reflect general principles of mind/brain representations. Additionally, a theory of internal models must be described at multiple levels of abstraction [@marr82; @edelman08]. Human representations are ultimately implemented with synaptic weights and neural activations; however, a theory at the implementational level is only partially explanatory. To fully understand a representational system, one must identify larger functional units that emerge from the representational substrate.
 
-Computational-level theories, commonly found in linguistics, have unique explanatory power, and are essential to a complete theory of cognition. They are sometimes referred to as _rational_ models because they describe the problem a cognitive agent and an optimal solution to that problem from a logical viewpoint [@anderson90]. However, for these theories to contribute to a unified theory of cognition, they must ultimately be related to lower level models. How can this be done? One option is to take a purely top-down approach, beginning with a computational model, and then constructing algorithms that implement or approximate the optimal solution [e.g. @hale11].
+Computational-level theories, commonly found in linguistics, have unique explanatory power, and are essential to a complete theory of cognition. They are sometimes referred to as _rational_ models because they describe the way  a rational cognitive agent would solve a problem [@anderson90]. However, for these theories to contribute to a unified theory of cognition, they must ultimately be related to lower level models. How can this be done? One option is to take a purely top-down approach, beginning with a computational model, and then constructing algorithms that implement or approximate the optimal solution [e.g. @hale11].
 
-While this approach may provide some insights, there may be a limit to how far a purely top-down approach can go. A key challenge for this approach stems from the domain specific representations that computational models, especially those found in linguistics, typically employ. These representational abstractions must ultimately be related to neurons, ideally with a systematic theory that also explains the representations of unrelated domains. Isolated attempts of researchers in different fields to push their theories to the implementational level are unlikely to result in such a systematic explanation. Rather, we suggest that the greatest progress towards a unified theory will be achieved by considering multiple areas of cognition, and multiple levels of analysis, at the same time. Given the fundamental role of representation, a critical first step is to design a representational framework that is powerful enough to represent complex structures in a variety of domains, and yet simple enough to be a realistic goal for neuroscientists.
+While this approach may provide some insights, there may be a limit to how far a purely top-down approach can go. A key challenge for this approach stems from the domain specific representations that computational models, especially those found in linguistics, typically employ. Ultimately, these representational abstractions must be related to neurons, ideally with a systematic theory that also explains the representations of unrelated domains. Isolated attempts of researchers in different fields to push their theories to the implementational level are unlikely to result in such a systematic explanation. Rather, we suggest that the greatest progress towards a unified theory will be achieved by considering multiple areas of cognition, and multiple levels of analysis, at the same time. Given the fundamental role of representation, a critical first step is to design a representational framework that is powerful enough to represent complex structures in a variety of domains, and yet simple enough to be a realistic goal for neuroscientists.
 
 We suggest the graph as a potential candidate for this framework. Graphs are domain general, thus they can be used to model disparate cognitive phenomena. Additionally, with augmentations such as labeled edges, they can represent models of widely varying complexity, posed at any level of analysis. Brains themselves closely resemble a weighted directed graph with neurons as vertices and synapses as edges. Graphical models have also been applied at the level of anatomical regions, revealing the "small world" property of brain connectivity [@bullmore11]. Abstracting away from neurons, one can embed information and function into the nodes and edges, allowing the graph becomes to represent abstract theories, such as those put forward in psychology and linguistics.
 
@@ -65,12 +66,12 @@ Lessons from graphical models
 - many different models could be framed as graphs
  -->
 
-
+\todo{Hale's stuff?}
 
 # Vector Symbolic Architectures
-Vector Symbolic Architectures (VSAs) are a class of model that aim to implement a symbolic system with vectors in a very high dimension space [@gayler98; @kanerva88; @plate95]. These models are often called connectionist because they share what Chalmers calls "the deepest philosophical commitment of the connectionist endeavour" [-@chalmers90], namely, distributed representation of meaning. Like more common connectionist models, (i.e. neural networks), VSA models employ simple linear algebra operations to transform their representations. However, unlike neural networks, computation in VSAs is performed with defined algebraic operators. In addition to making the computation of VSAs relatievly transparent, this gives VSA the power of recursive variable binding [@gayler04], an ability that neural networks have been criticized for lacking [@jackendoff03] [^recursive]. As the name implies, the suggestion is that these models may provide a bridge between symbolic models and the distributed representations that are characteristic of neural processing.
+Vector Symbolic Architectures (VSAs) are a class of model that aim to implement a symbolic system with vectors in a very high dimension space [@gayler98; @kanerva88; @plate95]. These models are often called connectionist because they share what Chalmers calls "the deepest philosophical commitment of the connectionist endeavor" [-@chalmers90], namely, distributed representation of meaning. Like more common connectionist models, (i.e. neural networks), VSA models employ simple distributed representations and linear algebra operations to transform these representations. However, unlike neural networks, computation in VSAs is performed with algebraic operators. In addition to making the computation of VSAs relatively transparent, this gives VSA the power of recursive variable binding [@gayler04], an ability that neural networks have been criticized for lacking [@jackendoff03] [^recursive]. As the name implies, the suggestion is that these models may provide a bridge between symbolic models and the distributed representations that are characteristic of neural processing.
 
-[^recursive]: VSA's are not actually recursive in the standard linguistic sense which implies unbounded recursion. Because all items are stored in vectors of the same size, the ammount of interference increases as compositionaj depth increases, making recursion somewhat fuzzy. We see this as a strength.
+[^recursive]: VSA's are not actually recursive in the standard linguistic sense which implies unbounded recursion. Because all items are stored in vectors of the same size, the amount of interference increases as compositional depth increases, making recursion somewhat fuzzy. We see this as a strength.
 
 VSAs are conceptually descended from the work of Smolensky, who demonstrated that variable binding can be accomplished with the tensor product operation [-@smolensky90]. Here, variable binding refers to the ability to rapidly synthesize novel representations by combining existing representations in a principled way, an ability that many cognitive scientists see as essential for human-like cognition (if not cognition more generally). The critical problem with Smolensky's model is that the tensor product causes dimensionality to increase exponentially as elements are recursively composed, making a large scale implementation infeasible. However, later work found that operations such as circular convolution [@plate95] and pairwise multiplication [@gayler98] serve as reasonable approximations of the tensor product, allowing all items to be represented in the same vector space, regardless of internal compositional structure.
 
@@ -82,63 +83,70 @@ VSAs are conceptually descended from the work of Smolensky, who demonstrated tha
 
 The bundle operation [terminology from @gayler98] is addition in every VSA we are aware of. This operation is often used to construct _memory vectors_, which store long term knowledge. @plate95 shows how such vectors can be used as an associative memory by labeling content vectors with a vector representing the name/variable for the stored item. The _semantic vectors_ of @jones07 are also memory vectors, as are the _semantic pointers_ of @eliasmith13.
 
-Label and merge have widely varying and overlapping implementations. The term _bind_ is sometimes used to refer to both types of operations, although a single binding operation such as circular convolution is a only one possible implementation of _merge_. Label is the simpler of the two: it always takes two vectors, one of which only serves as a label (e.g. a variable name), and the other representing a more contentful item (e.g. a word). It is generally implemented as a single multiplicative or permutational operation.
+Label and merge have widely varying and overlapping implementations. The term _bind_ is sometimes used to refer to both types of operations; however we separate the terms due to their different functions. Label is the simpler of the two: it always takes two vectors, one which generally serves only as a label (e.g. a variable name), and another which generally represents a more contentful item (e.g. a word). All VSAs of which we are aware implement _label_ as a single multiplicative or permutational operation.
 
 Merge is more complex. It may take any number of arguments, and it can be implemented in numerous ways. Often, it is not a fundamental operation from an implementation view, but rather a composite of addition-like, multiplication-like, and permutation-like operations. For example, because circular convolution is transitive, @plate95 suggests that an ordered bind/merge operation could be implemented by permuting (label) the operands before convolving them. @jones07 employs this ordered bind operation in their own merge function, which represents N-grams surrounding a single word by binding the words in a chain, with a special vector representing the target word's location. For example, $\n{a} \circledast \Phi \circledast \n{bit}$ would be added to \n{dog}'s semantic vector, representing the occurrence of "a dog bit". The merge operation can also be implemented by permutation (label) followed by addition (bundle). In this case, the label specifies the structural role of each element in the merge. This strategy maintains the property that the resulting vector is dissimilar from the constituents; however, it differs in that vectors with partially overlapping constituents (e.g. "the dog" and "a dog") will be somewhat similar [@sahlgren08]. @basile11 employ a similar technique; however, they label words by their syntactic dependencies rather than linear position.
 
 The relationship of VSAs to neurons is not fully fleshed out. However, to supplement the intuition that distributed representations are more neurally representative than symbolic ones, we point to the Neural Engineering Framework [@eliasmith03], a neural spiking model that closely reflects neural behavior. These representations have a transparent relationship to vectors, and NEF has been described as a compiler that translates vector operations such as circular convolution into neural spikes [@eliasmith13]. Indeed, @blouw15 present a model of concept learning based on this framework, presenting results computed with a neural spiking model. However, the _semantic pointers_ used in this model are very simple, structurally identical to the associative memories of @plate95. Further work is needed to determine whether structured, compositional representations and operations can be supported by this implementation.
 
 
-# VectorGraph
-Thus far we have seen that the graph is a powerful and flexible tool for modeling structured representation. We have also seen that high dimensional vector spaces and a small set of operations may provide a connection between symbolic models and neurons. In this section, we unite the two frameworks, describing an implementation of a graph using a VSA. If abstract models in linguistics can indeed be represented with graphs, and VSAs can indeed be implemented by neurons, a VSA implementation of graphs could lead to a unification of all three of Marr's levels of analysis.
 
-To construct a vector representation of a graph, we begin with the traditional adjacency matrix. Noting similarities between this matrix and the co-occurrence matrices employed by distributional semantic models, we adopt a VSA-based method that has been used effectively in distributional models: _random indexing_ [see @sahlgren05 for an accessible review]. The resulting data structure closely mimics the behavior of an adjacency matrix representation when the vectors have sufficiently high dimensionality.
+# VectorGraph
+Thus far we have seen that the graph is a powerful and flexible tool for modeling structured representation. We have also seen that high dimensional vector spaces and a small set of operations may provide a connection between symbolic models and neurons. In this section, we unite the two frameworks, describing an implementation of a graph using a VSA. If abstract models in linguistics can indeed be represented with graphs, and VSAs can indeed be implemented by neurons, a VSA implementation of graphs could lead to the unification of all three of Marr's levels of analysis.
+
+To construct a vector representation of a graph, we begin with the traditional adjacency matrix. Noting similarities between this matrix and the co-occurrence matrices employed by distributional semantic models, we adopt a VSA-based method that has been used effectively in distributional models: _random indexing_ [see @sahlgren05 for a review]. The resulting data structure closely mimics the behavior of an adjacency matrix representation when the vectors have sufficiently high dimensionality.
 
 
 ## Random indexing for distributional semantic models
-Distributional semantic models (DSMs), such as HAL [@lund96], LSA [@landauer97], and Topic Models [@griffiths07], share with VSAs the notion that an item can be represented by a high dimensional vector. In DSMs, a word's meaning is approximated by the contexts in which it is used. The word-context associations are represented in a very large and sparse matrix, with one row for each word and one column for each document (or word, depending on how context is defined). To the extent that words with similar meaning occur in the same contexts, the rows for similar words will be somewhat similar.
+Distributional semantic models (DSMs), such as HAL [@lund96], LSA [@landauer97], and Topic Models [@griffiths07], share with VSAs the notion that an item can be represented by a high dimensional vector. In DSMs, a word's meaning is approximated by the contexts in which it is used. The word-context associations are represented in a very large and sparse matrix, with one row for each word and one column for each document (or word, depending on how context is defined). To the extent that words with similar meaning occur in the same contexts, these words will have similar rows (similarity generally operationalized with cosine similarity).
 
 With the size of modern data sets, however, the raw context vectors are generally too large and sparse to use effectively. To address this, distributional models employ some form of dimensionality reduction, such as singular value decomposition. An alternative technique, as suggested by @kanerva00, is  _random indexing_. Rather than constructing the full word by document matrix and then applying dimensionality reduction, this technique does dimensionality reduction online. Each context is assigned an immutable _index vector_ which in Kanerva's implementation are sparse ternary vectors. The meaning of a word is represented by a _context vector_ (a domain-specific term for memory vectors). This vector is the sum of the index vectors for every context the word occurs in. Random indexing has been found to produce similar results to LSA with SVD at a fraction of the computational cost [@karlgren01].
 
 ## Random indexing for graphs
+
+
+: Definition of symbols
+
+|      Symbol      |                 Meaning                 |
+|------------------|-----------------------------------------|
+| $a, b, x, y, n$  | A node                                  |
+| $ab$             | A node composed of $a$ and $b$          |
+| $e$              | An edge label                           |
+| $\edge[e]{x}{y}$ | The edge from $x$ to $y$ with label $e$ |
+| $\id_x$          | The index vector of node $x$            |
+| $\row_x$         | The row vector of node $x$              |
+| $\Pi_e(\cdot)$   | The permutation function for label $e$  |
+
 Here, we generalize Kanerva's technique to represent any graph. A standard representation of a graph is an adjacency matrix, where each row/column represents the outgoing/incoming edges of a single node. Applying this interpretation to the co-occurrence matrix used in a word-word distributional semantic model such as HAL, we have a graph with words as nodes and co-occurrence counts as edge weights. Observing that (1) random indexing can represent a co-occurrence matrix, and (2) a co-occurrence matrix can be interpreted as a graph, we suggest that random indexing can be used to represent any graph.
 
-Indeed, we can directly map elements of Kanerva's algorithm to elements of a graph. Just as each context receives an index vector, each node receives an index vector. Context vectors become _row vectors_, which represent all outgoing edges of a node. Just as context vectors are the sum of index vectors of all contexts that a given word occurs in, row vectors are the sum of the index vectors of all nodes that a given node points to. Like context vectors, row vectors are a form of memory vector. They can be constructed incrementally with a series of edge weight increases: To bump the edge $x \rightarrow y$, we add $\id_y$ to $\row_x$.
+Indeed, we can directly map elements of Kanerva's algorithm to elements of a graph. Just as each context receives an index vector, each node receives an index vector. Context vectors become _row vectors_, which represent all outgoing edges of a node. Just as context vectors are the sum of index vectors of all contexts that a given word occurs in, row vectors are the sum of the index vectors of all nodes that a given node points to. Like context vectors, row vectors are a form of memory vector. They can be constructed incrementally with a series of edge weight increases: To bump the edge $\edge{x}{y}$, we add $\id_y$ to $\row_x$.
 
-To recover an edge weight $x \rightarrow y$, we take the cosine similarity of $\id_y$ and $\row_x$. Intuitively, this value will be higher if $\id_y$ has been added to $\row_x$ more times, that is, if the edge $x \rightarrow y$ has been bumped more times. We can also use cosine similarity to measure similarity between nodes. Nodes that have similar outgoing edge weights will be similar because their row vectors will contain many of the same id vectors. Importantly, because random vectors in a high dimensional space tend to be nearly orthogonal, row vectors for nodes that share no outgoing edges will have similarity close to 0.
+To recover the weight of $\edge{x}{y}$, we use cosine similarity: $\weight(\edge{x}{y}) = \cos(\row_x, \id_y)$. Intuitively, this value will be higher if $\edge{x}{y}$ has been bumped many times, because this means that $\id_y$ has been added to $\row_x$ many times. We can also use cosine similarity to measure similarity between nodes: $\sim(x, y) = \cos(row_x, row_y)$. Nodes that have similar outgoing edge weights will be similar because their row vectors will contain many of the same id vectors. Importantly, because random vectors in a high dimensional space tend to be nearly orthogonal, row vectors for nodes that share no outgoing edges will have similarity close to 0.
 
-An interesting attribute of this representation is that edge weights behave somewhat like probabilities. That is, increasing the weight from $x$ to $y$ will slightly decrease the weight from $x$ to $z$. Visually, adding $\id_y$ to $\row_x$ pulls $\row_x$ towards $\id_y$, and thus away from $\id_z$. However, unlike probabilities, there is no hard bound on the sum of all edge weights for a node. The total outgoing edge weight for a single node increases as the number of outgoing edges increase, but at a decelerating rate, as shown in @fig:total-edges.
+An interesting attribute of this representation is that edge weights behave somewhat like probabilities. That is, bumping $\edge{x}{y}$ will slightly decrease the weight of $\edge{x}{z}$. Visually, adding $\id_y$ to $\row_x$ pulls $\row_x$ towards $\id_y$, and thus away from $\id_z$. However, unlike probabilities, there is no hard bound on the sum of all edge weights for a node. The total outgoing edge weight for a single node increases as the number of outgoing edges increase, but at a decelerating rate, as shown in @fig:total-edges.
 
 ![Total edge weight as a function of number of edges. Vectors are length 500.](figs/total-edges.pdf){#fig:total-edges}
 
 ### Edge labels
-A critical feature of U-MILA and ADIOS is the incorporation of different types of edges to represent different types of relationships. This is implemented in the VectorGraph using the _label_ operation. Following @basile11, we use permutation as the label operation. To increase the edge from $x$ to $y$ with label $e$, $x \xrightarrow{e} y$, we add $\Pi_e \id_y$ to $\row_x$. Similarly, to recover a labeled edge weight, $x \xrightarrow{e} y$, we use $cosine(\Pi_e \id_y), \row_x)$.
+A critical feature of U-MILA and ADIOS is the incorporation of different types of edges to represent different types of relationships. This is implemented in the VectorGraph using the _label_ operation. Following @basile11, we use permutation as the label operation. A permutation function simply rearranges the elements of a vector, and it can be represented by another vector of the same dimensionality. Thus, each label is assigned a unique, immutable vector the first time it is used. The permutation function for a label $e$, represented by the vector $\bm{p}$ is
+
+$$ \Pi_e (\bm{v}) = [\bm{v}_{\bm{p}_0}, \bm{v}_{\bm{p}_1}, \dots, \bm{v}_{\bm{p}_D}] $$ {#eq:permutation}
+
+Given that $\id_y$ represents an edge to $y$, we can represent a labeled edge to $y$ as $\Pi_e (\id_y)$. Thus, to increase the edge from $x$ to $y$ with label $e$ ($\edge[e]{x}{y}$) we add $\Pi_e (\id_y)$ to $\row_x$. Similarly, to recover the weight of $\edge[e]{x}{y}$, we use $\cos(\Pi_e (\id_y), \row_x)$.
 
 
-- $bump(x, y, e): \row_x += \Pi_e \id_y$
-- $weight(x, y e): cosine(\row_x, \Pi_e \id_y)$
-- $sim(x, y): cosine(\row_x, \row_y)$
+: Basic VectorGraph operations
 
-\todo{This will be a table}
++--------------------+-----------------------------------------+-------------------------------+
+|   __Operation__    |               __Meaning__               |       __Implementation__      |
++====================+=========================================+===============================+
+| $\bump(x, y, e)$   | increase the weight of $\edge[e]{x}{y}$ | $row_x +\!\!= \Pi_e \id_y$    |
++--------------------+-----------------------------------------+-------------------------------+
+| $\weight(x, y, e)$ | the weight of $\edge[e]{x}{y}$          | $\cos(\row_x, \Pi_e (\id_y))$ |
++--------------------+-----------------------------------------+-------------------------------+
+| $\sim(x, y)$       | similarity between $x$ and $y$          | $\cos(\row_x, \row_y)$        |
++--------------------+-----------------------------------------+-------------------------------+
 
-
-|--------------|--------------------------|----------------|
-|  Operation   |         Meaning          | Implementation |
-|==============|==========================|================|
-| $bump(x, y)$ | increase the edge weight | $\row_x += \Pi_e \id_y$        |
-|              | from $x$ to $y$          |                |
-|--------------|--------------------------|----------------|
-| Oranges      | $2.10                    |                |
-|              |                          |                |
-|--------------|--------------------------|----------------|
-| foo          |                          |                |
-| bar          |                          |                |
-|--------------|--------------------------|----------------|
-
-  : VectorGraph operations
-
-
- 
 
 ## Generalization
 Storing information in a structured form allows an agent to inform her decisions with past experience. However, for this knowledge to be widely applicable in the natural world, it cannot be rigid. This is especially true in complex systems such as language, where the exact same situation is unlikely to occur twice. When attempting to understand and react to events in these domains, an agent must generalize based on experiences similar but not identical to the current situation. For example, upon seeing a new breed of dog, you would likely still recognize it as a dog, and thus avoid leaving your meal unattended in its reach.
@@ -153,23 +161,26 @@ Fortunately, we do not need to choose between these two approaches. Graphs are c
 ### Generalization in vector space
 We view generalization as a function from a raw representation of an item to a generalized representation of that item. The function may be applied, for example, before retrieving an edge weight or measuring the similarity between nodes. In line with both PDP and categorical approaches, we take as a starting point the assumption that if two items are similar in many ways, they might also be similar in other ways. In spatial terms, if two vectors point in similar directions, they can pull towards each other, making them even more similar. If the vector space is uniformly distributed, this will only result in noise. However, if there is structure to the space (i.e. areas with higher and lower density), this results in a fuzzy version of online clustering in which vectors drift towards heavily populated areas. Intuitively, we can think of vectors as having gravity: As one vector gets close to another, it will be pulled even closer.
 
-Formally, for a node $n_0$, we create a generalized row vector as the sum of the all other nodes' row vectors weighted by the similarity of each node to $n_0$. The generalized row vector for $n_0$ is thus
+Formally, for a node $x$, we create a generalized row vector as the sum of the all other nodes' row vectors, weighted by the similarity of each node, $n$ to $x$. The generalized row vector for $x$ is thus
 
-$$ \sum sim(n_0, n_i) \row_i $$
+$$ \gen(\row_x) = \sum_n \row_n \sim(x, n) $$ {#eq:gen}
 
+
+<!--
 A methodological problem arises with this algorithm. It requires performing an expensive similarity calculation for every node in the graph. The brain is a massively parallel computer, and can likely preform such operations fairly quickly. However, on a digital computer, the algorithm is prohibitively time-intensive when applied to anything but a toy grammar. Thus, we propose an alternative algorithm inspired by dynamic programming that we call _dynamic association_. The basic principle of dynamic programming is to avoid computing the same thing multiple times, instead computing it just once and storing its solution. Every time we compute the generalized row vector for a given node, we will recalculate all similarities, most of which will have changed minimally. The the naive dynamic programming approach of simply caching each pair wise similarity will not do because this will ignore any information later acquired. Thus, we must go one step deeper into the algorithm to search for an efficient but well defined optimization.
 
-Specifically, we observe that the similarity of two nodes is built up iteratively through a series of edge weight adjustments. By intervening at each of these steps, we can incrementally construct a generalized vector for each node. To do this, each node receives two additional vectors: a _dynamic row vector_ and a _dynamic id vector_. The dynamic row vector approximates the generalized row vector as defined above. This vector is the sum of the dynamic id vectors of the nodes it points to. The dynamic id vector is the sum of the (non-dynamic) row vectors of every node that has pointed to it. The effect is that when an edge $a \rightarrow b$ is increased, $a$'s dynamic row vector becomes more similar to every other node that points to $b$. This is accomplished by performing two additional operations each time the edge weight from $a$ to $b$ is increased:
+Specifically, we observe that the similarity of two nodes is built up iteratively through a series of edge weight adjustments. By intervening at each of these steps, we can incrementally construct a generalized vector for each node. To do this, each node receives two additional vectors: a _dynamic row vector_ and a _dynamic id vector_. The dynamic row vector approximates the generalized row vector as defined above. This vector is the sum of the dynamic id vectors of the nodes it points to. The dynamic id vector is the sum of the (non-dynamic) row vectors of every node that has pointed to it. The effect is that bumping $\edge{a}{b}$ is makes $a$'s dynamic row vector more similar to every other node that points to $b$. This is accomplished by performing two additional operations each time the edge weight from $a$ to $b$ is increased:
 
 2. Add the dynamic id vector of $b$ to the dynamic row vector vector of $a$.
 1. Add the dynamic row vector of $a$ to the dynamic id vector of $b$. 
 
 In the present implementation, we separate the dynamic generalization vector from the standard row vector, maintaining separate generalized and ungeneralized representations. However, this is not necessary. Indeed, we see it as unlikely that brains would do such a thing given the high metabolic cost of neurons.
+-->
 
 ## Compositionality
 One form of generalization is unique and significant enough to merit separate discussion. The classical principle of compositionality, often attributed to Frege, states that the meaning of an expression is a function of the meanings of its constituent expressions and the rules for combining them. The principle is most often discussed in linguistics; however, language of thought theories [@fodor75; @goodman14; @piantadosi11] suggest that compositionality may be a fundamental characteristic of other kinds of higher order reasoning [see also @werning12].
 
-Indeed, these models may shed greater insight on the role of compositionality in cognition. Language is a unique system because it is defined by individual agent's attempts to represent it. Perhaps the compositional nature of language is a result of the human tendency to represent structure in this way. What role does compositionality play in other natural systems? Taking an example from @goodman14, an agent hoping to predict the outcome of a ping pong match might do so by composing the results of previous matches (blue beats green, green beats red) using probabilistic rules that describe the system (X beats Y $\cap$ Y beats Z $\Rightarrow$ X beats Z). Importantly, the agent's internal model generally does not perfectly describe the system, but it still leads to useful predictions.
+Indeed, these models may shed greater insight on the role of compositionality in cognition. Language is a unique system because it is defined by individual agent's attempts to represent it. Perhaps the compositional nature of language is a result of the human tendency to represent structure in this way. What role does compositionality play in other natural systems? Taking an example from @goodman14, an agent hoping to predict the outcome of a ping pong match might do so by composing the results of previous matches (blue beats green, green beats red) using probabilistic rules that describe the system (X beats Y $\wedge$ Y beats Z $\Rightarrow$ X beats Z). Importantly, the agent's internal model generally does not perfectly describe the system, but it still leads to useful predictions.
 
 This example points to an important distinction between compositionality as a property of a system (e.g. ping pong tournaments) and compositionality as a tool that cognitive agents use to understand that system. The first is a topic for philosophers, and perhaps physicists, and there may be deep, absolute truths regarding this kind of compositionality. The second, more relevant to cognitive scientists, is not a formal property, but rather a tool an agent may use to predict the properties of some new element based on past experience with related elements. In this sense, compositionality is a form of generalization.
 
@@ -178,14 +189,14 @@ An immediate observation is that a bind operation such as circular convolution o
 
 The second possible approach addresses this problem by representing the rules of compositionality numerically. For example, the compositionality of a given system could be represented as a vector which is bound to each input vector before combining them (through a binding or bundling operation). Alternatively, compositionality could be spread across vectors, each of which is used to label a given input vector with a particular role (e.g. agent, action, patient). These vectors will of course have to be learned, which will be a significant challenge. It may be that the amount of information needed to represent compositionality will be too great for first order vectors, thus a matrix (or higher order tensor) might be required. Indeed, whereas a vector maps onto the activations of an ensemble of neurons, a matrix maps onto the synapses between two ensembles. The second may be a more likely way to represent compositional patterns, given that compositionality is generally learned gradually.
 
-In the third approach, compositionality is not represented separately from the individual items. Rather, the way that an item combines with other items is stored directly in that item, reminiscent of combinatory categorial grammar [@steedman11]. In this approach, the merge function itself could be very simple, perhaps just a bind operation. An advantage of the approach is that it treats a word's compositional behavior as no different from its other attributes, a theoretically elegant and perhaps intuitively appealing notion (adjective-iness is a feature of "red"). However, by forcing compositional features to reside in the same space as other features, the learning problem may become more difficult.
+In the third approach, compositionality is not represented separately from the individual items. Rather, the way that an item combines with other items is stored directly in that item, reminiscent of combinatory categorial grammar [@steedman11]. In this approach, the merge function itself could be very simple, perhaps just a bind operation. An advantage of the approach is that it treats a word's compositional behavior as no different from its other attributes, a theoretically elegant and perhaps intuitively appealing notion (e.g. adjective-iness is a feature of "red"). However, by forcing compositional features to reside in the same space as other features, the learning problem may become more difficult.
 
-@baroni13 describe a system of this third kind in which composition is represented by the multiplication of words which are represented by variable order tensors. For example, a noun is a vector (1st order), while an adjective is a matrix (2nd order) because it is a function from nouns to nouns. A transitive verb is a 3rd order tensor because it first multiplies with an object, becoming a matrix, and then with a subject, becoming a vector. Baroni et al. present a recursive supervised learning alogirithm which we do not describe here. One important, and perhaps problematic, feature of this approach is that different words have different shapes (i.e. they are different order tensors). In the model of Baroni et al., the order is determined by an external syntactic model. The task of learning which words should be which order however may be very challenging.
+@baroni13 describe a system of this third kind in which composition is represented by the multiplication of words which are represented by variable order tensors. For example, a noun is a vector (1st order), while an adjective is a matrix (2nd order) because it is a function from nouns to nouns. A transitive verb is a 3rd order tensor because it first multiplies with an object, becoming a matrix, and then with a subject, becoming a vector. Baroni et al. present a recursive supervised learning algorithm which we do not describe here. One important, and perhaps problematic, feature of this approach is that different words have different shapes (i.e. they are different order tensors). In the model of Baroni et al., the order is determined by an external syntactic model. The task of learning which words should be which order however may be very challenging.
 
 ### A trivial merge operation
-Although we see more potential for the second and third approaches to compositionality, they are far more difficult to pursue. Thus we present a merge function of the first type, which is designed to model an especially simple kind of compositionality that can be approximated fairly well with rules over categories (e.g. syntax). To construct this function, we begin with an example rule: $\n{NP} \rightarrow \n{D} \n{N}$. Replacing explicit categories with similarity, and the non terminal \n{NP} with its compositional structure, we can say that, \n{[a b]} will be similar to \n{[D N]} if \n{a} is similar to \n{D} and \n{b} is similar to \n{N}. We are still left with the categories \n{D} and \n{N}. Thus, in line with the generalization algorithm discussed above, we replace a cateogory label with a weighted average of all nodes. That is, upon creating of the new node \n{[a b]}, we construct an initial row vector as the sum of every other chunk's row vector, weighted by the similarity of the constituents. To capture the fact that all constituents must be similar, we take the geometric mean (a multiplicative operation) of the pairwise similarities.
+Although we see more potential for the second and third approaches to compositionality, they are far more difficult to pursue. Thus we present a merge function of the first type, which is designed to model an especially simple kind of compositionality that can be approximated fairly well with rules over categories (e.g. syntax). To construct this function, we begin with an example rule: $\n{NP} \rightarrow \n{D} \n{N}$. Replacing explicit categories with similarity, and the non terminal \n{NP} with its compositional structure, we can say that, \n{[A B]} will be similar to \n{[D N]} if \n{A} is similar to \n{D} and \n{B} is similar to \n{N}. We are still left with the categories \n{D} and \n{N}. Thus, in line with the generalization algorithm discussed above, we replace a category label with a weighted average of all nodes. That is, upon creating the new node \n{[A B]}, we construct an initial row vector as the sum of every other chunk's row vector, weighted by the pairwise similarities of the respective constituents. Importantly, all parallel constituents must be similar (e.g. "the tasty macaroni" is not structurally similar to "ate tasty macaroni"). Thus we take the geometric mean (a multiplicative operation) of the pairwise similarities. The row for a newly constructed node, $ab$ is
 
-$$ \row_{ab} = \sum \sqrt{sim(a, b) sim(x, y)} \ \row_{xy} $$
+$$ \row_{ab} = \sum \sqrt{\sim(a, b) \sim(x, y)} \ \row_{xy} $$ {#eq:merge}
 
 
 ## Simulations
@@ -202,27 +213,111 @@ To test the generalization algorithm, we create a bigram model with a VectorGrap
 ![Generalization. A non-zero edge weight is assigned to edges that were never bumped.](figs/generalization.pdf){#fig:gen}
 
 ### Compositionality
-To test the composition algorithm, we begin with the same bigram model as used in the previous simulation. We then create nodes representing noun phrases with all determiner-noun pairs, excluding the \n{the} and the noun \n{boy}. For each of these phrases, we assign high edge weights to \n{saw} and \n{ate}. As a test item, we create a new noun phrase node, \n{[the boy]}, either using the composition algorithm or not. Critically, \n{[the boy]} receives no direct training. We then measure edge weights from \n{[the boy]} to \n{saw} and \n{ate}. These will be near-zero when no composition is used. However, if the composition algorithm is successful, we expect \n{[the boy]} to have high edge weights to \n{saw} and \n{ate}. This is because previously encountered nodes composed of pairs of nodes like (\n{the}, \n{boy}) have high weights to \n{saw} and \n{ate}. As showin in @fig:composition, the results match our expectations.
+To test the composition algorithm, we begin with the same bigram model as used in the previous simulation. We then create nodes representing noun phrases with all determiner-noun pairs, excluding \n{the} and the noun \n{boy}. For each of these phrases, we assign high edge weights to \n{saw} and \n{ate}. As a test item, we create a new noun phrase node, \n{[the boy]}, either using the composition algorithm or not. Critically, \n{[the boy]} receives no direct training. We then measure edge weights from \n{[the boy]} to \n{saw} and \n{ate}. These will be near-zero when no composition is used. However, if the composition algorithm is successful, we expect \n{[the boy]} to have high edge weights to \n{saw} and \n{ate}. This is because previously encountered nodes composed of pairs of nodes like (\n{the}, \n{boy}) have high weights to \n{saw} and \n{ate}. As showin in @fig:composition, the results match our expectations.
 
 ![Composition. A newly created node has edge-weights similar to existing nodes composed of similar elements.](figs/composition.pdf){#fig:composition}
 
+
+
 # Nümila
+To demonstrate that a VectorGraph can be used as a component of another model, we created a simple language acquisition model, based on previous graphical models [@solan05; @kolodny15] and chunking models [@mccauley11]. Like these previous models, Nümila reduces the problem of language acquisition to the much simpler problem of producing grammatical utterances based on statistical patterns in speech, specifically the transitional probabilities between words and phrases. In reality, language acquisition is heavily dependent on the semantic and social aspects of language [@tomasello03; @goldstein10], perhaps so much so that it cannot be effectively studied without considering these factors [see @frank09]. Thus, we present the model mainly for illustrative purposes, rather than as a proposed model of language acquisition.
 
-This section will be dramatically shortened. I'm not confident in the validity of most of the results, so I will frame it even more as a demonstration of the graph, and not as a language model. The paper will be more cohesive this way.
+Nümila is a hybrid of ADIOS, U-MILA, and CBL. It has the hierarchical representations of ADIOS, the bottom-up learning algorithm of U-MILA (roughly), and the incrementality of CBL. Nümila consists of a graphical model,a parsing algorithm, and a production algorithm. 
 
-Hopefully we can fix up the language part for UBL.
 
-- bottom up chunking of U-MILA
-    - no pseudo code
-    - no multiple algorithms
-- ROC
-    - graph of holo vs prob, with and without chunks
-- BLEU
-    - holo vs prob, with and without chunks
-    - graph comparing FTP to BTP
+## Graphical model
+The model represents its knowledge using a directed, labeled, multigraph, such as the VectorGraph. Words and phrases ("chunks") are nodes, and transitional probabilities between those elements are edges. An idealized visualization of the graph is shown in Figure TODO
+
+\input{diagrams/graph.tex}
+
+### Edges
+The model has two edge-types representing forward and backward transitional probabilities, that is, the probability of one word following or preceding a given word: $p(w_i = x | w_{i-1} = y)$ and $p(w_i = x | w_{i+1} = y)$ respectively. Although forward transitional probability (FTP) is the standard in N-gram models, some evidence suggests that infants are more sensitive to BTP [@pelucchi09], and previous language acquisition models have been more successful when employing it [@mccauley11]. To examine the relative contribution of each direction of transitional probability, we make their relative weight an adjustable parameter. Although ADIOS and U-MILA have only one type of temporal edge (co-occurrence count), their learning algorithms compute something very similar to FTP and BTP. By using two edge types, we build this computation into the representational machinery.
+
+
+### Merge
+When two nodes (initially words) are determined to co-occur at an unexpectedly high frequency (see below), a merge function is applied to create a new node. We consider three merge functions. In Nümila, a merge function has two purposes: (1) to determine the identity of the resulting node, and optionally (2) to construct initial edge weights for the node. The _flat_ merge function takes two[^binary] nodes and concatenates them: \n{[A B], [C D]} $\rightarrow$ \n{[ A B C D ]}. The _hierchical_ merge combines them in a tuple: \n{[ A B ], [ C D ]} $\rightarrow$ \n{[ [ A B ] [ C D ] ]}. Finally, the _compositional_ merge is like hierarchical merge, but additionally uses the composition algorithm discussed above to construct initial edge weights for the newly created node.
+
+[^binary]: The restriction to a binary merge function is a simplifying assumption, not a theoretical claim [in contrast to @chomsky99].
+
+
+## Parsing
+The assignment of structure and learning occur in a single process that we call parsing. To parse an utterance, the model constructs a path through the graph, making local modifications as it goes. The initially blank graph is thus built with three operations: (1) adding newly discovered base tokens to the graph, (2) increasing weights between nodes in the graph, and (3) creating chunk nodes by merging existing nodes. In addition to modifying the graph, parsing assigns structure to he utterance, representing it as a path through the graph. The path spans the full utterance; however, because chunk nodes span multiple words, this path may have fewer nodes than the utterance has words.
+
+The model uses greedy algorithm to construct the path. It begins at the boundary node, and then proceeds forward one word/node at a time. Whenever a new node is added to the path, the FTP and BTP edge weights between that node and the previous node are bumped. In line with the Now-or-Never bottleneck [@christiansen15], the algorithm has a limited working memory: It can only "see" the four most recent nodes in the path. When this limit is reached, the algorithm attempt to consolidate the path by replacing two nodes with a single chunk node. To do this, the chunkiness between all adjacent nodes is computed; if the highest chunkiness exceeds a threshold, the pair is replaced by a single node representing that pair. If this chunk node is already in the graph, it is used; otherwise it is first created and added to the graph. Finally, the edge weights between this new node and the nodes on either side are bumped.
+
+The algorithm proceeds thusly, adding the next word to the path and chunking, until it reaches the end of the utterance. At this point, nodes are combined until the path consists of a single node, or no pair of nodes exceeds the chunkiness threshold. The full path, including nodes that were dropped from memory, are retained in the final representation of the parse.
+
+
+## Simulations
+To test the model, we use naturalistic child directed speech, specifically the corpora prepared by @phillips14. For each of the seven languages, the input can be tokenized by word, syllable, or phoneme, giving a total of $7 \times 3 = 21$ corpora. All models are trained on the first 7000 utterances of each corpus, and tested on the next 1000. We test several instantiations of Nümila using different graph implementations, merge functions, and parameter settings. 
+
+## Grammaticality judgment
+As a first test, we use the common task of discriminating grammatical from ungrammatical utterances. This task is appealing because it is theory agnostic (unlike evaluating tree structures) and it does not require that the model produce normalized probabilities (unlike perplexity). The only requirement is that the model be able to quantify how well an utterance fits its knowledge of the language.
+
+### Generating an acceptability score
+To score an utterance, the model begins by parsing the utterance, discovering a path through the graph that passes through every word in the sentence (possibly visiting multiple words with one chunk node). The product of chunkinesses for every adjacent pair of nodes on the path is then calculated. Finally, to avoid penalizing longer utterances, the score is taken to the $n-1$ root, where $n$ is the length of the utterance. 
+
+
+<!-- 
+TODO APPENDIX?
+
+Statistical language modeling is sometimes equated with determining the probability of word sequences [c.f. @goodman01], something that Nümila does not do natively because outgoing edges for one node (labeled e.g. FTP) are not required to sum to 1, and are thus not probabilities. Of course, it would be possible to calculate normalized edge probabilities; however, we take the alternative approach of evaluating the model with the model-neutral task of grammaticality discrimination.
+
+Although Nümila's edge weights are not probabilities, we employ the same basic principles of formal language models to assign a score. In a generative language model, the probability of an utterance is the sum of the probabilities of all possible ways to produce the utterance (e.g. all tree structures). The probability of each structure is the product of the probabilities of every rule that is applied in creating the utterance. With a PCFG, the rules are all of the form $NT \rightarrow \alpha$, where $NT$ is a nonterminal symbol (representing one branch of the tree, a constituent) and $\alpha$ is a sequence of symbols, either terminal or nonterminal. With an N-gram model, on the other hand, the rules are all of the form $\alpha \rightarrow \alpha \cdot w$, where $\alpha$ is the $N-1$ most recent words and $w$ is the next word.
+
+Because Nümila incorporates structural elements (chunks) and transitional probabilities, it uses both types of rules. For chunks, the PCFG rule is applied; however, because each node has exactly one compositional structure, the rule probability is always 1. When an utterance has a series of nodes that cannot be combined, the bigram rule is applied: For each adjacent pair of nodes, $(X, Y)$, we apply the rule $X \rightarrow X \cdot Y$ with probability proportional to $E_F(X, Y)$. The result is simply the product of FTPS between each pair of nodes spanning the utterance. Finally, to avoid penalizing longer utterances, we take the result to the $n-1$ root where $n$ is the length of the utterance. We choose this number because it is the maximum number of edge weights that could be multiplied together to produce the final score.
+
+Given a function that assigns scores to a single parse of an utterance, it is straightforward to create a function that assigns scores to the utterance itself. With a PCFG (where the scores are probabilities) the probability of the utterance is the sum of the probabilities of each parse. This is a result of the assumption that the utterance is generated by the PCFG model, along with Kolmogorov's third axiom that the probability of the union of independent events is the sum of the probabilities of each event. Although Nümila's scores are not true probabilities, we apply the same rule. That is, the score of an utterance is the sum of the scores for all parses of that utterance.
+
+-->
+
+### Preparation of stimuli and analysis of performance
+To construct a test corpus, we first take 500 unseen utterances from the corpus, which are labeled "grammatical". For each utterance, we create a set of altered utterances, each with one adjacent pair of tokens swapped. For example, given "the big dog", we create "big the dog" and "the dog big". These altered utterances are added to the test corpus with the label "ungrammatical". The model's task is to separate grammatical from ungrammatical. Often, this task is modeled by setting a threshold, all utterances with scores higher than the threshold predicted to be grammatical. However, it is unclear how to set such a threshold without either specifying it arbitrarily, or giving the model access to the test labels. Thus, we employ a metric from signal detection theory, the Receiver Operator Characteristic.
+
+![A Receiver Operator Characteristic curve for two models on the English word corpus.](figs/roc-curve.pdf){#fig:roc-curve}
+
+An ROC curve, such as the one in figure @fig:roc-curve, plots true positive rate against false positive rate. As the acceptability threshold is lowered, both values increase. This curve is closely related to the precision-recall curve, but it has the benefit of allowing interpolation between data points, resulting in a smoother curve [@davis06]. As a scalar metric, we use the total area under the curve. The better the separation of grammatical from ungrammatical by the acceptability score, the higher this value will be.
+
+### Results
+
+The results indicate that the VectorGraph can be successfully used in a language acquisition model. The models using a VectorGraph perform about as well as those using a ProbGraph, which has true transitional probabilities as edges. However, they do tend perform slightly worse, likely due to interferences between non-orthogonal index vectors (as in @fig:storage). To support this explanation, we note that the Vector/Prob difference is most pronounced for words. There are more unique words than unique phonemes or syllables, thus there will be more nodes competing for space in the row vectors. Looking only at the phonemic input, we see that the two graphs perform more similarly.
+
+The second main result is the null one. Using multi-word chunks does not provide any benefit--in fact it seems to be a disadvantage. The Markovian model that only tracks transitional probabilities (both FTP and BTP) between individual words does the best. There is no clear difference between the hierarchical and flat merging rules, but given that chunking is not working at all, we cannot infer much from this result. Furthermore, we note that our method of producing foil utterances may be especially well-suited for a Markov model. By simply swapping adjacent words, we are likely to introduce very unlike bigrams, which the Markov model will capture. Although the chunking model captures these as well, the noise induced by also tracking multi-word phrases appears to interfere slightly. Thus, we turn now to the next simulation, which may better distinguish the models.
+
+
+![Area under ROC curve for different input types, collapsed across languages.](figs/roc-type.pdf){#fig:roc-type}
+
+## Production
+As a second test, we use the task of ordering a bag of words---a proxy for production. A more direct test of production would be to generate utterances without any input, for example, by concatenating nodes in the graph based on transitional probabilities. However, the ordering task has two disadvantages: (1) it is difficult to evaluate the acceptability of generated utterances without querying human subjects; (2) speaking involves semantic as well as structural information, the first of which the present model does not attempt to capture. To avoid these problems, we follow previous work [@chang08; @mccauley14a] by using a word-ordering task to isolate structural knowledge. A bag of words is taken as an approximate representation of the thought a speaker wishes to convey; the syntactic task is to say the words in the right order.
+
+### Ordering a bag of words
+We treat ordering a bag of words as an optimization problem, using the acceptability score described above as a utility function. The optimal but inefficient strategy is to enumerate all possible orderings of the words and choose the one with the highest acceptability score. However, with $n!$ possible orderings, this becomes intractable for longer utterances. As with parsing, we propose a greedy algorithm, very similar to the one used by @mccauley14a. As with parsing, production can be seen as forging a path through the graph; however in this case, the model must choose the order in which it visits the nodes.
+
+The algorithm begins by greedily constructing chunks using the input words: These words are placed in a bag, and the most chunkable pair is replaced with their chunk node until no more chunks can be made. Now the chunks are combined to form an utterance: Beginning from the utterance boundary node, the node in the that has the greatest chunkiness with the previous node is added to the path. This is somewhat like a Markov process, except that chunkiness is used in the place of forward transitional probability and a maximization rule is used as opposed to probability matching.
+
+
+### Preparation of stimuli and analysis of performance
+To test the model on this task, we take an unseen item from the corpus, convert it into a bag of words, and then compare the model's ordering to the original utterance. A simple comparison strategy is to assign a score of 1 if the model's output perfectly matches the original, and 0 otherwise [as in @mccauley14a]. However, this metric selectively lowers the average score of longer utterances, which have $n!$ possible orderings. If the average score varies across utterance lengths, utterances of different lengths will have varying discrimination power (in the extreme, no discrimination power if all models fail all utterances of a given length). Given this, we use the BLEU metric [@papineni02], which is more agnostic to utterance length. Specifically, we use the percentage of trigrams that are shared between the two utterances.[^bleu]
+
+[^bleu]: Although we present only results with this metric, we remark that the pattern of results is roughly constant for various order N-grams, as well as for the strict perfect match metric.
+
+### Results
+The production results roughly parallel the grammaticality discrimination results. The VectorGraph suffers slightly from noise, and the Markovian models perform the best. ...
+
+- compare to U-MILA?
+
+![Production results.](figs/bleu.pdf) {#fig:tp-bleu}
+
+To investigate the contribution of FTP and BTP, we conduct the proudction experiment with a second set of models. All use the ProbGraph, to eliminate possible interactions with the noise caused by the VectorGraph. We use a 2 $\times$ 2 design of (chunking, Markov) $\times$ (ftp, btp, both). Results are displayed in @fig:tp-bleu.  For the Markovian models, there is a clear preference for BTP, which is somewhat surprising given that the total score of a path is the same regardless of transition direction. This indicates that the FTP/BTP distinction may depend on the greedy production algorithm, which chooses the next word based on the transition to the last. A possible explanation is that BTP prevents the algorithm from immediately concatenating a common word (which will generally have higher incoming FTP). When using BTP, the frequency of a word will not affect its probability of being chosen (at least, not in this way).
+
+Another surprising result is the interaction between chunking and transitional direction. The chunking models are not as sensitive to this attribute: The chunking model actually performs better than the Markov model when only using FTP. The natural explanation here is that while the Markov models must operate entirely on transitional probability, the chunking models have the additional information of common phrases. We are unable to dissociate the effect of transitional direction on the chunking process as opposed to the production process; thus we cannot make conclusions about the utility of each direction for the learning of chunks.
+
+![Effect of the different directions of transitional probability.](figs/bleu.pdf)
 
 
 # Conclusion
 Grahps, vectors, graphs, graphs, vectors, neurons, language, chalmers, and graphs.
+
+- still some binding done at symbolic level (association between id and row)
 
 # References

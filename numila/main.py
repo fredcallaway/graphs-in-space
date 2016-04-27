@@ -44,25 +44,25 @@ def get_models(model_names, train_corpus, parallel=False):
         'holo': dict(),
         'holo_flat': dict(HIERARCHICAL=False),
         'holo_flat_full': dict(PARSE='full', HIERARCHICAL=False),
-        'prob': dict(GRAPH='prob', EXEMPLAR_THRESHOLD=0.05),
-        'prob_flat': dict(GRAPH='prob', EXEMPLAR_THRESHOLD=0.05, HIERARCHICAL=False),
-        'prob_flat_full': dict(GRAPH='prob', EXEMPLAR_THRESHOLD=0.05, PARSE='full', HIERARCHICAL=False),
+        'prob': dict(GRAPH='prob', CHUNK_THRESHOLD=0.05),
+        'prob_flat': dict(GRAPH='prob', CHUNK_THRESHOLD=0.05, HIERARCHICAL=False),
+        'prob_flat_full': dict(GRAPH='prob', CHUNK_THRESHOLD=0.05, PARSE='full', HIERARCHICAL=False),
 
-        'prob_ftp': dict(GRAPH='prob', EXEMPLAR_THRESHOLD=0.05, BTP_PREFERENCE=0),
-        'prob_btp': dict(GRAPH='prob', EXEMPLAR_THRESHOLD=0.05, BTP_PREFERENCE='only'),
-        'prob_markov_ftp': dict(GRAPH='prob', EXEMPLAR_THRESHOLD=2, PARSE='full', BTP_PREFERENCE=0),
-        'prob_markov_btp': dict(GRAPH='prob', EXEMPLAR_THRESHOLD=2, PARSE='full', BTP_PREFERENCE='only'),
-        'prob_markov': dict(GRAPH='prob', EXEMPLAR_THRESHOLD=2, PARSE='full'),
+        'prob_ftp': dict(GRAPH='prob', CHUNK_THRESHOLD=0.05, BTP_PREFERENCE=0),
+        'prob_btp': dict(GRAPH='prob', CHUNK_THRESHOLD=0.05, BTP_PREFERENCE='only'),
+        'prob_markov_ftp': dict(GRAPH='prob', CHUNK_THRESHOLD=2, PARSE='full', BTP_PREFERENCE=0),
+        'prob_markov_btp': dict(GRAPH='prob', CHUNK_THRESHOLD=2, PARSE='full', BTP_PREFERENCE='only'),
+        'prob_markov': dict(GRAPH='prob', CHUNK_THRESHOLD=2, PARSE='full'),
 
-        'holo_markov': dict(GRAPH='holo', EXEMPLAR_THRESHOLD=2, PARSE='full'),
+        'holo_markov': dict(GRAPH='holo', CHUNK_THRESHOLD=2, PARSE='full'),
         'composition': dict(COMPOSITION=4),
 
         #'dynamic1': dict(DYNAMIC=0.1),
         #'dynamic3': dict(DYNAMIC=0.3),
         'dynamic': dict(DYNAMIC=0.5),
 
-        'bigram': dict(GRAPH='prob', EXEMPLAR_THRESHOLD=2, PARSE='full', BTP_PREFERENCE=0),
-        'prob_out': dict(GRAPH='prob', EXEMPLAR_THRESHOLD=0.05, SPEAK='outward')
+        'bigram': dict(GRAPH='prob', CHUNK_THRESHOLD=2, PARSE='full', BTP_PREFERENCE=0),
+        'prob_out': dict(GRAPH='prob', CHUNK_THRESHOLD=0.05, SPEAK='outward')
     }
 
     other_models = {
@@ -152,7 +152,7 @@ def run(models, lang, kind, train_len, roc_len=100, bleu_len=100):
 #########
 def foo():
     model = Numila(GRAPH='holo')
-    model = Numila(GRAPH='graph', EXEMPLAR_THRESHOLD=0.05)
+    model = Numila(GRAPH='graph', CHUNK_THRESHOLD=0.05)
     corp = get_corpora('English', 'syl', 5000)
     model.fit(corp['train'])
     test = iter(corp['bleu_test'])
@@ -249,7 +249,6 @@ def main(model_set='default', train_len=7000, langs=None, kinds=None, parallel=T
 
 
 if __name__ == '__main__':
-    main('transition', kinds=['word', 'syl'])
-    exit()
+    main('transition')
     main('default')
     main('holo')
