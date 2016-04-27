@@ -191,7 +191,8 @@ The second possible approach addresses this problem by representing the rules of
 
 In the third approach, compositionality is not represented separately from the individual items. Rather, the way that an item combines with other items is stored directly in that item, reminiscent of combinatory categorial grammar [@steedman11]. In this approach, the merge function itself could be very simple, perhaps just a bind operation. An advantage of the approach is that it treats a word's compositional behavior as no different from its other attributes, a theoretically elegant and perhaps intuitively appealing notion (e.g. adjective-iness is a feature of "red"). However, by forcing compositional features to reside in the same space as other features, the learning problem may become more difficult.
 
-@baroni13 describe a system of this third kind in which composition is represented by the multiplication of words which are represented by variable order tensors. For example, a noun is a vector (1st order), while an adjective is a matrix (2nd order) because it is a function from nouns to nouns. A transitive verb is a 3rd order tensor because it first multiplies with an object, becoming a matrix, and then with a subject, becoming a vector. Baroni et al. present a recursive supervised learning algorithm which we do not describe here. One important, and perhaps problematic, feature of this approach is that different words have different shapes (i.e. they are different order tensors). In the model of Baroni et al., the order is determined by an external syntactic model. The task of learning which words should be which order however may be very challenging.
+@baroni13 describe a system of this third kind in which composition is represented by the multiplication of words which are represented by variable order tensors. For example, a noun is a vector (1st order), while an adjective is a matrix (2nd order) because it is a function from nouns to nouns. A transitive verb is a 3rd order tensor because it first multiplies with an object, becoming a matrix, and then with a subject, becoming a vector. Baroni et al. present a recursive supervised learning algorithm which we do not describe here. One important, and perhaps problematic, feature of this particular approach is that words with different syntactic categories have different shapes (i.e. they are different order tensors). In addition to the complications this approach creates for implementation theories, it requires that syntax be learned before, and independently from, semantics.
+
 
 ### A trivial merge operation
 Although we see more potential for the second and third approaches to compositionality, they are far more difficult to pursue. Thus we present a merge function of the first type, which is designed to model an especially simple kind of compositionality that can be approximated fairly well with rules over categories (e.g. syntax). To construct this function, we begin with an example rule: $\n{NP} \rightarrow \n{D} \n{N}$. Replacing explicit categories with similarity, and the non terminal \n{NP} with its compositional structure, we can say that, \n{[A B]} will be similar to \n{[D N]} if \n{A} is similar to \n{D} and \n{B} is similar to \n{N}. We are still left with the categories \n{D} and \n{N}. Thus, in line with the generalization algorithm discussed above, we replace a category label with a weighted average of all nodes. That is, upon creating the new node \n{[A B]}, we construct an initial row vector as the sum of every other chunk's row vector, weighted by the pairwise similarities of the respective constituents. Importantly, all parallel constituents must be similar (e.g. "the tasty macaroni" is not structurally similar to "ate tasty macaroni"). Thus we take the geometric mean (a multiplicative operation) of the pairwise similarities. The row for a newly constructed node, $ab$ is
@@ -226,16 +227,16 @@ Nümila is a hybrid of ADIOS, U-MILA, and CBL. It has the hierarchical represent
 
 
 ## Graphical model
-The model represents its knowledge using a directed, labeled, multigraph, such as the VectorGraph. Words and phrases ("chunks") are nodes, and transitional probabilities between those elements are edges. An idealized visualization of the graph is shown in Figure TODO
+The model represents its knowledge using a directed, labeled, multigraph, such as a VectorGraph. Words and phrases ("chunks") are nodes, and transitional probabilities between those elements are edges. An idealized visualization of the graph is shown in Figure TODO.
 
 \input{diagrams/graph.tex}
 
 ### Edges
-The model has two edge-types representing forward and backward transitional probabilities, that is, the probability of one word following or preceding a given word: $p(w_i = x | w_{i-1} = y)$ and $p(w_i = x | w_{i+1} = y)$ respectively. Although forward transitional probability (FTP) is the standard in N-gram models, some evidence suggests that infants are more sensitive to BTP [@pelucchi09], and previous language acquisition models have been more successful when employing it [@mccauley11]. To examine the relative contribution of each direction of transitional probability, we make their relative weight an adjustable parameter. Although ADIOS and U-MILA have only one type of temporal edge (co-occurrence count), their learning algorithms compute something very similar to FTP and BTP. By using two edge types, we build this computation into the representational machinery.
+The model has two edge-types representing forward and backward transitional probabilities, that is, the probability of one word following or preceding a given word: $p(w_i = x | w_{i-1} = y)$ and $p(w_i = x | w_{i+1} = y)$ respectively. Although forward transitional probability (FTP) is the standard in N-gram models, some evidence suggests that infants are more sensitive to BTP [@pelucchi09], and previous language acquisition models have been more successful when employing it [@mccauley11]. To examine the relative contribution of each direction of transitional probability, we make their relative weight an adjustable parameter.
 
 
 ### Merge
-When two nodes (initially words) are determined to co-occur at an unexpectedly high frequency (see below), a merge function is applied to create a new node. We consider three merge functions. In Nümila, a merge function has two purposes: (1) to determine the identity of the resulting node, and optionally (2) to construct initial edge weights for the node. The _flat_ merge function takes two[^binary] nodes and concatenates them: \n{[A B], [C D]} $\rightarrow$ \n{[ A B C D ]}. The _hierchical_ merge combines them in a tuple: \n{[ A B ], [ C D ]} $\rightarrow$ \n{[ [ A B ] [ C D ] ]}. Finally, the _compositional_ merge is like hierarchical merge, but additionally uses the composition algorithm discussed above to construct initial edge weights for the newly created node.
+When two nodes (initially words) are determined to co-occur at an unexpectedly high frequency (see below), a merge function is applied to create a new node. We consider three merge functions. The _flat_ merge function takes two[^binary] nodes and concatenates them: \n{[A B], [C D]} $\rightarrow$ \n{[ A B C D ]}. The _hierchical_ merge combines them into a tree: \n{[ A B ], [ C D ]} $\rightarrow$ \n{[ [ A B ] [ C D ] ]}. Finally, the _compositional_ merge is like hierarchical merge, but additionally uses the composition algorithm discussed above to construct initial edge weights for the newly created node.
 
 [^binary]: The restriction to a binary merge function is a simplifying assumption, not a theoretical claim [in contrast to @chomsky99].
 
@@ -252,7 +253,7 @@ The algorithm proceeds thusly, adding the next word to the path and chunking, un
 To test the model, we use naturalistic child directed speech, specifically the corpora prepared by @phillips14. For each of the seven languages, the input can be tokenized by word, syllable, or phoneme, giving a total of $7 \times 3 = 21$ corpora. All models are trained on the first 7000 utterances of each corpus, and tested on the next 1000. We test several instantiations of Nümila using different graph implementations, merge functions, and parameter settings. 
 
 ## Grammaticality judgment
-As a first test, we use the common task of discriminating grammatical from ungrammatical utterances. This task is appealing because it is theory agnostic (unlike evaluating tree structures) and it does not require that the model produce normalized probabilities (unlike perplexity). The only requirement is that the model be able to quantify how well an utterance fits its knowledge of the language.
+As a first test, we use the common task of discriminating grammatical from ungrammatical utterances. This task is appealing because it is theory agnostic (unlike evaluating tree structures) and it does not require that the model produce normalized probabilities (unlike perplexity).
 
 ### Generating an acceptability score
 To score an utterance, the model begins by parsing the utterance, discovering a path through the graph that passes through every word in the sentence (possibly visiting multiple words with one chunk node). The product of chunkinesses for every adjacent pair of nodes on the path is then calculated. Finally, to avoid penalizing longer utterances, the score is taken to the $n-1$ root, where $n$ is the length of the utterance. 
@@ -288,7 +289,7 @@ The second main result is the null one. Using multi-word chunks does not provide
 ![Area under ROC curve for different input types, collapsed across languages.](figs/roc-type.pdf){#fig:roc-type}
 
 ## Production
-As a second test, we use the task of ordering a bag of words---a proxy for production. A more direct test of production would be to generate utterances without any input, for example, by concatenating nodes in the graph based on transitional probabilities. However, the ordering task has two disadvantages: (1) it is difficult to evaluate the acceptability of generated utterances without querying human subjects; (2) speaking involves semantic as well as structural information, the first of which the present model does not attempt to capture. To avoid these problems, we follow previous work [@chang08; @mccauley14a] by using a word-ordering task to isolate structural knowledge. A bag of words is taken as an approximate representation of the thought a speaker wishes to convey; the syntactic task is to say the words in the right order.
+As a second test, we use the task of ordering a bag of words---a proxy for production. A more direct test of production would be to generate utterances without any input, for example, by concatenating arbitrary nodes in the graph based on transitional probabilities. However, this task has two disadvantages: (1) it is difficult to evaluate the acceptability of generated utterances without querying human subjects, and (2) speaking involves semantic as well as structural information, the first of which the present model does not attempt to capture. To avoid these problems, we follow previous work [@chang08; @mccauley14a] by using a word-ordering task to isolate structural knowledge. A bag of words is taken as an approximate representation of the thought a speaker wishes to convey; the syntactic task is to say the words in the right order.
 
 ### Ordering a bag of words
 We treat ordering a bag of words as an optimization problem, using the acceptability score described above as a utility function. The optimal but inefficient strategy is to enumerate all possible orderings of the words and choose the one with the highest acceptability score. However, with $n!$ possible orderings, this becomes intractable for longer utterances. As with parsing, we propose a greedy algorithm, very similar to the one used by @mccauley14a. As with parsing, production can be seen as forging a path through the graph; however in this case, the model must choose the order in which it visits the nodes.
@@ -314,10 +315,20 @@ Another surprising result is the interaction between chunking and transitional d
 
 ![Effect of the different directions of transitional probability.](figs/bleu.pdf)
 
+## Discussion
+Thee performance of Nümila is less than impressive. 
+
+- lessons
+    - holograph can do a bigram model
+    - 
+- can't identify source of problems with chunking
+    - limits inference about composition
 
 # Conclusion
-Grahps, vectors, graphs, graphs, vectors, neurons, language, chalmers, and graphs.
 
+
+- implementation vs alternative to symbols (chalmers)
+- 
 - still some binding done at symbolic level (association between id and row)
 
 # References
