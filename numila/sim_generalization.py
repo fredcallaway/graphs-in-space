@@ -5,6 +5,7 @@ import pandas as pd
 import numpy as np
 import seaborn as sns
 sns.set_style('whitegrid')
+sns.set_palette('muted')
 
 from holograph import HoloGraph
 import utils
@@ -90,13 +91,13 @@ def composition(graph):
 
 
 def generalization(graph):
-    data = [{'generalization' : str(gen and gen[0]),
+    data = [{'generalization' : str(gen and gen[1]),
              'det': det,
              'noun': noun,
              'edge weight': graph[det].edge_weight(graph[noun], generalize=gen)} 
             for det in ['my', 'that']
             for noun in ['boy', 'table', 'bunny', 'Jack', 'saw', 'the']
-            for gen in [None, ('similarity', 0.5), ('dynamic', 0.5)]]
+            for gen in [None, ('similarity', 0.5)]]
     df = pd.DataFrame(data)
     sns.factorplot('noun', 'edge weight', col='generalization', hue='det',
                    data=df, kind='bar', legend_out=True).despine(left=True)
