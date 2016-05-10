@@ -13,7 +13,7 @@ The model represents its knowledge using a directed, labeled multigraph. Because
 The model has two edge-types representing forward and backward transitional probabilities, that is, the probability of one word following or preceding a given word: $p(w_i = x | w_{i-1} = y)$ and $p(w_i = x | w_{i+1} = y)$ respectively. Both edge weights are used when computing the _chunkiness_ of two nodes. Chunkiness measures the degree to which two words tend to occur together, and is defined as the weighted geometric mean of FTP and BTP between the two nodes. The chunkiness for the ordered pair $(a, b)$ is
 
 $$ \text{chunkiness}(a, b) = \sqrt{
-    w_{\n{FTP}} \weight(a, b, \n{FTP}) \~
+    w_{\n{FTP}} \weight(a, b, \n{FTP}) \ 
     w_{\n{BTP}} \weight(b, a, \n{BTP}) } $$ {#eq:chunkiness}
 
 
@@ -81,7 +81,7 @@ The production results roughly parallel the grammaticality discrimination result
 
 ![Production. The percentage of shared trigrams [i.e. third-order BLEU score; @papineni02] between an adult utterance and the model's attempt to construct an utterance given an unorderd bag-of-words representation of that utterance.](figs/bleu.pdf){#fig:bleu}
 
-To investigate the contribution of FTP and BTP, we conduct the production experiment with a second set of models. All use the ProbGraph, to eliminate possible interactions with the noise caused by the VectorGraph. We use a 2 $\times$ 2 design of (chunking, Markov) $\times$ (ftp, btp, both). Results are displayed in @fig:tp-bleu.  For the Markovian models, there is a clear preference for BTP, which is somewhat surprising given that the total score of a path is the same regardless of transition direction. This indicates that the FTP/BTP distinction may depend on the greedy production algorithm, which chooses the next word based on the transition from the last word. A possible explanation is that BTP prevents the algorithm from immediately concatenating a common word (which will generally have higher incoming FTP). When using BTP, the frequency of a word will not affect its probability of being chosen (at least, not in this way).
+To  investigate the contribution of FTP and BTP, we conduct the production experiment with a second set of models. All use the ProbGraph, to eliminate possible interactions with the noise caused by the VectorGraph. We use a 2 $\times$ 2 design of (chunking, Markov) $\times$ (ftp, btp, both). Results are displayed in @fig:tp-bleu.  For the Markovian models, there is a clear preference for BTP, which is somewhat surprising given that the total score of a path is the same regardless of transition direction. This indicates that the FTP/BTP distinction may depend on the greedy production algorithm, which chooses the next word based on the transition from the last word. A possible explanation is that BTP prevents the algorithm from immediately concatenating a common word (which will generally have higher incoming FTP). When using BTP, the frequency of a word will not affect its probability of being chosen (at least, not in this way).
 
 Another surprising result is the interaction between chunking and transitional direction. The chunking models are not as sensitive to this attribute: The chunking model outperforms the Markov model when only using FTP. Given that the learning of chunks, as well as the chunking phase of production, operate entirely based on FTP, we are unsure how to explain these results. Additionally, we are unable to dissociate the effect of transitional probability direction on the learning and production phases.
 

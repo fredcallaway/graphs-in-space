@@ -1,4 +1,4 @@
-panzer = panzer ---quiet -f markdown
+panzer = panzer -f markdown
 
 all: thesis
 
@@ -25,3 +25,6 @@ conclusion: header.md conclusion.md
 
 operations: commands.tex operations.md
 	cat $+ | pandoc -f markdown -o $@.pdf
+
+slides: slides.md
+	 $(panzer) -t beamer slides.md -o slides.tex
