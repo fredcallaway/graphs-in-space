@@ -13,10 +13,10 @@ LOG = utils.get_logger(__name__, stream='INFO', file='WARNING')
 COUNT = 0
 
 
-class HoloNode(HiNode):
-    """A node in a HoloGraph.
+class VectorNode(HiNode):
+    """A node in a VectorGraph.
 
-    Note that all HoloNodes must have a parent HoloGraph. However, they
+    Note that all VectorNodes must have a parent VectorGraph. However, they
     do not necessarily need to be in the graph as such.
 
     Attributes:
@@ -104,7 +104,7 @@ class HoloNode(HiNode):
         return min(1.0, stats.gmean(edge_sims))  # clip precision error
 
 
-class HoloGraph(HiGraph):
+class VectorGraph(HiGraph):
     """A graph represented with high dimensional sparse vectors."""
     def __init__(self, edges=None, DIM=10000, PERCENT_NON_ZERO=0.005, 
                  BIND_OPERATION='addition', HIERARCHICAL=True, EDGE_ROWS=False,
@@ -128,7 +128,7 @@ class HoloGraph(HiGraph):
         self.rows = edges if EDGE_ROWS else ['_row']
 
     def create_node(self, id_string):
-        return HoloNode(self, id_string)
+        return VectorNode(self, id_string)
 
     def bind(self, *nodes, composition=None):
         if self.HIERARCHICAL:
@@ -156,7 +156,7 @@ class HoloGraph(HiGraph):
             assert not np.isnan(np.sum(list(row_vecs.values())))
 
         id_string = self._id_string(children)
-        return HoloNode(self, id_string, children=children, row_vecs=row_vecs)
+        return VectorNode(self, id_string, children=children, row_vecs=row_vecs)
 
     def sum(self, nodes, weights=None, id_string='__SUM__', id_vec=None):
         weights = weights or np.ones(len(nodes))
@@ -169,7 +169,7 @@ class HoloGraph(HiGraph):
         if id_vec is None:
             id_vec = sum(n.id_vec * w for n, w in zip(nodes, weights))
 
-        return HoloNode(self, id_string, id_vec, row_vecs)
+        return VectorNode(self, id_string, id_vec, row_vecs)
 
     def decay(self):
         """Decays all learned connections between nodes."""
@@ -184,7 +184,7 @@ class HoloGraph(HiGraph):
 if __name__ == '__main__':
     #import pytest
     #pytest.main(['test_graph.py'])
-    graph = HoloGraph(edges='12')
+    graph = VectorGraph(edges='12')
     a = graph.create_node('a')
     b = graph.create_node('b')
     graph.add(a)

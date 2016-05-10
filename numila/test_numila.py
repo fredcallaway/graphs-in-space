@@ -6,9 +6,9 @@ Numila = numila.Numila
 
 
 @pytest.fixture()
-def holomila():
+def vectormila():
     #thresh = 1 if request.param == 'chunk'
-    return Numila(GRAPH='holograph', LEARNING_RATE=0.1)
+    return Numila(GRAPH='vectorgraph', LEARNING_RATE=0.1)
 
 @pytest.fixture()
 def probmila():
@@ -19,10 +19,10 @@ def probmila():
 def fullmila():
     return Numila(PARSE='full')
 
-@pytest.fixture(params=['holo', 'prob', 'full'])
+@pytest.fixture(params=['vector', 'prob', 'full'])
 def model(request):
     models = {
-        'holo': holomila,
+        'vector': vectormila,
         'prob': probmila,
         'full': fullmila
     }
@@ -83,7 +83,7 @@ def test_easy(model):
     assert weight('btp', b, a) - weight('btp', c, a) < 0.001
 
     
-    # This always fails for holo. The edge weights do not really
+    # This always fails for vector. The edge weights do not really
     # represent probabilities. They are more sensitive to the raw
     # occurrence counts.
     # p(ab | a) = 0.66

@@ -41,9 +41,9 @@ def fit(name, model, train_corpus):
 
 def get_models(model_names, train_corpus, parallel=False):
     numila_params = {
-        'holo': dict(),
-        'holo_flat': dict(HIERARCHICAL=False),
-        'holo_flat_full': dict(PARSE='full', HIERARCHICAL=False),
+        'vector': dict(),
+        'vector_flat': dict(HIERARCHICAL=False),
+        'vector_flat_full': dict(PARSE='full', HIERARCHICAL=False),
         'prob': dict(GRAPH='prob', CHUNK_THRESHOLD=0.05),
         'prob_flat': dict(GRAPH='prob', CHUNK_THRESHOLD=0.05, HIERARCHICAL=False),
         'prob_flat_full': dict(GRAPH='prob', CHUNK_THRESHOLD=0.05, PARSE='full', HIERARCHICAL=False),
@@ -54,7 +54,7 @@ def get_models(model_names, train_corpus, parallel=False):
         'prob_markov_btp': dict(GRAPH='prob', CHUNK_THRESHOLD=2, PARSE='full', BTP_PREFERENCE='only'),
         'prob_markov': dict(GRAPH='prob', CHUNK_THRESHOLD=2, PARSE='full'),
 
-        'holo_markov': dict(GRAPH='holo', CHUNK_THRESHOLD=2, PARSE='full'),
+        'vector_markov': dict(GRAPH='vector', CHUNK_THRESHOLD=2, PARSE='full'),
         'composition': dict(COMPOSITION=4),
 
         #'dynamic1': dict(DYNAMIC=0.1),
@@ -69,8 +69,8 @@ def get_models(model_names, train_corpus, parallel=False):
         'trigram': lambda: NGramModel(3, '-addsmooth .0001'),
         'random': lambda: Dummy(),
     }
-        #'holo5k': Numila(DIM=5000),
-        #'holo2k': Numila(DIM=2000),
+        #'vector5k': Numila(DIM=5000),
+        #'vector2k': Numila(DIM=2000),
         #'dynamic_01': Numila(DYNAMIC=0.1, name='dynamic_01'),
         #'dynamic_05': Numila(DYNAMIC=0.5, name='dynamic_05'),
         #'dynamic_10': Numila(DYNAMIC=1, name='dynamic_10'),
@@ -151,7 +151,7 @@ def run(models, lang, kind, train_len, roc_len=100, bleu_len=100):
 
 #########
 def foo():
-    model = Numila(GRAPH='holo')
+    model = Numila(GRAPH='vector')
     model = Numila(GRAPH='graph', CHUNK_THRESHOLD=0.05)
     corp = get_corpora('English', 'syl', 5000)
     model.fit(corp['train'])
@@ -168,7 +168,7 @@ def talk(model, test):
     print(utt, '||', model.speak(utt))
 
 def test():
-    models = ['prob', 'holo']
+    models = ['prob', 'vector']
     run(models, 'English', 'word', 100, 20, 20)
 
 def get_model(train_len=1000, lang='english', kind='word', **params):
@@ -184,20 +184,20 @@ def main(model_set='default', train_len=7000, langs=None, kinds=None, parallel=T
     model_sets = {
         'default': [
             'random',
-            'holo',
-            'holo_flat',
-            'holo_markov',
+            'vector',
+            'vector_flat',
+            'vector_markov',
             'prob',
             'prob_flat',
             'prob_markov',
         ],
-        'holo': [
-            'holo',
+        'vector': [
+            'vector',
             'composition',
             'dynamic',
         ],
         'dynamic': [
-            'holo',
+            'vector',
             'dynamic1',
             'dynamic3',
             'dynamic5',
@@ -211,11 +211,11 @@ def main(model_set='default', train_len=7000, langs=None, kinds=None, parallel=T
             'prob_markov_btp',
         ],
         'composition': [
-            #'holo',
-            #'holo_comp5',
-            'holo_comp10',
-            #'holo_comp20',
-            #'holo_comp40',
+            #'vector',
+            #'vector_comp5',
+            'vector_comp10',
+            #'vector_comp20',
+            #'vector_comp40',
         ],
     }
 
@@ -251,4 +251,4 @@ def main(model_set='default', train_len=7000, langs=None, kinds=None, parallel=T
 if __name__ == '__main__':
     main('transition')
     main('default')
-    main('holo')
+    main('vector')

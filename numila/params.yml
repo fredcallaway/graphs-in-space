@@ -13,7 +13,7 @@ GENERALIZE: false
 DYNAMIC: null
 COMPOSITION: false
 
-GRAPH: holograph
+GRAPH: vectorgraph
 DIM: 10000
 PERCENT_NON_ZERO: 0.005
 BIND_OPERATION: addition

@@ -103,8 +103,8 @@ def track_training(model, corpus, utterances=None, track=None, sample_rate=100):
 
 def main_():
     num_nodes = 10
-    from holograph import HoloGraph
-    graph = HoloGraph()
+    from vectorgraph import VectorGraph
+    graph = VectorGraph()
     ids = [str(i) for i in range(num_nodes)]
     for id in ids:
         node = graph.create_node(id)

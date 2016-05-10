@@ -1,14 +1,16 @@
+"""Contains the Numila class."""
 import itertools
 import numpy as np
-
 import yaml
+
 import utils
 
-fmt = utils.literal
-
-
 class Numila(object):
-    """The premier language acquisition model."""
+    """A chunking, graphical model of language acquisition.
+
+    Parameterized by params.yml. The two critical parameters are a graph class
+    that matches the interface in abstract_graph.py and a parsing class.
+    """
     def __init__(self, param_file='params.yml', name='numila', log_stream='WARNING',
                  log_file='WARNING', **params):
         self.name = name
@@ -31,8 +33,8 @@ class Numila(object):
         # is parameterized by another class, similarly to how a functor
         # in OCaml is a module parameterized by another module.
         graph = self.params['GRAPH'].lower()
-        if graph.startswith('holo'):
-            from holograph import HoloGraph as Graph
+        if graph.startswith('vector'):
+            from vectorgraph import VectorGraph as Graph
         elif graph.startswith('prob'):
             from probgraph import ProbGraph as Graph
         else:
@@ -53,11 +55,6 @@ class Numila(object):
         self.Parse = Parse
 
         self._debug = {'speak_chunks': 0}
-
-    @property
-    def chunk_threshold(self):
-        pass # one day...        
-
 
     def parse(self, utterance, learn=True):
         """Parses the utterance and returns the result."""

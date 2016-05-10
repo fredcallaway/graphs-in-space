@@ -7,7 +7,7 @@ import scipy
 import seaborn as sns
 plt = sns.plt
 
-from holograph import HoloGraph
+from vectorgraph import VectorGraph
 from probgraph import ProbGraph
 import utils
 
@@ -15,12 +15,12 @@ def toy():
     dim = 1000
     num_nodes = 20
 
-    holo = HoloGraph(DIM=dim)
+    vector = VectorGraph(DIM=dim)
     prob = ProbGraph(DIM=dim)
 
     ids = [str(i) for i in range(num_nodes)]
     for id in ids:
-        for graph in holo, prob:
+        for graph in vector, prob:
             node = graph.create_node(id)
             graph.add(node)
 
@@ -42,12 +42,12 @@ def toy():
     #    id1 = sources.sample()
     #    id2 = sinks.sample()
 
-    #    for graph in holo, prob:
+    #    for graph in vector, prob:
     #        n1 = graph[id1]
     #        n2 = graph[id2]
     #        n1.bump_edge(n2)
 
-    #mds(holo.nodes, name='holo_mds')
+    #mds(vector.nodes, name='vector_mds')
     #mds(prob.nodes, name='prob_mds')
 
 

@@ -6,8 +6,9 @@ import numpy as np
 import seaborn as sns
 sns.set_style('whitegrid')
 sns.set_palette('muted')
+sns.set_context('poster')
 
-from holograph import HoloGraph
+from vectorgraph import VectorGraph
 import utils
 
 import pcfg
@@ -44,7 +45,7 @@ def main():
         for noun in 'table', 'bunny':
             print(det, noun, ':', bigrams[(det, noun)])
         
-    graph = HoloGraph(DYNAMIC=True, COMPOSITION=1)
+    graph = VectorGraph(DYNAMIC=True, COMPOSITION=1)
     train_bigram(graph, corpus)
     
     generalization(graph)
@@ -75,17 +76,18 @@ def composition(graph):
     that_table = noun_phrases[0]
 
     the, boy, saw, ate, jack = map(graph.get, ('the', 'boy', 'saw', 'ate', 'Jack'))
-    data = [{'composition': comp,
+    data = [{'composition': str(comp),
              'noun phrase': str(NP),
              'verb': str(verb),
              'edge weight': NP.edge_weight(verb)} 
-            for comp in (False, 0.5)
+            for comp in (0, 0.5)
             for NP in [that_table, graph.bind(the, boy, composition=comp)]
-            for verb in [saw, ate, jack]]
+            for verb in [saw, ate, the, boy]]
 
     df = pd.DataFrame(data)
-    sns.factorplot('noun phrase', 'edge weight', hue='verb', col='composition',
+    sns.factorplot('verb', 'edge weight', hue='noun phrase', col='composition',
                    data=df, kind='bar').despine(left=True)
+
     sns.plt.savefig('figs/composition.pdf')
     print('created figs/composition.pdf')
 
@@ -97,10 +99,12 @@ def generalization(graph):
              'edge weight': graph[det].edge_weight(graph[noun], generalize=gen)} 
             for det in ['my', 'that']
             for noun in ['boy', 'table', 'bunny', 'Jack', 'saw', 'the']
-            for gen in [None, ('similarity', 0.5)]]
+            for gen in [0, ('similarity', 0.5)]]
     df = pd.DataFrame(data)
     sns.factorplot('noun', 'edge weight', col='generalization', hue='det',
-                   data=df, kind='bar', legend_out=True).despine(left=True)
+                   data=df, kind='bar', legend_out=True).despine(left=True).set_xticklabels(rotation=30)
+
+    sns.plt.gcf().tight_layout()
     sns.plt.savefig('figs/generalization.pdf')
     print('created figs/generalization.pdf')
 

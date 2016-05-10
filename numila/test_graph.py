@@ -1,12 +1,12 @@
-from holograph import HoloGraph
+from vectorgraph import VectorGraph
 from probgraph import ProbGraph
 import pytest
 import string
 import vectors
 
 @pytest.fixture
-def holograph():
-    graph = HoloGraph(['edge'], **{'DIM': 1000, 'PERCENT_NON_ZERO': .01, 'DYNAMIC': 0,
+def vectorgraph():
+    graph = VectorGraph(['edge'], **{'DIM': 1000, 'PERCENT_NON_ZERO': .01, 'DYNAMIC': 0,
                                 'BIND_OPERATION': 'addition', 'GENERALIZE': False},)
     _add_nodes(graph)
     return graph
@@ -17,10 +17,10 @@ def probgraph():
     _add_nodes(graph)
     return graph
 
-@pytest.fixture(params=['holo', 'graph'])
+@pytest.fixture(params=['vector', 'graph'])
 def graph(request):
-    if request.param == 'holo':
-        return holograph()
+    if request.param == 'vector':
+        return vectorgraph()
     else:
         return probgraph()
 
@@ -60,8 +60,8 @@ def test_weights(graph):
     assert a.edge_weight(b, 'edge') > b.edge_weight(c, 'edge')
     
 
-def test_bind(holograph):
-    graph = holograph
+def test_bind(vectorgraph):
+    graph = vectorgraph
     graph.COMPOSITION = True
     a, b, c, d, e, f = (graph[x] for x in 'ABCDEF')
     
@@ -116,7 +116,7 @@ def test_flat_bind(probgraph):
 
 
 def test_dynamic_generalize():
-    graph = HoloGraph(['edge'], DIM=1000, PERCENT_NON_ZERO=.01, )
+    graph = VectorGraph(['edge'], DIM=1000, PERCENT_NON_ZERO=.01, )
     _add_nodes(graph)
     a, b, c, d, e, f = (graph[x] for x in 'ABCDEF')
 
@@ -165,8 +165,8 @@ def test_dynamic_generalize():
     assert b.edge_weight(c, 'edge', dynamic=True) > 0.2
 
 
-def test_full_generalize(holograph):
-    a, b, c, d, e, f = (holograph[x] for x in 'ABCDEF')
+def test_full_generalize(vectorgraph):
+    a, b, c, d, e, f = (vectorgraph[x] for x in 'ABCDEF')
 
     edge_counts = [
         ((a, c), 5),

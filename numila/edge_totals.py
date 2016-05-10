@@ -2,10 +2,10 @@ import pandas as pd
 import seaborn as sns
 sns.set_style('whitegrid')
 
-from holograph import HoloGraph
+from vectorgraph import VectorGraph
 
 def sim():
-    graph = HoloGraph(DIM=500)
+    graph = VectorGraph(DIM=500)
     ids = [str(i) for i in range(1000)]
     for c in ids:
         node = graph.create_node(c)
@@ -28,7 +28,7 @@ def sim():
         yield {'number of edges': counts[c], 'total edge weight': total_edge}
 
 def sim2():
-    graph = HoloGraph(DIM=500)
+    graph = VectorGraph(DIM=500)
     ids = [str(i) for i in range(10)]
     for c in ids:
         node = graph.create_node(c)
