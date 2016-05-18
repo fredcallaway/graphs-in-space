@@ -28,6 +28,9 @@ class VectorNode(HiNode):
         super().__init__(graph, id_string, children)
         self.id_vec = graph.vector_model.sparse()
 
+        # Multiple edge types can be implemented by using a separate vector
+        # for each node, hence multiple row vectors. This isn't discussed in
+        # the paper, and all the presented simulations use a single row vector.
         self.row_vecs = {row: graph.vector_model.sparse() * graph.INITIAL_ROW
                          for row in graph.rows}
         self.row_vecs.update(row_vecs)
