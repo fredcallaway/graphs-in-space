@@ -1,7 +1,5 @@
-# Nümila
+# Graphs in space
 
-Nümila is a model of language acquisition, comprehension, and production. It represents its knowledge as a graph with words and hierarchical chunks as vertices and transitional probabilities as edges. The graph is implemented with holographic representations. Nümila is an attempt to combine elements of usage based theories of language acquisition with the hierarchically structured representations of traditional linguistics. 
+This repository contains the Python source code for the models in Fred Callawy's undergraduate honors thesis in Psychology at Cornell University ([poster](LINK)).
 
-See the [model description](https://github.com/fredcallaway/NU-MILA/blob/master/writing/overview/overview.pdf) for details.
-
-See this [ipython notebook](https://github.com/fredcallaway/NU-MILA/blob/master/notebooks/CDS%20corpus.ipynb) for an in-progress analysis of the model's performance on a corpus of child directed speech.
+The code is not very well documented, so if you want to read it, you are better off letting me know first so I can clean it up.
